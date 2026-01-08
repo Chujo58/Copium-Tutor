@@ -1,3 +1,4 @@
+// Subject Card for the general subjects like projects, notes, etc.
 export default function SubjectCard({ title, image }) {
     return (
         <div
@@ -30,3 +31,6 @@ export default function SubjectCard({ title, image }) {
         </div>
     );
 }
+
+// Document Card for individual documents within a subject (uploaded documents), the top of the Card shows the document preview, and the bottom shows a document icon and the title (should somehow be grabbed from the uploaded file metadata) 
+
