@@ -1,13 +1,15 @@
 import Sidebar from "./components/Sidebar"
-import Page from "./components/Page"
+import { UserDashboard, LandingPage } from "./components/Page"
 
 export default function App() {
   return (
     <div className="flex h-screen bg-neutral-100 text-neutral-900">
-      <Sidebar collapsed={false} items={[{ name: "Dashboard", href: "#", icon: "🏠" },
+      {/* <Sidebar collapsed={true} items={[{ name: "Dashboard", href: "#", icon: "🏠" },
     { name: "Projects", href: "#", icon: "📁" },
-    { name: "Settings", href: "#", icon: "⚙️" },]} />
-      <Page />
+    { name: "Settings", href: "#", icon: "⚙️" },]} /> */}
+      
+      {/* <UserDashboard /> */}
+      <LandingPage />
     </div>
   )
 }

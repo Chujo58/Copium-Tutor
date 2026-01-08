@@ -164,7 +164,7 @@ async def logout(response: Response):
 # Document upload:
 @app.post("/upload")
 async def upload_file(
-    file: UploadFile = File(...), project: str = Form(...), session: str = Cookie(None)
+    file: UploadFile, project: str = Form(...), session: str = Cookie(None)
 ):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
