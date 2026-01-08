@@ -1,4 +1,4 @@
-export default function Card({ title, image }) {
+export default function SubjectCard({ title, image }) {
     return (
         <div
             className="
@@ -24,7 +24,7 @@ export default function Card({ title, image }) {
                 />
             )}
 
-            <h3 className="font-bold font-card uppercase tracking-widest p-4 pt-1 tracking-tight">
+            <h3 className="p-4 pt-1 main-header">
                 {title}
             </h3>
         </div>
