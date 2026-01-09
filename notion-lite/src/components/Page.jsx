@@ -5,6 +5,7 @@ import { LoginPopup, SignupPopup, CreateProjectPopup } from "./Popup";
 import { useAuth } from "../contexts/AuthContext";
 import { API_URL } from "../config";
 import Sidebar from "./Sidebar";
+import { Folder } from "lucide-react";
 
 // User dashboard page
 
@@ -23,15 +24,14 @@ export function UserDashboard() {
                 throw new Error("Failed to fetch projects");
             })
             .then((data) => {
-                if (data.success && data.projects) {
+                if (data.success) {
                     setProjects(data.projects);
+                    console.log("Fetched projects:", data.projects);
                 }
             })
             .catch((err) => {
                 console.error(err);
             });
-
-        console.log("Fetched projects:", projects);
     };
 
     useEffect(() => {
@@ -41,8 +41,13 @@ export function UserDashboard() {
     return (
         <div className="flex">
             <Sidebar
-                items={[
-                    { name: "Dashboard", href: "/dashboard" },
+                projectsList={[
+                    // Get the rest of the projects from the backend
+                    ...projects.map((project) => ({
+                        name: project.name,
+                        href: `/project/${project.projectid}`,
+                        icon: Folder,
+                    })),
                 ]}
             />
 
