@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { LoginPopup, SignupPopup, CreateProjectPopup } from "./Popup";
 import { useAuth } from "../contexts/AuthContext";
 import { API_URL } from "../config";
+import Sidebar from "./Sidebar";
 
 // User dashboard page
 
@@ -38,21 +39,32 @@ export function UserDashboard() {
     }, []);
 
     return (
-        <main className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-            <GalleryView
-                subjects={projects}
-                onAddSubject={() => setShowAddProject(true)}
+        <div className="flex">
+            <Sidebar
+                items={[
+                    { name: "Dashboard", href: "/dashboard" },
+                ]}
             />
-            {showAddProject && (
-                <CreateProjectPopup
-                    onClose={() => {
-                        setShowAddProject(false);
-                        fetchProjects();
-                    }}
+
+            <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
+                <div className="text-3xl main-header font-sans mb-2 text-dark">
+                    Dashboard
+                </div>
+                <GalleryView
+                    subjects={projects}
+                    onAddSubject={() => setShowAddProject(true)}
                 />
-            )}
-            <DriveStyleUploader />
-        </main>
+                {showAddProject && (
+                    <CreateProjectPopup
+                        onClose={() => {
+                            setShowAddProject(false);
+                            fetchProjects();
+                        }}
+                    />
+                )}
+                <DriveStyleUploader />
+            </div>
+        </div>
     );
 }
 
@@ -111,7 +123,7 @@ export function LandingPage() {
                 {showLogin && (
                     <LoginPopup
                         onClose={() => setShowLogin(false)}
-                        onLogin={async (username, password) => {
+                        onLogin={async () => {
                             const ok = await login();
                             setLoggedIn(!!ok);
                             setShowLogin(false);

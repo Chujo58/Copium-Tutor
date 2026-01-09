@@ -5,7 +5,7 @@ export default function GalleryView({ subjects, onAddSubject }) {
     return (
         <div className="p-6 bg-dark/75 min-w-screen rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl text-sans text-surface">Your Subjects</h1>
+                <h1 className="text-2xl text-sans text-surface">Your Subjects</h1>
                 <button
                     onClick={onAddSubject}
                     className="

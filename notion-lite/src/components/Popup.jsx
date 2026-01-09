@@ -98,11 +98,33 @@ export function CreateProjectPopup({ onClose }) {
 export function LoginPopup({ onClose, onLogin }) {
     const [username, setUsername] = React.useState("");
     const [password, setPassword] = React.useState("");
+    const [error, setError] = React.useState("");
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onLogin(username, password);
+        logIn(username, password);
     };
+
+    const logIn = async (username, password) => {
+        const response = await fetch(`${API_URL}/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+                username: username,
+                password: password,
+            }),
+        });
+
+        const data = await response.json();
+        if (!data.success){
+            // Handle login error (you might want to show an error message)
+            setError(data.message);
+        }
+        return data;
+    }
 
     return (
         <Popup title="Login" onClose={onClose}>
@@ -125,6 +147,7 @@ export function LoginPopup({ onClose, onLogin }) {
                         required
                     />
                 </div>
+                <div>{error}</div>
                 <button type="submit">Login</button>
             </form>
         </Popup>
