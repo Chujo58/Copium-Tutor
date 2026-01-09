@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 .main-header {
-    @apply font-bold font-card uppercase tracking-widest;
+    @apply font-bold uppercase tracking-widest;
 }
 
 @layer components {

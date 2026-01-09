@@ -1,9 +1,12 @@
-import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt
+import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging
 from dataclasses import dataclass
 from fastapi import FastAPI, UploadFile, File, Form, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import datetime as dt
+
+logger = logging.getLogger("uvicorn.error")
+logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 salt = bcrypt.gensalt()
@@ -327,6 +330,35 @@ async def list_files(session: str = Cookie(None)):
 ###############
 
 
+# List projects using session cookie
+@app.get("/projects")
+async def list_projects(session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    cursor.execute(
+        "SELECT projectid, name, description, createddate, image FROM projects WHERE userid=?",
+        (userid,),
+    )
+    rows = cursor.fetchall()
+
+    projects = []
+    for row in rows:
+        projects.append(
+            {
+                "projectid": row[0],
+                "name": row[1],
+                "description": row[2],
+                "created_date": row[3],
+                "image": row[4],
+            }
+        )
+
+    return {"success": True, "projects": projects}
+
+
 # Create new project
 @app.post("/projects")
 async def create_project(data: dict, session: str = Cookie(None)):
@@ -340,6 +372,14 @@ async def create_project(data: dict, session: str = Cookie(None)):
 
     projectid = gen_uuid()
     created_date = datetime.now(dt.UTC).timestamp()
+
+    # First check if another project with the same name exists for this user
+    cursor.execute(
+        "SELECT projectid FROM projects WHERE userid=? AND name=?",
+        (userid, name),
+    )
+    if cursor.fetchone():
+        return {"success": False, "message": "Project with this name already exists"}
 
     cursor.execute(
         "INSERT INTO projects (projectid, name, description, createddate, image, userid) VALUES (?, ?, ?, ?, ?, ?)",

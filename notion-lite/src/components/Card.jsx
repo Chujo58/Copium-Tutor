@@ -3,11 +3,12 @@ export default function SubjectCard({ title, image }) {
     return (
         <div
             className="
-      m-4 rounded-lg cursor-pointer transition
+      m-4 rounded-lg cursor-pointer transition ease-in-out
       shadow hover:shadow-md
       bg-dark
       text-surface 
-      hover:bg-primary
+      hover:bg-rose-water
+      hover:text-dark
     "
         >
             {image ? (
@@ -25,7 +26,7 @@ export default function SubjectCard({ title, image }) {
                 />
             )}
 
-            <h3 className="p-4 pt-1 main-header">
+            <h3 className="p-4 pt-1 main-header font-card">
                 {title}
             </h3>
         </div>

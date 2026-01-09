@@ -1,21 +1,56 @@
 import GalleryView from "./GalleryView";
 import DriveStyleUploader from "./DocumentUploader";
 import { useState, useEffect } from "react";
-import { LoginPopup, SignupPopup } from "./Popup";
+import { LoginPopup, SignupPopup, CreateProjectPopup } from "./Popup";
 import { useAuth } from "../contexts/AuthContext";
+import { API_URL } from "../config";
 
 // User dashboard page
 
 export function UserDashboard() {
     // Query the projects from the backend (localhost:8000/projects) and display them in a gallery view
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", "http://localhost:8000/projects", false);
-    xhr.send(null);
-    const projects = JSON.parse(xhr.responseText);
-    console.log("Projects:", projects);
+    const [projects, setProjects] = useState([]);
+    const [showAddProject, setShowAddProject] = useState(false);
+
+    const fetchProjects = async () => {
+        await fetch(`${API_URL}/projects`, {
+            credentials: "include",
+            method: "GET",
+        })
+            .then((res) => {
+                if (res.ok) return res.json();
+                throw new Error("Failed to fetch projects");
+            })
+            .then((data) => {
+                if (data.success && data.projects) {
+                    setProjects(data.projects);
+                }
+            })
+            .catch((err) => {
+                console.error(err);
+            });
+
+        console.log("Fetched projects:", projects);
+    };
+
+    useEffect(() => {
+        fetchProjects();
+    }, []);
 
     return (
-        <main className="flex-1 p-10 overflow-auto">
+        <main className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
+            <GalleryView
+                subjects={projects}
+                onAddSubject={() => setShowAddProject(true)}
+            />
+            {showAddProject && (
+                <CreateProjectPopup
+                    onClose={() => {
+                        setShowAddProject(false);
+                        fetchProjects();
+                    }}
+                />
+            )}
             <DriveStyleUploader />
         </main>
     );
@@ -49,9 +84,8 @@ export function LandingPage() {
                     <div className="space-x-4">
                         <button
                             className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
-                            onClick={
-                                () =>
-                                    (window.location.href = "/dashboard")
+                            onClick={() =>
+                                (window.location.href = "/dashboard")
                             }
                         >
                             Access Dashboard

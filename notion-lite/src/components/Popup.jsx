@@ -26,6 +26,74 @@ export default function Popup({ title, children, onClose }) {
     );
 }
 
+export function CreateProjectPopup({ onClose }) {
+    const [projectName, setProjectName] = React.useState("");
+    const [description, setDescription] = React.useState("");
+    const [imageUrl, setImageUrl] = React.useState("");
+    const [error, setError] = React.useState("");
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        createProject(projectName, description, imageUrl);
+    };
+
+    const createProject = async (name, description, imageUrl) => {
+        const response = await fetch(`${API_URL}/projects`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+                name: name,
+                description: description,
+                image: imageUrl,
+            }),
+            
+        });
+
+        const data = await response.json();
+        if (!data.success){
+            setError(data.message);
+        }
+        onClose();
+        return data;
+    }
+
+    return (
+        <Popup title="Create New Project" onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label>Project Name</label>
+                    <input
+                        type="text"
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        required
+                    />
+                </div>
+                <div>
+                    <label>Description</label>
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Image URL</label>
+                    <input
+                        type="text"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                    />
+                </div>
+                <div>{error}</div>
+                <button type="submit">Create Project</button>
+            </form>
+        </Popup>
+    );
+}
+
 // Create the login popup which should have fields for username and password and a login button.
 export function LoginPopup({ onClose, onLogin }) {
     const [username, setUsername] = React.useState("");
