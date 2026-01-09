@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_URL } from "../config";
 
 export default function DriveStyleUploader() {
     const [files, setFiles] = useState([]);
@@ -70,7 +71,7 @@ export default function DriveStyleUploader() {
         formData.append("project", f.project);
 
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "http://localhost:8000/upload");
+        xhr.open("POST", `${API_URL}/upload`);
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const progress = Math.round((e.loaded / e.total) * 100);

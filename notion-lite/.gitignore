@@ -21,6 +21,7 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
+*.pyc
 *.sw?
 
 public/fonts/aire-pro/

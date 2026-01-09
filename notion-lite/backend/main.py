@@ -74,13 +74,40 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
 # Allow frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_methods=["*"],
+    allow_credentials=True,
     allow_headers=["*"],
 )
 
 UPLOAD_DIR = "uploaded_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+# ME
+@app.get("/me")
+async def get_me(session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+    cursor.execute(
+        "SELECT email, fname, lname, pfp FROM users WHERE userid=?",
+        (userid,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        return {"success": False, "message": "User not found"}
+
+    sanitized_user = {
+        "userid": userid,
+        "email": row[0],
+        "hashed_password": "REDACTED",
+        "fname": row[1],
+        "lname": row[2],
+        "pfp": row[3],
+    }
+    return {"success": True, "user": sanitized_user}
 
 
 # Login

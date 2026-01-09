@@ -1,7 +1,8 @@
 import GalleryView from "./GalleryView";
 import DriveStyleUploader from "./DocumentUploader";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LoginPopup, SignupPopup } from "./Popup";
+import { useAuth } from "../contexts/AuthContext";
 
 // User dashboard page
 
@@ -15,7 +16,6 @@ export function UserDashboard() {
 
     return (
         <main className="flex-1 p-10 overflow-auto">
-            
             <DriveStyleUploader />
         </main>
     );
@@ -25,73 +25,78 @@ export function UserDashboard() {
 export function LandingPage() {
     const [showLogin, setShowLogin] = useState(false);
     const [showSignup, setShowSignup] = useState(false);
+    const { user, login, logout } = useAuth();
+    const [loggedIn, setLoggedIn] = useState(false);
 
-    // Create method to handle the Signup and login from the backend
-    const handleSignup = (firstName, lastName, email, password, confirmPassword) => {
-        // Send the signup request to the backend
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "http://localhost:8000/signup", true);
-        xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                alert("Signup successful! Please login.");
-                setShowSignup(false);
-            } else if (xhr.readyState === 4) {
-                alert("Signup failed: " + xhr.responseText);
-            }
-        };
-        xhr.send(
-            JSON.stringify({
-                firstName,
-                lastName,
-                email,
-                password,
-                confirmPassword,
-            })
-        );
-    };
-
-    const handleLogin = (username, password) => {
-        // Send the login request to the backend
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "http://localhost:8000/login", true);
-        xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                alert("Login successful!");
-                setShowLogin(false);
-            } else if (xhr.readyState === 4) {
-                alert("Login failed: " + xhr.responseText);
-            }
-        };
-        xhr.send(
-            JSON.stringify({
-                username,
-                password,
-            })
-        );
-    };
+    // Verify if user is logged in before rendering
+    useEffect(() => {
+        setLoggedIn(!!user);
+    }, [user]);
 
     return (
-        <div className="flex flex-col items-center justify-center w-screen bg-gradient-to-b from-rose-china to-rose-copper text-white">
-            <h1 className="text-5xl font-bold mb-6">Welcome to <a className="font-card main-header text-dark">Copium Tutor</a></h1>
-            <p className="text-xl mb-8">A backboard.io app for learning and coping.</p>
-            <div className="space-x-4">
-                <button
-                    className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
-                    onClick={() => setShowLogin(true)}
-                >
-                    Login
-                </button>
-                <button 
-                    className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
-                    onClick={() => setShowSignup(true)}
-                >
-                    Sign Up
-                </button>
+        <div className="flex h-screen">
+            <div className="flex flex-col items-center justify-center w-screen bg-gradient-to-b from-rose-china to-rose-copper text-white">
+                <h1 className="text-5xl font-bold mb-6">
+                    Welcome to{" "}
+                    <a className="font-card main-header text-dark">
+                        Copium Tutor
+                    </a>
+                </h1>
+                <p className="text-xl mb-8">
+                    A backboard.io app for learning and coping.
+                </p>
+                {loggedIn ? (
+                    <div className="space-x-4">
+                        <button
+                            className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
+                            onClick={
+                                () =>
+                                    (window.location.href = "/dashboard")
+                            }
+                        >
+                            Access Dashboard
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-x-4">
+                        <button
+                            className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
+                            onClick={() => setShowLogin(true)}
+                        >
+                            Login
+                        </button>
+                        <button
+                            className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
+                            onClick={() => setShowSignup(true)}
+                        >
+                            Sign Up
+                        </button>
+                    </div>
+                )}
+
+                {showLogin && (
+                    <LoginPopup
+                        onClose={() => setShowLogin(false)}
+                        onLogin={async (username, password) => {
+                            const ok = await login();
+                            setLoggedIn(!!ok);
+                            setShowLogin(false);
+                        }}
+                    />
+                )}
+                {showSignup && (
+                    <SignupPopup
+                        onClose={() => setShowSignup(false)}
+                        onSignup={async () => {
+                            // After successful signup the backend sets the session cookie,
+                            // re-fetch current user from backend to populate context.
+                            const ok = await login();
+                            setLoggedIn(!!ok);
+                            setShowSignup(false);
+                        }}
+                    />
+                )}
             </div>
-            {showLogin && <LoginPopup onClose={() => setShowLogin(false)} />}
-            {showSignup && <SignupPopup onClose={() => setShowSignup(false)} onSignup={() => handleSignup()} />}
         </div>
     );
 }

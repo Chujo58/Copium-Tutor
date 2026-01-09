@@ -1,15 +1,20 @@
-import Sidebar from "./components/Sidebar"
-import { UserDashboard, LandingPage } from "./components/Page"
+import React from "react";
+import {
+    BrowserRouter as Router,
+    Routes,
+    Route,
+    Navigate,
+} from "react-router-dom";
+import Sidebar from "./components/Sidebar";
+import { UserDashboard, LandingPage } from "./components/Page";
 
 export default function App() {
-  return (
-    <div className="flex h-screen bg-neutral-100 text-neutral-900">
-      {/* <Sidebar collapsed={true} items={[{ name: "Dashboard", href: "#", icon: "🏠" },
-    { name: "Projects", href: "#", icon: "📁" },
-    { name: "Settings", href: "#", icon: "⚙️" },]} /> */}
-      
-      {/* <UserDashboard /> */}
-      <LandingPage />
-    </div>
-  )
+    return (
+        <Router>
+            <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/dashboard" element={<UserDashboard />} />
+            </Routes>
+        </Router>
+    );
 }

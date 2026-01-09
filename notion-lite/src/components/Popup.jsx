@@ -1,6 +1,9 @@
 // Create a login page popup:
 import React from "react";
 import CloseIcon from "../assets/close.svg?react";
+import { API_URL } from "../config";
+
+
 
 export default function Popup({ title, children, onClose }) {
     return (
@@ -12,7 +15,11 @@ export default function Popup({ title, children, onClose }) {
                 >
                     <CloseIcon className="w-6 h-6" />
                 </button>
-                {title && <h2 className="text-xl text-primary font-semibold font-card main-header mb-4">{title}</h2>}
+                {title && (
+                    <h2 className="text-xl text-primary font-semibold font-card main-header mb-4">
+                        {title}
+                    </h2>
+                )}
                 <div className="text-dark">{children}</div>
             </div>
         </div>
@@ -33,9 +40,7 @@ export function LoginPopup({ onClose, onLogin }) {
         <Popup title="Login" onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4 ">
                 <div>
-                    <label>
-                        Username
-                    </label>
+                    <label>Username</label>
                     <input
                         type="text"
                         value={username}
@@ -44,9 +49,7 @@ export function LoginPopup({ onClose, onLogin }) {
                     />
                 </div>
                 <div>
-                    <label>
-                        Password
-                    </label>
+                    <label>Password</label>
                     <input
                         type="password"
                         value={password}
@@ -54,12 +57,7 @@ export function LoginPopup({ onClose, onLogin }) {
                         required
                     />
                 </div>
-                <button
-                    type="submit"
-                   
-                >
-                    Login
-                </button>
+                <button type="submit">Login</button>
             </form>
         </Popup>
     );
@@ -72,19 +70,46 @@ export function SignupPopup({ onClose, onSignup }) {
     const [email, setEmail] = React.useState("");
     const [password, setPassword] = React.useState("");
     const [confirmPassword, setConfirmPassword] = React.useState("");
+    const [error, setError] = React.useState("");
+
+    const signUp = async (
+        firstName,
+        lastName,
+        email,
+        password,
+        confirmPassword
+    ) => {
+        const response = await fetch(`${API_URL}/signup`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+                email: email,
+                password: password,
+                confirm_password: confirmPassword,
+                fname: firstName,
+                lname: lastName,
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success){
+            setError(data.message);
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSignup(firstName, lastName, email, password);
+        signUp(firstName, lastName, email, password, confirmPassword);
     };
 
     return (
         <Popup title="Sign Up" onClose={onClose}>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label>
-                        First Name
-                    </label>
+                    <label>First Name</label>
                     <input
                         type="text"
                         value={firstName}
@@ -93,9 +118,7 @@ export function SignupPopup({ onClose, onSignup }) {
                     />
                 </div>
                 <div>
-                    <label>
-                        Last Name
-                    </label>
+                    <label>Last Name</label>
                     <input
                         type="text"
                         value={lastName}
@@ -104,9 +127,7 @@ export function SignupPopup({ onClose, onSignup }) {
                     />
                 </div>
                 <div>
-                    <label>
-                        Email
-                    </label>
+                    <label>Email</label>
                     <input
                         type="email"
                         value={email}
@@ -115,9 +136,7 @@ export function SignupPopup({ onClose, onSignup }) {
                     />
                 </div>
                 <div>
-                    <label>
-                        Password
-                    </label>
+                    <label>Password</label>
                     <input
                         type="password"
                         value={password}
@@ -125,10 +144,8 @@ export function SignupPopup({ onClose, onSignup }) {
                         required
                     />
                 </div>
-                 <div>
-                    <label>
-                        Confirm Password
-                    </label>
+                <div>
+                    <label>Confirm Password</label>
                     <input
                         type="password"
                         value={confirmPassword}
@@ -136,11 +153,8 @@ export function SignupPopup({ onClose, onSignup }) {
                         required
                     />
                 </div>
-                <button
-                    type="submit"
-                >
-                    Sign Up
-                </button>
+                <div>{error}</div>
+                <button type="submit">Sign Up</button>
             </form>
         </Popup>
     );
