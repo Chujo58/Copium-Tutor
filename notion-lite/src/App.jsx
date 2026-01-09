@@ -5,7 +5,6 @@ import {
     Route,
     Navigate,
 } from "react-router-dom";
-import Sidebar from "./components/Sidebar";
 import { UserDashboard, LandingPage } from "./components/Page";
 
 export default function App() {

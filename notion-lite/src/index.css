@@ -22,4 +22,7 @@
     form textarea {
         @apply block w-full border border-rose-dusty/30 rounded-md shadow-sm p-2 focus:outline-none focus:border-rose-dusty focus:ring-2 focus:ring-rose-dusty/40;
     }
+
+
+    
 }
