@@ -5,9 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import datetime as dt
 from pydantic import BaseModel
-
-
 from fastapi.responses import FileResponse
+from dotenv import load_dotenv
+
+load_dotenv()
+BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
 
 logger = logging.getLogger("uvicorn.error")
 logger.setLevel(logging.DEBUG)
@@ -104,9 +106,19 @@ def init_db():
     )
     """)
 
+    # backboard: persistent memory per course
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS backboard_projects (
+        projectid TEXT PRIMARY KEY,
+        assistant_id TEXT,
+        memory_thread_id TEXT
+    )
+    """)
+
     conn.commit()
 
 init_db()
+
 
 # Allow frontend
 app.add_middleware(
