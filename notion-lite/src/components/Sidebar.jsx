@@ -48,8 +48,8 @@ export default function Sidebar({ projectsList }) {
             >
                 {/* HEADER */}
                 <div
-                    className={`flex items-center justify-between ${
-                        collapsed ? "p-2" : "p-4"
+                    className={`items-center justify-between ${
+                        collapsed ? "p-2" : "p-4 flex"
                     }`}
                 >
                     {!collapsed && (
@@ -60,14 +60,13 @@ export default function Sidebar({ projectsList }) {
                         className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
                     >
                         {collapsed ? (
-                            <>
-                                <CircleChevronRight />
-                                <CopperDivider margins="mt-4" />
-                            </>
+                            <CircleChevronRight />
                         ) : (
                             <CircleChevronLeft />
                         )}
                     </button>
+                    {/* Divider */}
+                    {collapsed && <CopperDivider margins="mt-2" />}
                 </div>
                 <a
                     key="dashboard"
