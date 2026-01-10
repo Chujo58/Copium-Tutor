@@ -4,8 +4,20 @@ import CloseIcon from "../assets/close.svg?react";
 import { API_URL } from "../config";
 import { CircleX } from "lucide-react";
 
-
 export default function Popup({ title, children, onClose, wide = false }) {
+    React.useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape") {
+                onClose();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [onClose]);
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div
@@ -36,10 +48,12 @@ export function UploadPopup({ onClose }) {
         <Popup title="Upload file" onClose={onClose}>
             {/* Drag drop zone */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-rose-500 transition-colors text-gray-400 text-center">
-                Drag and Drop files here or <a href="#" className="text-rose-600 underline">Choose file</a>
+                Drag and Drop files here or{" "}
+                <a href="#" className="text-rose-600 underline">
+                    Choose file
+                </a>
             </div>
             {/* List of uploaded files added with popup */}
-            
         </Popup>
     );
 }
@@ -67,16 +81,15 @@ export function CreateProjectPopup({ onClose }) {
                 description: description,
                 image: imageUrl,
             }),
-            
         });
 
         const data = await response.json();
-        if (!data.success){
+        if (!data.success) {
             setError(data.message);
         }
         onClose();
         return data;
-    }
+    };
 
     return (
         <Popup title="Create New Project" onClose={onClose}>
@@ -137,12 +150,12 @@ export function LoginPopup({ onClose, onLogin }) {
         });
 
         const data = await response.json();
-        if (!data.success){
+        if (!data.success) {
             // Handle login error (you might want to show an error message)
             setError(data.message);
         }
         return data;
-    }
+    };
 
     return (
         <Popup title="Login" onClose={onClose}>
@@ -200,11 +213,11 @@ export function SignupPopup({ onClose, onSignup }) {
                 confirm_password: confirmPassword,
                 fname: firstName,
                 lname: lastName,
-            })
+            }),
         });
 
         const data = await response.json();
-        if (!data.success){
+        if (!data.success) {
             setError(data.message);
         }
     };
