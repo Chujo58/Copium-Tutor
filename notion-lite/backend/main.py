@@ -1,9 +1,11 @@
 import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging
 from dataclasses import dataclass
-from fastapi import FastAPI, UploadFile, File, Form, Response, Cookie
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import datetime as dt
+
+from fastapi.responses import FileResponse
 
 logger = logging.getLogger("uvicorn.error")
 logger.setLevel(logging.DEBUG)
@@ -214,15 +216,10 @@ async def upload_file(
     upload_date = datetime.now(dt.UTC).timestamp()
     file_size = 0
 
-    with open(filepath, "wb") as f:
-        content = await file.read()
-        f.write(content)
-        file_size = len(content)
-
     file_type = file.content_type
 
     cursor.execute(
-        "INSERT INTO files (fileid, filepath, upload_date, file_size, file_type) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO files (fileid, filepath, uploaddate, filesize, filetype) VALUES (?, ?, ?, ?, ?)",
         (fileid, filepath, upload_date, file_size, file_type),
     )
     cursor.execute(
@@ -231,7 +228,39 @@ async def upload_file(
     )
     conn.commit()
 
+    with open(filepath, "wb") as f:
+        content = await file.read()
+        f.write(content)
+        file_size = len(content)
+
+    logger.debug(f"Uploaded file {file.filename} as {filepath}")
     return {"success": True, "fileid": fileid, "message": "File uploaded successfully"}
+
+
+# FIX for pdf preview:
+@app.get("/files/{fileid}")
+async def get_file(fileid: str):
+    cursor.execute("SELECT filepath FROM files WHERE fileid=?", (fileid,))
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    filepath = row[0]
+    return FileResponse(
+        filepath,
+        media_type="application/pdf",
+    )
+
+
+@app.get("/files/{fileid}/path")
+async def get_file_path(fileid: str):
+    cursor.execute("SELECT filepath FROM files WHERE fileid=?", (fileid,))
+    row = cursor.fetchone()
+    if not row:
+        return {"success": False, "message": "File not found"}
+
+    filepath = row[0]
+    return {"success": True, "filepath": os.path.abspath(filepath)}
 
 
 # Document removal:

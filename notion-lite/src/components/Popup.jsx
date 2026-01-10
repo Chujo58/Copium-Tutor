@@ -2,27 +2,45 @@
 import React from "react";
 import CloseIcon from "../assets/close.svg?react";
 import { API_URL } from "../config";
+import { CircleX } from "lucide-react";
 
 
-
-export default function Popup({ title, children, onClose }) {
+export default function Popup({ title, children, onClose, wide = false }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg w-11/12 max-w-md p-6 relative">
+            <div
+                className={
+                    "bg-white rounded-lg shadow-lg w-11/12 p-4 relative " +
+                    (wide ? "max-w-6xl h-[85vh]" : "max-w-md")
+                }
+            >
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-primary hover:text-accent focus:outline-none"
                 >
-                    <CloseIcon className="w-6 h-6" />
+                    <CircleX />
                 </button>
                 {title && (
                     <h2 className="text-xl text-primary font-semibold font-card main-header mb-4">
                         {title}
                     </h2>
                 )}
-                <div className="text-dark">{children}</div>
+                <div className="text-dark h-full overflow-auto">{children}</div>
             </div>
         </div>
+    );
+}
+
+export function UploadPopup({ onClose }) {
+    return (
+        <Popup title="Upload file" onClose={onClose}>
+            {/* Drag drop zone */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-rose-500 transition-colors text-gray-400 text-center">
+                Drag and Drop files here or <a href="#" className="text-rose-600 underline">Choose file</a>
+            </div>
+            {/* List of uploaded files added with popup */}
+            
+        </Popup>
     );
 }
 

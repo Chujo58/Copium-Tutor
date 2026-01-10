@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { API_URL } from "../config";
 import Sidebar from "./Sidebar";
 import { Folder } from "lucide-react";
+import { DocumentCard } from "./Card";
 
 // User dashboard page
 
@@ -26,7 +27,7 @@ export function UserDashboard() {
             .then((data) => {
                 if (data.success) {
                     setProjects(data.projects);
-                    console.log("Fetched projects:", data.projects);
+                    // console.log("Fetched projects:", data.projects);
                 }
             })
             .catch((err) => {
@@ -68,6 +69,11 @@ export function UserDashboard() {
                     />
                 )}
                 <DriveStyleUploader />
+                <DocumentCard
+                    docTitle="Sample Document"
+                    docType="pdf"
+                    id={'EHKFS7o6'}
+                />
             </div>
         </div>
     );
