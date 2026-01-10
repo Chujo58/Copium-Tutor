@@ -5,9 +5,13 @@
     "css.lint.unknownAtRules": "ignore",
     "cSpell.words": [
         "cardid",
+        "checkpw",
         "createddate",
         "deckid",
+        "dotenv",
         "fileinproj",
+        "gensalt",
+        "hashpw",
         "uniqid",
         "uploaddate"
     ]
