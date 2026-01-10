@@ -263,6 +263,40 @@ async def get_file_path(fileid: str):
     filepath = row[0]
     return {"success": True, "filepath": os.path.abspath(filepath)}
 
+# Get course specific files
+
+@app.get("/projects/{projectid}/files")
+async def list_project_files(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    cursor.execute(
+        """
+        SELECT f.fileid, f.filepath, f.uploaddate, f.filesize, f.filetype
+        FROM files f
+        JOIN fileinproj fp ON f.fileid = fp.fileid
+        JOIN projects p ON fp.projectid = p.projectid
+        WHERE p.projectid=? AND p.userid=?
+        """,
+        (projectid, userid),
+    )
+    rows = cursor.fetchall()
+
+    files = [
+        {
+            "fileid": r[0],
+            "filepath": r[1],
+            "upload_date": r[2],
+            "file_size": r[3],
+            "file_type": r[4],
+        }
+        for r in rows
+    ]
+
+    return {"success": True, "files": files}
+
 
 # Document removal:
 @app.delete("/files/{fileid}")
