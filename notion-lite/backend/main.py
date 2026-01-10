@@ -1,9 +1,11 @@
-import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging
+import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid
 from dataclasses import dataclass
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import datetime as dt
+from pydantic import BaseModel
+
 
 from fastapi.responses import FileResponse
 
@@ -46,6 +48,10 @@ class FileProjectRelation:
     fileid: str
     projectid: str
 
+class CreateDeckRequest(BaseModel):
+    name: str
+    prompt: str
+
 
 def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
     """
@@ -75,6 +81,32 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
 
     return uid[:length]
 
+def init_db():
+    # decks: one row per deck created inside a course (project)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS decks (
+        deckid TEXT PRIMARY KEY,
+        projectid TEXT NOT NULL,
+        userid TEXT NOT NULL,
+        name TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        createddate TEXT NOT NULL
+    )
+    """)
+
+    # cards: the generated (or manual) Q/A inside a deck
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS cards (
+        cardid TEXT PRIMARY KEY,
+        deckid TEXT NOT NULL,
+        front TEXT NOT NULL,
+        back TEXT NOT NULL
+    )
+    """)
+
+    conn.commit()
+
+init_db()
 
 # Allow frontend
 app.add_middleware(
@@ -482,3 +514,82 @@ async def delete_project(projectid: str, session: str = Cookie(None)):
     conn.commit()
 
     return {"success": True, "message": "Project deleted successfully"}
+
+# List decks in a project
+@app.get("/projects/{projectid}/decks")
+async def list_decks(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    # ensure this project belongs to the user
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    cursor.execute(
+        "SELECT deckid, name, prompt, createddate FROM decks WHERE projectid=? AND userid=? ORDER BY createddate DESC",
+        (projectid, userid),
+    )
+    rows = cursor.fetchall()
+
+    decks = [
+        {"deckid": r[0], "name": r[1], "prompt": r[2], "createddate": r[3]}
+        for r in rows
+    ]
+    return {"success": True, "decks": decks}
+
+# Create a new deck in a project (stores name+prompt only for now)
+@app.post("/projects/{projectid}/decks")
+async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    deckid = uuid.uuid4().hex[:8]  # short id like your project ids
+    createddate = datetime.utcnow().isoformat()
+
+    cursor.execute(
+        "INSERT INTO decks (deckid, projectid, userid, name, prompt, createddate) VALUES (?, ?, ?, ?, ?, ?)",
+        (deckid, projectid, userid, body.name, body.prompt, createddate),
+    )
+    conn.commit()
+
+    return {"success": True, "deckid": deckid}
+
+# Get deck details and cards
+@app.get("/decks/{deckid}")
+async def get_deck(deckid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    cursor.execute(
+        "SELECT deckid, projectid, name, prompt, createddate FROM decks WHERE deckid=? AND userid=?",
+        (deckid, userid),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Deck not found"}
+
+    deck = {
+        "deckid": row[0],
+        "projectid": row[1],
+        "name": row[2],
+        "prompt": row[3],
+        "createddate": row[4],
+    }
+
+    cursor.execute("SELECT cardid, front, back FROM cards WHERE deckid=?", (deckid,))
+    card_rows = cursor.fetchall()
+    cards = [{"cardid": r[0], "front": r[1], "back": r[2]} for r in card_rows]
+
+    return {"success": True, "deck": deck, "cards": cards}
+

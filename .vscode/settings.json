@@ -4,7 +4,11 @@
     "python-envs.pythonProjects": [],
     "css.lint.unknownAtRules": "ignore",
     "cSpell.words": [
+        "cardid",
+        "createddate",
+        "deckid",
         "fileinproj",
+        "uniqid",
         "uploaddate"
     ]
 }
