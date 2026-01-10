@@ -8,6 +8,7 @@ import Sidebar from "./Sidebar";
 import { Folder } from "lucide-react";
 import { DocumentCard } from "./Card";
 
+import * as Icons from "lucide-react";
 // User dashboard page
 
 export function UserDashboard() {
@@ -27,7 +28,7 @@ export function UserDashboard() {
             .then((data) => {
                 if (data.success) {
                     setProjects(data.projects);
-                    // console.log("Fetched projects:", data.projects);
+                    console.log("Fetched projects:", data.projects);
                 }
             })
             .catch((err) => {
@@ -45,9 +46,17 @@ export function UserDashboard() {
                 projectsList={[
                     // Get the rest of the projects from the backend
                     ...projects.map((project) => ({
+                        projectid: project.projectid,
                         name: project.name,
                         href: `/project/${project.projectid}`,
-                        icon: Folder,
+                        description: project.description,
+                        image: project.image,
+                        icon:
+                            project.icon in Icons && project.icon !== null
+                                ? Icons[project.icon]
+                                : Folder,
+                        color:
+                            project.color !== null ? project.color : "#754B4D",
                     })),
                 ]}
             />
@@ -57,7 +66,23 @@ export function UserDashboard() {
                     Dashboard
                 </div>
                 <GalleryView
-                    subjects={projects}
+                    subjects={[
+                        ...projects.map((project) => ({
+                            projectid: project.projectid,
+                            name: project.name,
+                            href: `/project/${project.projectid}`,
+                            description: project.description,
+                            image: project.image,
+                            icon:
+                                project.icon in Icons && project.icon !== null
+                                    ? Icons[project.icon]
+                                    : Folder,
+                            color:
+                                project.color !== null
+                                    ? project.color
+                                    : "#754B4D",
+                        })),
+                    ]}
                     onAddSubject={() => setShowAddProject(true)}
                 />
                 {showAddProject && (
@@ -72,7 +97,7 @@ export function UserDashboard() {
                 <DocumentCard
                     docTitle="Sample Document"
                     docType="pdf"
-                    id={'EHKFS7o6'}
+                    id={"EHKFS7o6"}
                 />
             </div>
         </div>

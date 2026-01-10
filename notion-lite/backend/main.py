@@ -369,7 +369,7 @@ async def list_projects(session: str = Cookie(None)):
     userid = session
 
     cursor.execute(
-        "SELECT projectid, name, description, createddate, image FROM projects WHERE userid=?",
+        "SELECT projectid, name, description, createddate, image, color, icon FROM projects WHERE userid=?",
         (userid,),
     )
     rows = cursor.fetchall()
@@ -383,6 +383,8 @@ async def list_projects(session: str = Cookie(None)):
                 "description": row[2],
                 "created_date": row[3],
                 "image": row[4],
+                "color": row[5],
+                "icon": row[6],
             }
         )
 
@@ -399,6 +401,8 @@ async def create_project(data: dict, session: str = Cookie(None)):
     name = data.get("name")
     description = data.get("description", "")
     image = data.get("image", "")
+    color = data.get("color", "")
+    icon = data.get("icon", "")
 
     projectid = gen_uuid()
     created_date = datetime.now(dt.UTC).timestamp()
@@ -412,8 +416,8 @@ async def create_project(data: dict, session: str = Cookie(None)):
         return {"success": False, "message": "Project with this name already exists"}
 
     cursor.execute(
-        "INSERT INTO projects (projectid, name, description, createddate, image, userid) VALUES (?, ?, ?, ?, ?, ?)",
-        (projectid, name, description, created_date, image, userid),
+        "INSERT INTO projects (projectid, name, description, createddate, image, color, icon, userid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (projectid, name, description, created_date, image, color, icon, userid),
     )
     conn.commit()
 

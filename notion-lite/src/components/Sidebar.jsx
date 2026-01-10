@@ -12,10 +12,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
-export function SidebarItem({ key, href, icon: Icon, name, collapsed }) {
+export function SidebarItem({ href, icon: Icon, name, color, collapsed }) {
     return (
         <a
-            key={key}
             href={href}
             className={`flex items-center hover:bg-dark/30 ${
                 collapsed
@@ -23,7 +22,11 @@ export function SidebarItem({ key, href, icon: Icon, name, collapsed }) {
                     : "w-60 rounded ml-2 mr-2 p-2"
             }`}
         >
-            {Icon && <Icon className={`${!collapsed ? "mr-2" : ""}`} />}
+            {Icon && (
+                <Icon
+                    className={`${!collapsed ? "mr-2" : ""}`} color={color}
+                />
+            )}
             {!collapsed && <span>{name}</span>}
         </a>
     );
@@ -37,7 +40,7 @@ export default function Sidebar({ projectsList }) {
     const [lastName, setLastName] = useState("");
     const [pfp, setPfp] = useState("");
 
-    const {user, login, logout} = useAuth();
+    const { user, login, logout } = useAuth();
 
     async function fetchUserProfile() {
         try {
@@ -97,6 +100,7 @@ export default function Sidebar({ projectsList }) {
                     collapsed={collapsed}
                     icon={LayoutDashboard}
                     name="Dashboard"
+                    color="#754B4D"
                 />
                 {/* Add a list of all the projects */}
                 <div className="flex items-center justify-between p-2 mx-2">
@@ -110,11 +114,12 @@ export default function Sidebar({ projectsList }) {
                 {Array.isArray(projectsList) && projectsList.length > 0
                     ? projectsList.map((item) => (
                           <SidebarItem
-                              key={item.name}
+                              //   key={item.name}
                               href={item.href}
                               icon={item.icon}
                               name={item.name}
                               collapsed={collapsed}
+                              color={item.color}
                           />
                       ))
                     : ""}

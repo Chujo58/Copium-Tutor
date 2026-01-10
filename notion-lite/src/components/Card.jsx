@@ -4,20 +4,78 @@ import Popup from "./Popup";
 import { API_URL } from "../config";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
+function getContrastTextColor(hex) {
+    // Remove the hash if present
+    hex = hex.replace("#", "");
 
+    // Parse r, g, b values
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Calculate relative luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+    // Return black for bright colors, white for dark colors
+    return luminance > 0.5 ? "text-black" : "text-white";
+}
+
+function darkenHex(hex, amount = 0.1) {
+    // Remove hash if present
+    hex = hex.replace("#", "");
+
+    // Parse RGB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Reduce each channel by the given amount
+    const newR = Math.max(Math.min(Math.round(r * (1 - amount)), 255), 0);
+    const newG = Math.max(Math.min(Math.round(g * (1 - amount)), 255), 0);
+    const newB = Math.max(Math.min(Math.round(b * (1 - amount)), 255), 0);
+
+    // Convert back to hex
+    return `#${newR.toString(16).padStart(2, "0")}${newG
+        .toString(16)
+        .padStart(2, "0")}${newB.toString(16).padStart(2, "0")}`;
+}
+
+function IconWrapper({ iconNode, size = 24, color = "currentColor" }) {
+    if (!iconNode) return null;
+
+    // iconNode is a component, so you render it as JSX
+    const IconComponent = iconNode;
+
+    return (
+        <IconComponent
+            size={size}
+            color={color}
+            className="inline-block mr-2"
+        />
+    );
+}
 
 // Subject Card for the general subjects like projects, notes, etc.
-export default function SubjectCard({ title, image }) {
+export default function SubjectCard({
+    title,
+    image,
+    description,
+    color,
+    icon,
+}) {
+    const [isHover, setIsHover] = useState(false);
+
     return (
         <div
-            className="
-      m-4 rounded-lg cursor-pointer transition ease-in-out
-      shadow hover:shadow-md
-      bg-dark
-      text-surface 
-      hover:bg-rose-water
-      hover:text-dark
-    "
+            className={`m-4 rounded-lg cursor-pointer transition ease-in-out shadow hover:shadow-md`}
+            // Show description on hover like a tooltip
+            // title={description}
+            style={{
+                backgroundColor: isHover ? darkenHex(color, 0.25) : color,
+                color: getContrastTextColor(isHover ? darkenHex(color, 0.25) : color),
+            }}
+            onMouseEnter={() => setIsHover(true)}
+            onMouseLeave={() => setIsHover(false)}
         >
             {image ? (
                 <img
@@ -27,17 +85,18 @@ export default function SubjectCard({ title, image }) {
                 />
             ) : (
                 <div
-                    className="
-            mb-2 w-full h-40 rounded-t-lg
-            bg-accent/30
-          "
+                    className={`mb-2 w-full h-40 rounded-t-lg
+            bg-white/30
+          `}
                 />
             )}
 
-            <h3 className="p-4 pt-1 main-header font-card">{title}</h3>
+            <h3 className="p-4 pt-1 main-header font-card flex">
+                {<IconWrapper iconNode={icon} />} {title}
+            </h3>
         </div>
     );
-}    
+}
 // Document Card for individual documents within a subject (uploaded documents), the top of the Card shows the document preview, and the bottom shows a document icon and the title (should somehow be grabbed from the uploaded file metadata)
 export function DocumentCard({ docTitle, docType, id }) {
     const [open, setOpen] = useState(false);
@@ -48,7 +107,6 @@ export function DocumentCard({ docTitle, docType, id }) {
     const icon = docType === "spreadsheet" ? <FileSpreadsheet /> : <FileText />;
     const preview = docType === "pdf";
 
-    
     // Fetch the path from id
     async function fetchFilePath(id) {
         try {
@@ -88,7 +146,6 @@ export function DocumentCard({ docTitle, docType, id }) {
                 const page = await pdf.getPage(1);
                 const viewport = page.getViewport({ scale: 1.5 });
 
-                
                 const canvas = document.createElement("canvas");
                 const context = canvas.getContext("2d");
                 canvas.width = viewport.width;
@@ -122,7 +179,11 @@ export function DocumentCard({ docTitle, docType, id }) {
                 {preview ? (
                     <div className="mb-2 w-full h-40 rounded-t-lg overflow-hidden bg-black/5 flex items-center justify-center">
                         {thumb ? (
-                            <img src={thumb} alt={docTitle} className="w-full h-full object-cover" />
+                            <img
+                                src={thumb}
+                                alt={docTitle}
+                                className="w-full h-full object-cover"
+                            />
                         ) : thumbError ? (
                             <div className="w-full h-full bg-accent/30 flex items-center justify-center text-2xl">
                                 {icon}
@@ -134,12 +195,12 @@ export function DocumentCard({ docTitle, docType, id }) {
                         )}
                     </div>
                 ) : (
-                    <div
-                        className="mb-2 w-full h-40 rounded-t-lg bg-accent/30 flex items-center justify-center"
-                    ></div>
+                    <div className="mb-2 w-full h-40 rounded-t-lg bg-accent/30 flex items-center justify-center"></div>
                 )}
 
-                <h3 className="p-4 pt-1 main-header font-card items-center gap-2 flex">{icon} {docTitle}</h3>
+                <h3 className="p-4 pt-1 main-header font-card items-center gap-2 flex">
+                    {icon} {docTitle}
+                </h3>
             </div>
 
             {open && (

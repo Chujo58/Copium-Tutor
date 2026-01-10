@@ -23,6 +23,8 @@ export default function GalleryView({ subjects, onAddSubject }) {
                         title={subject.name}
                         description={subject.description}
                         image={subject.image}
+                        color={subject.color}
+                        icon={subject.icon}
                     />
                 ))}
             </div>

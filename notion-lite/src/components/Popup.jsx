@@ -1,8 +1,9 @@
 // Create a login page popup:
 import React from "react";
-import CloseIcon from "../assets/close.svg?react";
 import { API_URL } from "../config";
 import { CircleX } from "lucide-react";
+import * as Icons from "lucide-react";
+import IconPicker from "./IconPicker";
 
 export default function Popup({ title, children, onClose, wide = false }) {
     React.useEffect(() => {
@@ -62,14 +63,18 @@ export function CreateProjectPopup({ onClose }) {
     const [projectName, setProjectName] = React.useState("");
     const [description, setDescription] = React.useState("");
     const [imageUrl, setImageUrl] = React.useState("");
+    const [color, setColor] = React.useState("#754B4D");
+    const [icon, setIcon] = React.useState("Smile");
+    const [showIconPicker, setShowIconPicker] = React.useState(false);
+    const SelectedIcon = Icons[icon];
     const [error, setError] = React.useState("");
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        createProject(projectName, description, imageUrl);
+        createProject(projectName, description, imageUrl, color, icon);
     };
 
-    const createProject = async (name, description, imageUrl) => {
+    const createProject = async (name, description, imageUrl, color, icon) => {
         const response = await fetch(`${API_URL}/projects`, {
             method: "POST",
             headers: {
@@ -80,6 +85,8 @@ export function CreateProjectPopup({ onClose }) {
                 name: name,
                 description: description,
                 image: imageUrl,
+                color: color,
+                icon: icon,
             }),
         });
 
@@ -118,6 +125,21 @@ export function CreateProjectPopup({ onClose }) {
                         onChange={(e) => setImageUrl(e.target.value)}
                     />
                 </div>
+                <div>
+                    <label>Color</label>
+                    <input
+                        type="color"
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                    />
+                </div>
+                <button className="flex items-center gap-2 rounded border px-3 py-2" onClick={()=>{
+                    setShowIconPicker(!showIconPicker);
+                }} type="button">
+                    {SelectedIcon && <SelectedIcon size={18} />}
+                    Choose Icon
+                </button>
+                {showIconPicker && <IconPicker value={icon} onChange={setIcon} />}
                 <div>{error}</div>
                 <button type="submit">Create Project</button>
             </form>
