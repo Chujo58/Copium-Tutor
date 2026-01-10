@@ -55,7 +55,7 @@ export default function DeckPage() {
             <h2 className="text-xl font-semibold">Cards</h2>
             {cards.length === 0 ? (
               <div className="mt-2 opacity-70">
-                No cards yet (Backboard generation comes next).
+                No cards yet 
               </div>
             ) : (
               <ul className="mt-3 space-y-3">
