@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
@@ -164,6 +164,11 @@ export default function CoursePage() {
               <h2 className="text-xl font-semibold">Flashcards</h2>
               <div className="opacity-70">(Deck list goes here)</div>
             </div>
+
+            <Link className="underline" to={`/project/${projectId}/flashcards`}>
+                Open Flashcards
+            </Link>
+
 
             {/* QUIZZES */}
             <div className="mt-10">
