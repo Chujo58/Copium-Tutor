@@ -7,14 +7,37 @@ import {
     CircleChevronRight,
     CircleChevronLeft,
     LayoutDashboard,
+    Pin,
+    PinOff,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+
+export function SidebarItem({ key, href, icon: Icon, name, collapsed }) {
+    return (
+        <a
+            key={key}
+            href={href}
+            className={`flex items-center hover:bg-dark/30 ${
+                collapsed
+                    ? "justify-center p-2 rounded-3xl hover:text-rose-copper"
+                    : "w-60 rounded ml-2 mr-2 p-2"
+            }`}
+        >
+            {Icon && <Icon className={`${!collapsed ? "mr-2" : ""}`} />}
+            {!collapsed && <span>{name}</span>}
+        </a>
+    );
+}
 
 export default function Sidebar({ projectsList }) {
     const [collapsed, setCollapsed] = useState(false);
+    const [pinned, setPinned] = useState(true);
     const [openProfilePopout, setOpenProfilePopout] = useState(false);
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [pfp, setPfp] = useState("");
+
+    const {user, login, logout} = useAuth();
 
     async function fetchUserProfile() {
         try {
@@ -40,6 +63,8 @@ export default function Sidebar({ projectsList }) {
         <div
             className={`flex flex-col bg-rose-water text-rose-plum h-screen transition-all duration-300
       ${collapsed ? "w-16" : "w-64"}`}
+            onMouseEnter={() => !pinned && setCollapsed(false)}
+            onMouseLeave={() => !pinned && setCollapsed(true)}
         >
             <nav
                 className={`flex flex-col h-full ${
@@ -56,32 +81,23 @@ export default function Sidebar({ projectsList }) {
                         <h2 className="text-xl font-card main-header">Menu</h2>
                     )}
                     <button
-                        onClick={() => setCollapsed(!collapsed)}
+                        onClick={() => {
+                            setPinned(!pinned);
+                        }}
                         className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
                     >
-                        {collapsed ? (
-                            <CircleChevronRight />
-                        ) : (
-                            <CircleChevronLeft />
-                        )}
+                        {pinned ? <PinOff /> : <Pin />}
                     </button>
                     {/* Divider */}
                     {collapsed && <CopperDivider margins="mt-2" />}
                 </div>
-                <a
+                <SidebarItem
                     key="dashboard"
                     href="/dashboard"
-                    className={`flex items-center hover:bg-dark/30  ${
-                        collapsed
-                            ? "justify-center p-2 rounded-3xl hover:text-rose-copper"
-                            : "w-full  rounded m-4"
-                    }`}
-                >
-                    <LayoutDashboard
-                        className={`${!collapsed ? "mr-2" : ""}`}
-                    />
-                    {!collapsed && <span>Dashboard</span>}
-                </a>
+                    collapsed={collapsed}
+                    icon={LayoutDashboard}
+                    name="Dashboard"
+                />
                 {/* Add a list of all the projects */}
                 <div className="flex items-center justify-between p-2 mx-2">
                     {!collapsed && (
@@ -93,37 +109,66 @@ export default function Sidebar({ projectsList }) {
                 </div>
                 {Array.isArray(projectsList) && projectsList.length > 0
                     ? projectsList.map((item) => (
-                          <a
+                          <SidebarItem
                               key={item.name}
                               href={item.href}
-                              className={`flex items-center hover:bg-dark/30  ${
-                                  collapsed
-                                      ? "justify-center p-2 rounded-3xl hover:text-rose-copper"
-                                      : "w-60  rounded ml-2 mr-2 p-2"
-                              }`}
-                          >
-                              {item.icon && (
-                                  <item.icon
-                                      className={`${!collapsed ? "mr-2" : ""}`}
-                                  />
-                              )}
-                              {!collapsed && <span>{item.name}</span>}
-                          </a>
+                              icon={item.icon}
+                              name={item.name}
+                              collapsed={collapsed}
+                          />
                       ))
                     : ""}
                 {/* Now at the bottom, we should have the user profile */}
                 <div className="mt-auto flex p-4 bg-rose-dusty/40">
-                    {/* Circle profile picture */}
-                    <img
-                        src={pfp}
-                        alt={`${firstName.charAt(0)} ${lastName.charAt(0)}`}
-                        className="rounded-full w-8 h-8 text-sm bg-dark text-accent text-center flex items-center justify-center main-header"
-                    />
-                    {!collapsed && (
-                        <div className="text-center flex items-center justify-center ml-4 font-card">
-                            {`${firstName} ${lastName}`}
+                    {/* The popup that shows user options comes here which is inline of the sidebar*/}
+                    {openProfilePopout && !collapsed && (
+                        <div
+                            className="absolute bottom-16 left-4 bg-rose-dusty/40 rounded p-4 w-48 z-10 border-2 border-rose-dusty/60 font-card"
+                            onMouseLeave={() => setOpenProfilePopout(false)}
+                        >
+                            <a
+                                href="/profile"
+                                className="block px-4 py-2 hover:bg-dark/30 rounded"
+                            >
+                                View Profile
+                            </a>
+                            <a
+                                href="/settings"
+                                className="block px-4 py-2 hover:bg-dark/30 rounded"
+                            >
+                                Settings
+                            </a>
+                            <button
+                                onClick={() => {
+                                    // Log the user out by calling the logout API
+                                    logout();
+                                    // Redirect to home page after a sleep timeout
+                                    setTimeout(() => {
+                                        window.location.href = "/";
+                                    }, 500);
+                                }}
+                                className="block px-4 py-2 hover:bg-dark/30 rounded text-red-500"
+                            >
+                                Logout
+                            </button>
                         </div>
                     )}
+                    {/* Circle profile picture */}
+                    <div
+                        onClick={() => setOpenProfilePopout(!openProfilePopout)}
+                        className="flex items-center cursor-pointer"
+                    >
+                        <img
+                            src={pfp}
+                            alt={`${firstName.charAt(0)} ${lastName.charAt(0)}`}
+                            className="rounded-full w-8 h-8 text-sm bg-dark text-accent text-center flex items-center justify-center main-header"
+                        />
+                        {!collapsed && (
+                            <div className="text-center flex items-center justify-center ml-4 font-card">
+                                {`${firstName} ${lastName}`}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </nav>
         </div>

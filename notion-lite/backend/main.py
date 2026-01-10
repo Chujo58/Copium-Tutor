@@ -120,18 +120,19 @@ async def get_me(session: str = Cookie(None)):
 async def login(data: dict, response: Response):
     email = data.get("email")
     password = data.get("password")
-    cursor.execute("SELECT userid, hashed_password FROM users WHERE email=?", (email,))
+    cursor.execute("SELECT userid, password FROM users WHERE email=?", (email,))
     row = cursor.fetchone()
-
+    logger.debug(f"Login attempt: {email}")
+    logger.debug(row)
     stored_password = row[1] if row else None
     if stored_password is None:
         return {"success": False, "message": "Invalid email or password"}
 
     try:
         if not bcrypt.checkpw(password.encode("utf-8"), stored_password):
-            return {"success": False, "message": "Invalid email or password"}
+            return {"success": False, "message": "Invalid password"}
     except ValueError:
-        return {"success": False, "message": "Invalid email or password"}
+        return {"success": False, "message": "Encryption error"}
 
     response.set_cookie(
         key="session",

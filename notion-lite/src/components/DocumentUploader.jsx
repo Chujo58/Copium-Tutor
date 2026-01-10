@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { API_URL } from "../config";
 
+
+export function DocumentUploader({ projectsList }) {
+    // If the projectsList is only one project, we default to that project for file uploads.
+    
+}
+
+
 export default function DriveStyleUploader() {
     const [files, setFiles] = useState([]);
     const [previewFile, setPreviewFile] = useState(null);
     const [selectedProject, setSelectedProject] = useState("All");
 
-    const projects = ["All", "Project A", "Project B", "Project C"];
+    const projects = ["All", "test", "Project A", "Project B", "Project C"];
 
     // Handle dropped files
     const handleDrop = (e) => {
@@ -22,17 +29,17 @@ export default function DriveStyleUploader() {
         setFiles((prev) => [...prev, ...mappedFiles]);
 
         // Generate thumbnails for PDFs
-        mappedFiles.forEach((f) => {
-            if (f.file.type.includes("pdf")) {
-                generatePDFThumbnail(f.file).then((thumb) => {
-                    setFiles((prev) =>
-                        prev.map((pf) =>
-                            pf.id === f.id ? { ...pf, thumbnail: thumb } : pf
-                        )
-                    );
-                });
-            }
-        });
+        // mappedFiles.forEach((f) => {
+        //     if (f.file.type.includes("pdf")) {
+        //         generatePDFThumbnail(f.file).then((thumb) => {
+        //             setFiles((prev) =>
+        //                 prev.map((pf) =>
+        //                     pf.id === f.id ? { ...pf, thumbnail: thumb } : pf
+        //                 )
+        //             );
+        //         });
+        //     }
+        // });
 
         // Upload to backend
         mappedFiles.forEach(uploadFile);
@@ -66,23 +73,39 @@ export default function DriveStyleUploader() {
 
     // Upload file to backend with progress
     const uploadFile = (f) => {
+        // Do it with fetch:
         const formData = new FormData();
         formData.append("file", f.file);
         formData.append("project", f.project);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `${API_URL}/upload`);
-        xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-                const progress = Math.round((e.loaded / e.total) * 100);
-                setFiles((prev) =>
-                    prev.map((pf) =>
-                        pf.id === f.id ? { ...pf, progress } : pf
-                    )
-                );
+        fetch(`${API_URL}/upload`, {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+        }).then((response) => {
+            if (!response.ok) {
+                console.error("Upload failed:", response.statusText);
+            } else {
+                console.log("Upload successful");
             }
-        };
-        xhr.send(formData);
+        });
+        // const formData = new FormData();
+        // formData.append("file", f.file);
+        // formData.append("project", f.project);
+
+        // const xhr = new XMLHttpRequest();
+        // xhr.open("POST", `${API_URL}/upload`);
+        // xhr.upload.onprogress = (e) => {
+        //     if (e.lengthComputable) {
+        //         const progress = Math.round((e.loaded / e.total) * 100);
+        //         setFiles((prev) =>
+        //             prev.map((pf) =>
+        //                 pf.id === f.id ? { ...pf, progress } : pf
+        //             )
+        //         );
+        //     }
+        // };
+        // xhr.send(formData);
     };
 
     return (

@@ -41,6 +41,7 @@ export function AuthProvider({ children }) {
             method: "POST",
             credentials: "include",
         });
+        console.log("Logged out");
         setUser(null);
     };
 

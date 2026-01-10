@@ -144,7 +144,7 @@ export function LoginPopup({ onClose, onLogin }) {
             },
             credentials: "include",
             body: JSON.stringify({
-                username: username,
+                email: username,
                 password: password,
             }),
         });
@@ -153,6 +153,10 @@ export function LoginPopup({ onClose, onLogin }) {
         if (!data.success) {
             // Handle login error (you might want to show an error message)
             setError(data.message);
+        } else {
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         }
         return data;
     };
