@@ -11,6 +11,7 @@ export default function CoursePage() {
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
 
+useEffect(() => {
   const fetchProjects = async () => {
     setLoading(true);
     try {
@@ -24,7 +25,9 @@ export default function CoursePage() {
 
       if (data.success) {
         setProjects(data.projects);
-        const found = data.projects.find((p) => p.projectid === projectId);
+        const found = data.projects.find(
+          (p) => p.projectid === projectId
+        );
         setCourse(found ?? null);
       }
     } catch (err) {
@@ -36,10 +39,8 @@ export default function CoursePage() {
     }
   };
 
-  useEffect(() => {
-    fetchProjects();
-    // re-run when URL changes to a different project
-  }, [projectId]);
+  fetchProjects();
+}, [projectId]);
 
   const projectsList = useMemo(() => {
     return projects.map((project) => ({
@@ -53,9 +54,6 @@ export default function CoursePage() {
       <Sidebar projectsList={projectsList} />
 
       <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-        <Link to="/dashboard" className="underline">
-          ← Back to Dashboard
-        </Link>
 
         {loading ? (
           <div className="mt-6">Loading course…</div>
