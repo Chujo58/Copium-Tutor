@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { API_URL } from "../config";
 
 // import CloseIcon from "../assets/close.svg?react";
 // import MenuIcon from "../assets/menu.svg?react";
@@ -11,6 +12,29 @@ import {
 
 export default function Sidebar({ projectsList }) {
     const [collapsed, setCollapsed] = useState(false);
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [pfp, setPfp] = useState("");
+
+    async function fetchUserProfile() {
+        try {
+            const response = await fetch(`${API_URL}/me`, {
+                credentials: "include",
+            });
+            const data = await response.json();
+            if (data.success) {
+                setFirstName(data.user.fname);
+                setLastName(data.user.lname);
+                setPfp(data.user.pfp);
+            }
+        } catch (error) {
+            console.error("Error fetching user profile:", error);
+        }
+    }
+
+    useEffect(() => {
+        fetchUserProfile();
+    }, []);
 
     return (
         <div
@@ -27,24 +51,9 @@ export default function Sidebar({ projectsList }) {
                     {collapsed ? <CircleChevronRight /> : <CircleChevronLeft />}
                 </button>
             </div>
-
-            {/* Navigation */}
-            {/* <nav className="flex-1 mt-4">
-                {items.map((item) => (
-                    <a
-                        key={item.name}
-                        href={item.href}
-                        className="flex items-center py-2 px-4 hover:bg-dark/30 rounded"
-                    >
-                        {item.icon && <span className="mr-2">{item.icon}</span>}
-                        {!collapsed && <span>{item.name}</span>}
-                    </a>
-                ))}
-            </nav> */}
-
             {/* First we should have the important links like dashboard and maybe something at the bottom for the user profile */}
             <nav
-                className={`flex flex-col ${
+                className={`flex flex-col h-full ${
                     collapsed ? "items-center p-4 justify-between" : "p-2"
                 }`}
             >
@@ -88,6 +97,16 @@ export default function Sidebar({ projectsList }) {
                           </a>
                       ))
                     : ""}
+                {/* Now at the bottom, we should have the user profile */}
+                <div className="mt-auto flex p-2">
+                    {/* Circle profile picture */}
+                    <img src={pfp} alt={`${firstName.charAt(0)} ${lastName.charAt(0)}`} className="rounded-full w-8 h-8 text-sm bg-dark text-accent text-center flex items-center justify-center main-header" />
+                    {!collapsed && (
+                        <div className="text-center flex items-center justify-center ml-4 font-card">
+                            {`${firstName} ${lastName}`}
+                        </div>
+                    )}
+                </div>
             </nav>
         </div>
     );
