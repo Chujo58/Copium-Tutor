@@ -76,7 +76,7 @@ useEffect(() => {
               ) : null}
 
               <div className="mt-2 text-sm opacity-60">
-                projectId: {course.projectid}
+                projectId: {course.projectid} (for debugging)
               </div>
             </div>
 
@@ -90,6 +90,11 @@ useEffect(() => {
             <div className="mt-10">
               <h2 className="text-xl font-semibold">Flashcards</h2>
               <div className="opacity-70">(Deck list goes here)</div>
+            </div>
+
+            <div className="mt-10">
+              <h2 className="text-xl font-semibold">Quizzes</h2>
+              <div className="opacity-70">(Quiz list goes here)</div>
             </div>
           </>
         )}
