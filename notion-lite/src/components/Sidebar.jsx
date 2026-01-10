@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../config";
 
-// import CloseIcon from "../assets/close.svg?react";
-// import MenuIcon from "../assets/menu.svg?react";
+import { CopperDivider } from "./Divider";
 
 import {
     CircleChevronRight,
@@ -40,26 +39,36 @@ export default function Sidebar({ projectsList }) {
     return (
         <div
             className={`flex flex-col bg-rose-water text-rose-plum h-screen transition-all duration-300
-      ${collapsed ? "w-fit" : "w-64"}`}
+      ${collapsed ? "w-16" : "w-64"}`}
         >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4">
-                {!collapsed && (
-                    <h2 className="text-xl font-card main-header">Menu</h2>
-                )}
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
-                >
-                    {collapsed ? <CircleChevronRight /> : <CircleChevronLeft />}
-                </button>
-            </div>
-            {/* First we should have the important links like dashboard and maybe something at the bottom for the user profile */}
             <nav
                 className={`flex flex-col h-full ${
                     collapsed ? "items-center justify-between" : ""
                 }`}
             >
+                {/* HEADER */}
+                <div
+                    className={`flex items-center justify-between ${
+                        collapsed ? "p-2" : "p-4"
+                    }`}
+                >
+                    {!collapsed && (
+                        <h2 className="text-xl font-card main-header">Menu</h2>
+                    )}
+                    <button
+                        onClick={() => setCollapsed(!collapsed)}
+                        className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
+                    >
+                        {collapsed ? (
+                            <>
+                                <CircleChevronRight />
+                                <CopperDivider margins="mt-4" />
+                            </>
+                        ) : (
+                            <CircleChevronLeft />
+                        )}
+                    </button>
+                </div>
                 <a
                     key="dashboard"
                     href="/dashboard"
@@ -79,8 +88,7 @@ export default function Sidebar({ projectsList }) {
                     {!collapsed && (
                         <div className="flex flex-col w-full">
                             <h2 className="main-header font-card">Projects</h2>
-                            <hr className="border-t-2 border-rose-copper" />
-
+                            <CopperDivider />
                         </div>
                     )}
                 </div>
