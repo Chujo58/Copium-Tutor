@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
+import * as Icons from "lucide-react";
+import { Folder } from "lucide-react";
 
 export default function DeckPage() {
   const { projectId, deckId } = useParams();
@@ -124,7 +126,21 @@ export default function DeckPage() {
 
   return (
     <div className="flex">
-      <Sidebar projectsList={projectsList} />
+      <Sidebar projectsList={[
+        ...projects.map((project) => ({
+                        projectid: project.projectid,
+                        name: project.name,
+                        href: `/project/${project.projectid}`,
+                        description: project.description,
+                        image: project.image,
+                        icon:
+                            project.icon in Icons && project.icon !== null
+                                ? Icons[project.icon]
+                                : Folder,
+                        color:
+                            project.color !== null ? project.color : "#754B4D",
+                    })),
+      ]} />
 
       <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
         <Link to={`/project/${projectId}/flashcards`} className="underline">
