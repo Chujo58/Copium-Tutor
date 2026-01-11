@@ -29,14 +29,28 @@ def init_db():
     # cards: the generated (or manual) Q/A inside a deck
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS cards (
-        cardid TEXT PRIMARY KEY,
-        deckid TEXT NOT NULL,
-        front TEXT NOT NULL,
-        back TEXT NOT NULL,
-        position INTEGER
+    cardid TEXT PRIMARY KEY,
+    deckid TEXT NOT NULL,
+    front TEXT NOT NULL,
+    back TEXT NOT NULL,
+    position INTEGER,
+
+    due_at TEXT,
+    interval_days REAL,
+    ease REAL,
+    reps INTEGER,
+    lapses INTEGER,
+    last_reviewed_at TEXT
     )
     """)
+
     _add_column_if_missing("cards", "position", "INTEGER")
+    _add_column_if_missing("cards", "due_at", "TEXT")
+    _add_column_if_missing("cards", "interval_days", "REAL")
+    _add_column_if_missing("cards", "ease", "REAL")
+    _add_column_if_missing("cards", "reps", "INTEGER")
+    _add_column_if_missing("cards", "lapses", "INTEGER")
+    _add_column_if_missing("cards", "last_reviewed_at", "TEXT")
 
     # backboard: persistent memory per course
     cursor.execute("""

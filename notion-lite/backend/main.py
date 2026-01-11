@@ -11,7 +11,7 @@ from fastapi import (
     Body,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+from datetime import datetime, timedelta
 import datetime as dt
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
@@ -21,6 +21,7 @@ from backboard import BackboardClient
 from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
 from db import conn, cursor, init_db
 from backboard_ops import index_project_documents_impl
+from typing import Literal
 
 load_dotenv()
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
@@ -79,6 +80,8 @@ class UpdateCardRequest(BaseModel):
     front: str | None = None
     back: str | None = None
 
+class ReviewCardRequest(BaseModel):
+    rating: Literal["again", "hard", "good", "easy"]
 
 async def get_or_create_backboard_memory(projectid: str):
     # check DB first
@@ -893,7 +896,7 @@ Indexed file names (for context; retrieval uses the indexed docs automatically):
     }
 
 
-# Get deck details and cards
+# Get deck details and cards (with scheduling fields)
 @app.get("/decks/{deckid}")
 async def get_deck(deckid: str, session: str = Cookie(None)):
     if session is None:
@@ -901,6 +904,7 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
 
     userid = session
 
+    # Deck ownership check
     cursor.execute(
         "SELECT deckid, projectid, name, prompt, createddate FROM decks WHERE deckid=? AND userid=?",
         (deckid, userid),
@@ -917,14 +921,40 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
         "createddate": row[4],
     }
 
+    # Cards + scheduling fields
     cursor.execute("""
-        SELECT cardid, front, back, COALESCE(position, 999999) as pos
+        SELECT
+            cardid,
+            front,
+            back,
+            COALESCE(position, 999999) as pos,
+            due_at,
+            interval_days,
+            ease,
+            reps,
+            lapses,
+            last_reviewed_at
         FROM cards
         WHERE deckid=?
         ORDER BY pos ASC, rowid ASC
     """, (deckid,))
-    card_rows = cursor.fetchall()
-    cards = [{"cardid": r[0], "front": r[1], "back": r[2], "position": r[3]} for r in card_rows]
+
+    rows = cursor.fetchall()
+
+    cards = []
+    for r in rows:
+        cards.append({
+            "cardid": r[0],
+            "front": r[1],
+            "back": r[2],
+            "position": r[3],
+            "due_at": r[4],
+            "interval_days": r[5],
+            "ease": r[6],
+            "reps": r[7],
+            "lapses": r[8],
+            "last_reviewed_at": r[9],
+        })
 
     return {"success": True, "deck": deck, "cards": cards}
 
@@ -1028,6 +1058,88 @@ async def delete_card(cardid: str, session: str = Cookie(None)):
 
     return {"success": True, "deleted": True, "cardid": cardid}
 
+# review card
+@app.post("/cards/{cardid}/review")
+async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    # verify ownership via join
+    cursor.execute("""
+        SELECT c.deckid, c.due_at, c.interval_days, c.ease, c.reps, c.lapses
+        FROM cards c
+        JOIN decks d ON d.deckid = c.deckid
+        WHERE c.cardid=? AND d.userid=?
+    """, (cardid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    deckid, due_at, interval_days, ease, reps, lapses = row
+
+    # defaults
+    ease = float(ease) if ease is not None else 2.5
+    interval_days = float(interval_days) if interval_days is not None else 0.0
+    reps = int(reps) if reps is not None else 0
+    lapses = int(lapses) if lapses is not None else 0
+
+    rating = body.rating
+    now = datetime.utcnow()
+
+    # Simple Anki-ish rules
+    if rating == "again":
+        ease = max(1.3, ease - 0.2)
+        interval_days = 0.02  # ~30 minutes
+        lapses += 1
+    elif rating == "hard":
+        ease = max(1.3, ease - 0.15)
+        if reps == 0:
+            interval_days = 0.5
+        else:
+            interval_days = max(0.5, interval_days * 1.2)
+    elif rating == "good":
+        if reps == 0:
+            interval_days = 1.0
+        else:
+            interval_days = max(1.0, interval_days * ease)
+    elif rating == "easy":
+        ease = ease + 0.15
+        if reps == 0:
+            interval_days = 2.0
+        else:
+            interval_days = max(2.0, interval_days * ease * 1.3)
+
+    reps += 1
+    due = now + timedelta(days=interval_days)
+
+    cursor.execute("""
+        UPDATE cards
+        SET due_at=?, interval_days=?, ease=?, reps=?, lapses=?, last_reviewed_at=?
+        WHERE cardid=?
+    """, (
+        due.isoformat(),
+        interval_days,
+        ease,
+        reps,
+        lapses,
+        now.isoformat(),
+        cardid
+    ))
+    conn.commit()
+
+    return {
+        "success": True,
+        "cardid": cardid,
+        "deckid": deckid,
+        "rating": rating,
+        "due_at": due.isoformat(),
+        "interval_days": interval_days,
+        "ease": ease,
+        "reps": reps,
+        "lapses": lapses,
+        "last_reviewed_at": now.isoformat(),
+    }
 
 
 # Index project documents
