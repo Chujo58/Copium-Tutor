@@ -5,6 +5,83 @@ import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder } from "lucide-react";
 
+function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function EditableCardRow({ card, onSave, onDelete, disabled }) {
+  const [front, setFront] = useState(card.front || "");
+  const [back, setBack] = useState(card.back || "");
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setFront(card.front || "");
+    setBack(card.back || "");
+    setDirty(false);
+  }, [card.cardid, card.front, card.back]);
+
+  const canSave = dirty && front.trim().length > 0 && back.trim().length > 0 && !disabled;
+
+  return (
+    <div className="border bg-white rounded p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="font-semibold opacity-80">Card</div>
+        <button
+          className="text-sm underline opacity-70 disabled:opacity-40"
+          onClick={onDelete}
+          disabled={disabled}
+          title="Delete card"
+        >
+          Delete
+        </button>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        <input
+          className="border p-2 rounded"
+          value={front}
+          onChange={(e) => {
+            setFront(e.target.value);
+            setDirty(true);
+          }}
+          disabled={disabled}
+          placeholder="Front"
+        />
+
+        <textarea
+          className="border p-2 rounded"
+          rows={3}
+          value={back}
+          onChange={(e) => {
+            setBack(e.target.value);
+            setDirty(true);
+          }}
+          disabled={disabled}
+          placeholder="Back"
+        />
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          className="border px-3 py-2 rounded disabled:opacity-40"
+          onClick={() => onSave(front, back)}
+          disabled={!canSave}
+          title="Save changes"
+        >
+          Save
+        </button>
+
+        {dirty ? <div className="text-sm opacity-60">Unsaved changes</div> : null}
+      </div>
+    </div>
+  );
+}
+
 export default function DeckPage() {
   const { projectId, deckId } = useParams();
 
@@ -16,9 +93,15 @@ export default function DeckPage() {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // flashcard viewer state
+  // viewer state
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+
+  // edit state
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [newFront, setNewFront] = useState("");
+  const [newBack, setNewBack] = useState("");
 
   // Fetch projects and find the current course
   const fetchProjectsAndCourse = useCallback(async () => {
@@ -73,7 +156,6 @@ export default function DeckPage() {
     }
   }, [deckId]);
 
-  // Initial data fetch
   useEffect(() => {
     fetchProjectsAndCourse();
     fetchDeck();
@@ -85,7 +167,6 @@ export default function DeckPage() {
 
   const total = cards.length;
   const current = useMemo(() => (total > 0 ? cards[index] : null), [cards, index, total]);
-
   const canPrev = index > 0;
   const canNext = index < total - 1;
 
@@ -106,8 +187,17 @@ export default function DeckPage() {
     setFlipped((f) => !f);
   }, [total]);
 
-  // Keyboard: ←/→ to navigate, Space/Enter to flip
+  const shuffleCards = useCallback(() => {
+    if (cards.length === 0) return;
+    setCards((prev) => shuffleArray(prev));
+    setIndex(0);
+    setFlipped(false);
+  }, [cards.length]);
+
+  // Keyboard shortcuts only in viewer mode (so typing in edit fields is safe)
   useEffect(() => {
+    if (editMode) return;
+
     const onKeyDown = (e) => {
       if (total === 0) return;
 
@@ -125,24 +215,103 @@ export default function DeckPage() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goPrev, goNext, flip, total]);
+  }, [goPrev, goNext, flip, total, editMode]);
 
-  function shuffleArray(arr) {
-    const copy = [...arr];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
+  // --------
+  // CRUD API calls
+  // --------
+  const addCard = useCallback(async () => {
+    const front = newFront.trim();
+    const back = newBack.trim();
+
+    if (!front || !back) {
+      alert("Front and back are required.");
+      return;
     }
-    return copy;
-  }
 
-  const shuffleCards = useCallback(() => {
-    if (cards.length === 0) return;
-    setCards((prev) => shuffleArray(prev));
-    setIndex(0);
-    setFlipped(false);
-  }, [cards.length]);
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/decks/${deckId}/cards`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ front, back }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.message || "Failed to add card.");
+        return;
+      }
+      setNewFront("");
+      setNewBack("");
+      await fetchDeck();
+    } catch (e) {
+      console.error(e);
+      alert("Failed to add card (network error).");
+    } finally {
+      setSaving(false);
+    }
+  }, [API_URL, deckId, newFront, newBack, fetchDeck]);
 
+  const updateCard = useCallback(
+    async (cardid, front, back) => {
+      const f = (front ?? "").trim();
+      const b = (back ?? "").trim();
+      if (!f || !b) {
+        alert("Front and back cannot be empty.");
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const res = await fetch(`${API_URL}/cards/${cardid}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ front: f, back: b }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.message || "Failed to update card.");
+          return;
+        }
+        await fetchDeck();
+      } catch (e) {
+        console.error(e);
+        alert("Failed to update card (network error).");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [fetchDeck]
+  );
+
+  const deleteCard = useCallback(
+    async (cardid) => {
+      const ok = confirm("Delete this card?");
+      if (!ok) return;
+
+      setSaving(true);
+      try {
+        const res = await fetch(`${API_URL}/cards/${cardid}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (!data.success) {
+          alert(data.message || "Failed to delete card.");
+          return;
+        }
+        await fetchDeck();
+      } catch (e) {
+        console.error(e);
+        alert("Failed to delete card (network error).");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [fetchDeck]
+  );
 
   return (
     <div className="flex">
@@ -180,11 +349,32 @@ export default function DeckPage() {
           <div className="mt-6">Deck not found.</div>
         ) : (
           <>
-            <div className="mt-4">
-              <div className="text-3xl main-header font-sans text-dark">{deck.name}</div>
-              <div className="opacity-70">{deck.prompt}</div>
-              <div className="mt-2 text-sm opacity-60">
-                {course.name} · projectId: {projectId}
+            <div className="mt-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="text-3xl main-header font-sans text-dark">{deck.name}</div>
+                <div className="opacity-70">{deck.prompt}</div>
+                <div className="mt-2 text-sm opacity-60">
+                  {course.name} · projectId: {projectId}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  className="border px-3 py-2 rounded opacity-90"
+                  onClick={() => setEditMode((v) => !v)}
+                  title={editMode ? "Back to viewer" : "Edit cards"}
+                >
+                  {editMode ? "Done editing" : "Edit cards"}
+                </button>
+
+                <button
+                  className="border px-3 py-2 rounded opacity-90"
+                  onClick={fetchDeck}
+                  disabled={saving}
+                  title="Refresh"
+                >
+                  Refresh
+                </button>
               </div>
             </div>
 
@@ -193,65 +383,117 @@ export default function DeckPage() {
 
               {total === 0 ? (
                 <div className="mt-2 opacity-70">No cards yet</div>
+              ) : null}
+
+              {!editMode ? (
+                <>
+                  {total > 0 ? (
+                    <>
+                      <div className="mt-3 flex items-center justify-between gap-4">
+                        <div className="opacity-70">
+                          Card {index + 1} / {total} {flipped ? "(Back)" : "(Front)"}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="border px-3 py-2 rounded opacity-90 disabled:opacity-40"
+                            onClick={goPrev}
+                            disabled={!canPrev}
+                          >
+                            ← Prev
+                          </button>
+
+                          <button
+                            className="border px-3 py-2 rounded opacity-90"
+                            onClick={shuffleCards}
+                            title="Shuffle cards"
+                          >
+                            Shuffle
+                          </button>
+
+                          <button
+                            className="border px-3 py-2 rounded opacity-90"
+                            onClick={flip}
+                            title="Flip (Space / Enter)"
+                          >
+                            Flip
+                          </button>
+
+                          <button
+                            className="border px-3 py-2 rounded opacity-90 disabled:opacity-40"
+                            onClick={goNext}
+                            disabled={!canNext}
+                          >
+                            Next →
+                          </button>
+                        </div>
+                      </div>
+
+                      <div
+                        className="border bg-white rounded mt-4 p-6 cursor-pointer"
+                        onClick={flip}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <div className="font-semibold mb-2 opacity-80">
+                          {flipped ? "Back" : "Front"}
+                        </div>
+                        <div className="text-lg whitespace-pre-wrap">
+                          {flipped ? current?.back : current?.front}
+                        </div>
+                      </div>
+
+                      <div className="mt-2 text-sm opacity-60">
+                        Tip: click the card to flip. Use ← → to navigate. (Keyboard disabled in Edit mode.)
+                      </div>
+                    </>
+                  ) : null}
+                </>
               ) : (
                 <>
-                  <div className="mt-3 flex items-center justify-between gap-4">
-                    <div className="opacity-70">
-                      Card {index + 1} / {total} {flipped ? "(Back)" : "(Front)"}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        className="border px-3 py-2 rounded opacity-90 disabled:opacity-40"
-                        onClick={goPrev}
-                        disabled={!canPrev}
-                      >
-                        ← Prev
-                      </button>
-
-                      <button
-                        className="border px-3 py-2 rounded opacity-90"
-                        onClick={shuffleCards}
-                        title="Shuffle cards"
-                      >
-                        Shuffle
-                      </button>
-
-                      <button
-                        className="border px-3 py-2 rounded opacity-90"
-                        onClick={flip}
-                        title="Flip (Space / Enter)"
-                      >
-                        Flip
-                      </button>
-
-                      <button
-                        className="border px-3 py-2 rounded opacity-90 disabled:opacity-40"
-                        onClick={goNext}
-                        disabled={!canNext}
-                      >
-                        Next →
-                      </button>
+                  {/* Add card */}
+                  <div className="mt-4 border bg-white rounded p-4 max-w-3xl">
+                    <div className="font-semibold opacity-80">Add a card</div>
+                    <div className="mt-3 grid gap-2">
+                      <input
+                        className="border p-2 rounded"
+                        placeholder="Front"
+                        value={newFront}
+                        onChange={(e) => setNewFront(e.target.value)}
+                        disabled={saving}
+                      />
+                      <textarea
+                        className="border p-2 rounded"
+                        placeholder="Back"
+                        rows={3}
+                        value={newBack}
+                        onChange={(e) => setNewBack(e.target.value)}
+                        disabled={saving}
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="border px-3 py-2 rounded disabled:opacity-40"
+                          onClick={addCard}
+                          disabled={saving || !newFront.trim() || !newBack.trim()}
+                        >
+                          Add
+                        </button>
+                        {saving ? <div className="text-sm opacity-60">Saving…</div> : null}
+                      </div>
                     </div>
                   </div>
 
-                  {/* no animation required yet; keep your CSS later */}
-                  <div
-                    className="border bg-white rounded mt-4 p-6 cursor-pointer"
-                    onClick={flip}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="font-semibold mb-2 opacity-80">
-                      {flipped ? "Back" : "Front"}
-                    </div>
-                    <div className="text-lg">
-                      {flipped ? current?.back : current?.front}
-                    </div>
-                  </div>
-
-                  <div className="mt-2 text-sm opacity-60">
-                    Tip: click the card to flip. Use ← → to navigate.
+                  {/* Edit list */}
+                  <div className="mt-6 space-y-3 max-w-3xl">
+                    {cards.map((c) => (
+                      <EditableCardRow
+                        key={c.cardid}
+                        card={c}
+                        disabled={saving}
+                        onSave={(front, back) => updateCard(c.cardid, front, back)}
+                        onDelete={() => deleteCard(c.cardid)}
+                      />
+                    ))}
                   </div>
                 </>
               )}
