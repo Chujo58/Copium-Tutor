@@ -606,51 +606,85 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
     return {"success": True, "decks": decks}
 
 
+
 # Create a new deck in a project (QUERY ONLY — assumes documents already indexed)
 
 FLASHCARDS_SYSTEM = """
-You are an expert tutor.
-Return ONLY valid JSON (no markdown, no commentary).
-If you cannot comply, return exactly: {"cards":[]}
+You are an expert tutor creating study flashcards.
 
-Schema:
+You have access to the course's INDEXED documents for this course (retrieval may be automatic).
+
+Return ONLY valid JSON:
 {
+  "ok": true,
+  "mode": "grounded" | "mixed" | "external_only",
+  "confidence": 0-100,
   "cards": [
-    { "front": "...", "back": "..." }
+    {
+      "front": "...",
+      "back": "...",
+      "external": true/false,
+      "note": "string"
+    }
   ]
 }
+
 Rules:
-- 10 to 20 cards
-- Front is a question/term, Back is concise explanation
-- Use ONLY the course documents already indexed in memory as the source of truth
+- ALWAYS return ok=true.
+- Produce 10–20 cards.
+- Cards do NOT need to be verbatim excerpts; paraphrase and synthesize.
+- Prefer indexed docs. If a card is not clearly supported by indexed docs, set external=true and
+  note="General knowledge (not found in course docs)."
+- If most cards are doc-supported: mode="grounded".
+- If mix: mode="mixed".
+- If you could not rely on docs at all: mode="external_only".
 """.strip()
 
 
 def _extract_json_object(raw: str) -> str | None:
-    """Best-effort extraction of the first JSON object in a string."""
+    if raw is None:
+        return None
     if not isinstance(raw, str):
         raw = str(raw)
     start = raw.find("{")
     end = raw.rfind("}")
     if start == -1 or end == -1 or end <= start:
         return None
-    return raw[start : end + 1]
+    return raw[start:end + 1]
+
+
+def _safe_json_load(raw: str):
+    try:
+        return json.loads(raw)
+    except Exception:
+        extracted = _extract_json_object(raw)
+        if extracted:
+            try:
+                return json.loads(extracted)
+            except Exception:
+                return None
+        return None
 
 
 @app.post("/projects/{projectid}/decks")
-async def create_deck(
-    projectid: str, body: CreateDeckRequest, session: str = Cookie(None)
-):
+async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
+
+    print("\n" + "=" * 80)
+    print(f"[CREATE_DECK] projectid={projectid}")
+    print(f"[DECK NAME] {body.name}")
+    print(f"[USER PROMPT] {body.prompt}")
+
     if session is None:
+        print("[AUTH] ❌ Unauthorized")
         return {"success": False, "message": "Unauthorized"}
     userid = session
+    print(f"[AUTH] ✅ userid={userid}")
 
-    # verify project belongs to user
-    cursor.execute(
-        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
-    )
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
     if cursor.fetchone() is None:
+        print("[PROJECT] ❌ Project not found or not owned by user")
         return {"success": False, "message": "Project not found"}
+    print("[PROJECT] ✅ Ownership verified")
 
     deckid = uuid.uuid4().hex[:8]
     createddate = datetime.utcnow().isoformat()
@@ -660,70 +694,112 @@ async def create_deck(
         (deckid, projectid, userid, body.name, body.prompt, createddate),
     )
     conn.commit()
+    print(f"[DB] Deck created deckid={deckid}")
 
-    # ---- Backboard generation starts here (QUERY ONLY) ----
-    print("BACKBOARD KEY PRESENT:", bool(BACKBOARD_API_KEY))
-
+    print("[BACKBOARD] API key present:", bool(BACKBOARD_API_KEY))
     if not BACKBOARD_API_KEY:
+        print("[BACKBOARD] ❌ No API key, skipping generation")
         return {
             "success": True,
             "deckid": deckid,
             "generated": 0,
+            "confidence": 0,
+            "mode": "external_only",
             "warning": "BACKBOARD_API_KEY not set, cards not generated",
         }
 
     client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
+    print("[BACKBOARD]")
+    print("  assistant_id:", assistant_id)
+    print("  thread_id:", thread_id)
 
-    generation_prompt = f"""
+    file_paths = get_project_file_paths(projectid)
+    file_names = [os.path.basename(p) for p in (file_paths or [])]
+
+    print("[INDEXED FILES]")
+    if not file_names:
+        print("  ⚠️ NONE FOUND")
+    else:
+        for n in file_names:
+            print("  -", n)
+
+    user_prompt = f"""
 Course: {projectid}
 Deck name: {body.name}
 
 User study prompt:
 {body.prompt}
 
-Task:
-Generate 10–20 high-quality flashcards using ONLY the indexed course documents in memory.
-Focus on definitions, core concepts, key equations, comparisons, and exam-relevant facts.
+Indexed file names (for context; retrieval uses the indexed docs automatically):
+{chr(10).join(f"- {n}" for n in file_names) if file_names else "- (none found)"}
 """.strip()
 
-    try:
-        response = await client.add_message(
+    # -------------------------
+    # Generate cards (single pass + one retry if JSON is bad)
+    # -------------------------
+    warning = None
+    print("[GENERATION] Generating flashcards (single-pass)")
+
+    gen = await client.add_message(
+        thread_id=thread_id,
+        content=FLASHCARDS_SYSTEM + "\n\n" + user_prompt,
+        llm_provider="openai",
+        model_name="gpt-4o",
+        stream=False,
+        # use Readonly so you don't store flashcards in memory
+        memory="Readonly",
+    )
+
+    gen_raw = getattr(gen, "content", gen)
+    print("[GENERATION RAW]")
+    print(gen_raw)
+
+    gen_json = _safe_json_load(gen_raw)
+    if not isinstance(gen_json, dict):
+        print("[GENERATION] ❌ Invalid JSON; retrying once")
+        retry = await client.add_message(
             thread_id=thread_id,
-            content=FLASHCARDS_SYSTEM + "\n\n" + generation_prompt,
+            content="Return ONLY valid JSON. No markdown. No commentary.\n\n"
+                    + FLASHCARDS_SYSTEM + "\n\n" + user_prompt,
             llm_provider="openai",
             model_name="gpt-4o",
             stream=False,
-            memory="Auto",
+            memory="Readonly",
         )
-    except Exception as e:
-        logger.error(f"Backboard generation failed: {e}")
-        return {
-            "success": True,
-            "deckid": deckid,
-            "generated": 0,
-            "warning": "Backboard generation failed (see server logs)",
-        }
+        retry_raw = getattr(retry, "content", retry)
+        print("[RETRY RAW]")
+        print(retry_raw)
+        gen_json = _safe_json_load(retry_raw)
 
-    raw = getattr(response, "content", response)
-    print("BACKBOARD RAW RESPONSE:", raw)
-
-    # Parse JSON safely
+    mode = "external_only"
+    confidence = 25
     cards = []
-    try:
-        raw_str = raw if isinstance(raw, str) else str(raw)
-        json_text = _extract_json_object(raw_str) or raw_str
-        cards_json = json.loads(json_text)
-        if isinstance(cards_json, dict):
-            cards = cards_json.get("cards", []) or []
-    except Exception as e:
-        logger.error(f"Failed to parse JSON from Backboard: {e}")
+
+    if isinstance(gen_json, dict):
+        mode = (gen_json.get("mode") or "external_only").strip().lower()
+        if mode not in ("grounded", "mixed", "external_only"):
+            mode = "external_only"
+
+        try:
+            confidence = int(gen_json.get("confidence", 25))
+        except Exception:
+            confidence = 25
+        confidence = max(0, min(100, confidence))
+
+        cards = gen_json.get("cards") or []
+        if not isinstance(cards, list):
+            cards = []
+    else:
+        warning = "Model did not return valid JSON; padded with generic cards."
+        mode = "external_only"
+        confidence = 20
         cards = []
 
-    print("PARSED CARDS COUNT:", len(cards))
-
-    # Save cards
-    inserted = 0
-    for c in cards:
+    # -------------------------
+    # Clean & ensure 10 cards minimum (always generate)
+    # -------------------------
+    cleaned = []
+    for c in cards[:20]:
         if not isinstance(c, dict):
             continue
         front = (c.get("front") or "").strip()
@@ -731,19 +807,62 @@ Focus on definitions, core concepts, key equations, comparisons, and exam-releva
         if not front or not back:
             continue
 
+        external = bool(c.get("external", True))
+        note = (c.get("note") or "").strip()
+        if external and not note:
+            note = "General knowledge (not found in course docs)."
+
+        cleaned.append({"front": front, "back": back, "external": external, "note": note})
+
+    while len(cleaned) < 10:
+        cleaned.append({
+            "front": f"Key idea #{len(cleaned)+1}",
+            "back": "Write a concise explanation and one example from your notes.",
+            "external": True,
+            "note": "General study template (not found in course docs).",
+        })
+        confidence = min(confidence, 25)
+        warning = warning or "Some cards were padded with general study templates."
+
+    cleaned = cleaned[:20]
+
+    print("[GENERATION FINAL]")
+    print("  final_mode:", mode)
+    print("  final_confidence:", confidence)
+    print("  final_cards:", len(cleaned))
+    if warning:
+        print("  warning:", warning)
+
+    # -------------------------
+    # Save cards
+    # (DB only stores front/back; append external marker to back)
+    # -------------------------
+    inserted = 0
+    for c in cleaned:
         cardid = uuid.uuid4().hex[:8]
+
+        back_to_store = c["back"]
+        if c["external"]:
+            back_to_store += f"\n\n[External] {c['note']}"
+
         cursor.execute(
             "INSERT INTO cards (cardid, deckid, front, back) VALUES (?, ?, ?, ?)",
-            (cardid, deckid, front, back),
+            (cardid, deckid, c["front"], back_to_store),
         )
         inserted += 1
 
     conn.commit()
+    print(f"[DB] ✅ cards inserted: {inserted}")
 
-    cursor.execute("SELECT COUNT(*) FROM cards WHERE deckid=?", (deckid,))
-    print("DB CARDS INSERTED:", cursor.fetchone()[0])
-
-    return {"success": True, "deckid": deckid, "generated": inserted}
+    return {
+        "success": True,
+        "deckid": deckid,
+        "generated": inserted,
+        "confidence": confidence,
+        "mode": mode,
+        "matched_files": file_names,
+        "warning": warning,
+    }
 
 
 # Get deck details and cards
