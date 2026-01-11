@@ -25,3 +25,16 @@ dist-ssr
 *.sw?
 
 public/fonts/aire-pro/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# SQLite / database files
+*.db
+
+# Env files
+.env
+.venv
