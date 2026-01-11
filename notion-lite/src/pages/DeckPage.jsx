@@ -20,6 +20,7 @@ export default function DeckPage() {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
+  // Fetch projects and find the current course
   const fetchProjectsAndCourse = useCallback(async () => {
     setCourseLoading(true);
     try {
@@ -45,6 +46,7 @@ export default function DeckPage() {
     }
   }, [projectId]);
 
+  // Fetch deck and its cards
   const fetchDeck = useCallback(async () => {
     setLoading(true);
     try {
@@ -71,6 +73,7 @@ export default function DeckPage() {
     }
   }, [deckId]);
 
+  // Initial data fetch
   useEffect(() => {
     fetchProjectsAndCourse();
     fetchDeck();
@@ -123,6 +126,23 @@ export default function DeckPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [goPrev, goNext, flip, total]);
+
+  function shuffleArray(arr) {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  const shuffleCards = useCallback(() => {
+    if (cards.length === 0) return;
+    setCards((prev) => shuffleArray(prev));
+    setIndex(0);
+    setFlipped(false);
+  }, [cards.length]);
+
 
   return (
     <div className="flex">
@@ -187,6 +207,14 @@ export default function DeckPage() {
                         disabled={!canPrev}
                       >
                         ← Prev
+                      </button>
+
+                      <button
+                        className="border px-3 py-2 rounded opacity-90"
+                        onClick={shuffleCards}
+                        title="Shuffle cards"
+                      >
+                        Shuffle
                       </button>
 
                       <button
