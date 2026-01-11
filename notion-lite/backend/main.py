@@ -7,6 +7,8 @@ import datetime as dt
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
+import asyncio
+from backboard import BackboardClient
 
 load_dotenv()
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
@@ -18,7 +20,6 @@ app = FastAPI()
 salt = bcrypt.gensalt()
 conn = sqlite3.connect("database.db")
 cursor = conn.cursor()
-
 
 @dataclass
 class User:
@@ -54,6 +55,33 @@ class CreateDeckRequest(BaseModel):
     name: str
     prompt: str
 
+async def get_or_create_backboard_memory(projectid: str):
+    # check DB first
+    cursor.execute(
+        "SELECT assistant_id, memory_thread_id FROM backboard_projects WHERE projectid=?",
+        (projectid,),
+    )
+    row = cursor.fetchone()
+
+    client = BackboardClient(api_key=BACKBOARD_API_KEY)
+
+    if row and row[0] and row[1]:
+        return client, row[0], row[1]
+
+    # create new assistant + thread for this course
+    assistant = await client.create_assistant(
+        name=f"CopiumTutor Course {projectid}",
+        description="Study tutor that generates flashcards/quizzes using course documents and memory.",
+    )
+    thread = await client.create_thread(assistant.assistant_id)
+
+    cursor.execute(
+        "INSERT OR REPLACE INTO backboard_projects (projectid, assistant_id, memory_thread_id) VALUES (?, ?, ?)",
+        (projectid, assistant.assistant_id, thread.thread_id),
+    )
+    conn.commit()
+
+    return client, assistant.assistant_id, thread.thread_id
 
 def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
     """
@@ -117,8 +145,31 @@ def init_db():
 
     conn.commit()
 
+
 init_db()
 
+def get_project_file_paths(projectid: str) -> list[str]:
+    cursor.execute("""
+        SELECT f.fileid, f.filename
+        FROM files f
+        JOIN fileinproj fp ON fp.fileid = f.fileid
+        WHERE fp.projectid = ?
+    """, (projectid,))
+    rows = cursor.fetchall()
+
+    paths = []
+    for fileid, filename in rows:
+        candidate = os.path.join("uploaded_files", f"{fileid}_{filename}")
+        if os.path.exists(candidate):
+            paths.append(candidate)
+            continue
+
+        candidate2 = os.path.join("uploaded_files", filename)
+        if os.path.exists(candidate2):
+            paths.append(candidate2)
+            continue
+
+    return paths
 
 # Allow frontend
 app.add_middleware(
@@ -527,6 +578,10 @@ async def delete_project(projectid: str, session: str = Cookie(None)):
 
     return {"success": True, "message": "Project deleted successfully"}
 
+###############
+# DECKS
+###############
+
 # List decks in a project
 @app.get("/projects/{projectid}/decks")
 async def list_decks(projectid: str, session: str = Cookie(None)):
@@ -552,7 +607,22 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
     ]
     return {"success": True, "decks": decks}
 
-# Create a new deck in a project (stores name+prompt only for now)
+# Create a new deck in a project 
+FLASHCARDS_SYSTEM = """
+You are an expert tutor.
+Return ONLY valid JSON (no markdown, no commentary).
+Schema:
+{
+  "cards": [
+    { "front": "...", "back": "..." }
+  ]
+}
+Rules:
+- 10 to 20 cards
+- Front is a question/term, Back is concise explanation
+- Use the uploaded PDFs as the source of truth
+"""
+
 @app.post("/projects/{projectid}/decks")
 async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
     if session is None:
