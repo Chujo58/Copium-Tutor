@@ -11,7 +11,9 @@ export default function CourseDocumentUploader({ projectName, onUploaded }) {
 
   return (
     <div className="mt-4">
-      <input type="button" value="Upload Documents" onClick={() => setShowPopup(true)} className="px-4 py-2 bg-rose-plum text-white rounded hover:bg-rose-copper cursor-pointer" />
+      <button onClick={() => setShowPopup(true)} className="px-4 py-2 bg-rose-plum text-white rounded hover:bg-rose-copper cursor-pointer">
+        Upload Documents
+      </button>
       {showPopup && (
         <UploadPopup
           onClose={() => setShowPopup(false)}

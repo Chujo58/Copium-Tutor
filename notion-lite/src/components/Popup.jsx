@@ -72,7 +72,7 @@ export function UploadPopup({ onClose, projectName, onUploaded }) {
             }
             return data;
         } catch (err) {
-            throw new Error(err.message || `Network error uploading ${file.name}`);
+            throw new Error(err.message || err.toString() || `Network error uploading ${file.name}`);
         }
     };
 
