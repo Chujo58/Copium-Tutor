@@ -6,6 +6,13 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "database.db")
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
+def _add_column_if_missing(table: str, col: str, coldef: str):
+    cursor.execute(f"PRAGMA table_info({table})")
+    cols = [r[1] for r in cursor.fetchall()]
+    if col not in cols:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coldef}")
+        conn.commit()
+
 def init_db():
     # decks: one row per deck created inside a course (project)
     cursor.execute("""
@@ -25,9 +32,11 @@ def init_db():
         cardid TEXT PRIMARY KEY,
         deckid TEXT NOT NULL,
         front TEXT NOT NULL,
-        back TEXT NOT NULL
+        back TEXT NOT NULL,
+        position INTEGER
     )
     """)
+    _add_column_if_missing("cards", "position", "INTEGER")
 
     # backboard: persistent memory per course
     cursor.execute("""

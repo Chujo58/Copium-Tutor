@@ -71,6 +71,14 @@ class CreateDeckRequest(BaseModel):
     name: str
     prompt: str
 
+class CreateCardRequest(BaseModel):
+    front: str
+    back: str
+
+class UpdateCardRequest(BaseModel):
+    front: str | None = None
+    back: str | None = None
+
 
 async def get_or_create_backboard_memory(projectid: str):
     # check DB first
@@ -161,6 +169,20 @@ def get_project_file_paths(projectid: str) -> list[str]:
 
     return paths
 
+def _require_deck_owned(deckid: str, userid: str):
+    cursor.execute("SELECT 1 FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
+    if cursor.fetchone() is None:
+        return False
+    return True
+
+def _get_card_and_verify_owner(cardid: str, userid: str):
+    cursor.execute("""
+        SELECT c.cardid, c.deckid, c.front, c.back
+        FROM cards c
+        JOIN decks d ON d.deckid = c.deckid
+        WHERE c.cardid=? AND d.userid=?
+    """, (cardid, userid))
+    return cursor.fetchone()
 
 # Allow frontend
 app.add_middleware(
@@ -173,6 +195,12 @@ app.add_middleware(
 
 UPLOAD_DIR = "uploaded_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+#==================================================================
+#==================================================================
+#                         ENDPOINTS START HERE
+#==================================================================
+#==================================================================
 
 
 # ME
@@ -852,7 +880,7 @@ Indexed file names (for context; retrieval uses the indexed docs automatically):
         inserted += 1
 
     conn.commit()
-    print(f"[DB] ✅ cards inserted: {inserted}")
+    print(f"[DB] cards inserted: {inserted}")
 
     return {
         "success": True,
@@ -889,13 +917,120 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
         "createddate": row[4],
     }
 
-    cursor.execute("SELECT cardid, front, back FROM cards WHERE deckid=?", (deckid,))
+    cursor.execute("""
+        SELECT cardid, front, back, COALESCE(position, 999999) as pos
+        FROM cards
+        WHERE deckid=?
+        ORDER BY pos ASC, rowid ASC
+    """, (deckid,))
     card_rows = cursor.fetchall()
-    cards = [{"cardid": r[0], "front": r[1], "back": r[2]} for r in card_rows]
+    cards = [{"cardid": r[0], "front": r[1], "back": r[2], "position": r[3]} for r in card_rows]
 
     return {"success": True, "deck": deck, "cards": cards}
 
+@app.delete("/decks/{deckid}")
+async def delete_deck(deckid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
 
+    # Verify deck belongs to this user
+    cursor.execute("SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Deck not found"}
+
+    # Delete cards first (safe even without foreign keys)
+    cursor.execute("DELETE FROM cards WHERE deckid=?", (deckid,))
+    cursor.execute("DELETE FROM decks WHERE deckid=?", (deckid,))
+    conn.commit()
+
+    return {"success": True, "deleted_deckid": deckid}
+
+###############
+# CARDS
+###############
+
+# create card
+@app.post("/decks/{deckid}/cards")
+async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    if not _require_deck_owned(deckid, userid):
+        return {"success": False, "message": "Deck not found"}
+
+    front = (body.front or "").strip()
+    back = (body.back or "").strip()
+    if not front or not back:
+        return {"success": False, "message": "front and back are required"}
+
+    # position = max(position)+1 (fallback if null)
+    cursor.execute("SELECT COALESCE(MAX(position), 0) FROM cards WHERE deckid=?", (deckid,))
+    max_pos = cursor.fetchone()[0] or 0
+    pos = int(max_pos) + 1
+
+    cardid = uuid.uuid4().hex[:8]
+    cursor.execute(
+        "INSERT INTO cards (cardid, deckid, front, back, position) VALUES (?, ?, ?, ?, ?)",
+        (cardid, deckid, front, back, pos),
+    )
+    conn.commit()
+
+    return {
+        "success": True,
+        "card": {"cardid": cardid, "deckid": deckid, "front": front, "back": back, "position": pos},
+    }
+
+# edit card
+@app.patch("/cards/{cardid}")
+async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    row = _get_card_and_verify_owner(cardid, userid)
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    current_front, current_back = row[2], row[3]
+    new_front = current_front if body.front is None else (body.front or "").strip()
+    new_back = current_back if body.back is None else (body.back or "").strip()
+
+    if not new_front or not new_back:
+        return {"success": False, "message": "front/back cannot be empty"}
+
+    cursor.execute(
+        "UPDATE cards SET front=?, back=? WHERE cardid=?",
+        (new_front, new_back, cardid),
+    )
+    conn.commit()
+
+    return {
+        "success": True,
+        "card": {"cardid": cardid, "deckid": row[1], "front": new_front, "back": new_back},
+    }
+
+# delete card
+@app.delete("/cards/{cardid}")
+async def delete_card(cardid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    row = _get_card_and_verify_owner(cardid, userid)
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    cursor.execute("DELETE FROM cards WHERE cardid=?", (cardid,))
+    conn.commit()
+
+    return {"success": True, "deleted": True, "cardid": cardid}
+
+
+
+# Index project documents
 @app.post("/projects/{projectid}/index")
 async def index_project_documents(projectid: str, session: str = Cookie(None)):
     if session is None:
@@ -919,25 +1054,3 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         client_factory=None,  # optional, you can remove if unused
         get_memory=get_or_create_backboard_memory,
     )
-
-
-@app.delete("/decks/{deckid}")
-async def delete_deck(deckid: str, session: str = Cookie(None)):
-    if session is None:
-        return {"success": False, "message": "Unauthorized"}
-    userid = session
-
-    # Verify deck belongs to this user
-    cursor.execute(
-        "SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid)
-    )
-    row = cursor.fetchone()
-    if row is None:
-        return {"success": False, "message": "Deck not found"}
-
-    # Delete cards first (safe even without foreign keys)
-    cursor.execute("DELETE FROM cards WHERE deckid=?", (deckid,))
-    cursor.execute("DELETE FROM decks WHERE deckid=?", (deckid,))
-    conn.commit()
-
-    return {"success": True, "deleted_deckid": deckid}
