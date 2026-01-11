@@ -60,6 +60,23 @@ export default function FlashcardsHomePage() {
     }
   };
 
+  const deleteDeck = async (deckid) => {
+    if (!confirm("Delete this deck? This will delete all its cards.")) return;
+
+    const res = await fetch(`${API_URL}/decks/${deckid}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.message || "Failed to delete deck");
+      return;
+    }
+    // refresh list
+    fetchDecks();
+  };
+
+
   useEffect(() => {
     fetchDecks();
   }, [projectId]);
@@ -112,15 +129,28 @@ export default function FlashcardsHomePage() {
         ) : (
           <ul className="mt-3 space-y-2">
             {decks.map((d) => (
-              <li key={d.deckid}>
-                <Link
-                  className="underline"
-                  to={`/project/${projectId}/flashcards/${d.deckid}`}
+              <li key={d.deckid} className="flex items-start justify-between gap-4">
+                <div>
+                  <Link
+                    className="underline"
+                    to={`/project/${projectId}/flashcards/${d.deckid}`}
+                  >
+                    {d.name}
+                  </Link>
+                  <div className="text-sm opacity-70">{d.prompt}</div>
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.preventDefault(); // prevent navigation
+                    deleteDeck(d.deckid);
+                  }}
+                  className="text-sm underline opacity-60 hover:opacity-100"
                 >
-                  {d.name}
-                </Link>
-                <div className="text-sm opacity-70">{d.prompt}</div>
+                  Delete
+                </button>
               </li>
+
             ))}
           </ul>
         )}
