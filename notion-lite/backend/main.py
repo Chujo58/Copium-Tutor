@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 import asyncio
 from backboard import BackboardClient
 from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
-
+from db import conn, cursor, init_db
+from backboard_ops import index_project_documents_impl
 
 load_dotenv()
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
@@ -22,6 +23,8 @@ app = FastAPI()
 salt = bcrypt.gensalt()
 conn = sqlite3.connect("database.db")
 cursor = conn.cursor()
+
+init_db()
 
 @dataclass
 class User:
@@ -38,7 +41,6 @@ class File:
     file_size: int
     file_type: str
 
-
 @dataclass
 class Project:
     projectid: str
@@ -46,7 +48,6 @@ class Project:
     description: str
     created_date: str
     userid: str
-
 
 @dataclass
 class FileProjectRelation:
@@ -118,53 +119,6 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
 
     return uid[:length]
 
-def init_db():
-    # decks: one row per deck created inside a course (project)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS decks (
-        deckid TEXT PRIMARY KEY,
-        projectid TEXT NOT NULL,
-        userid TEXT NOT NULL,
-        name TEXT NOT NULL,
-        prompt TEXT NOT NULL,
-        createddate TEXT NOT NULL
-    )
-    """)
-
-    # cards: the generated (or manual) Q/A inside a deck
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS cards (
-        cardid TEXT PRIMARY KEY,
-        deckid TEXT NOT NULL,
-        front TEXT NOT NULL,
-        back TEXT NOT NULL
-    )
-    """)
-
-    # backboard: persistent memory per course
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS backboard_projects (
-        projectid TEXT PRIMARY KEY,
-        assistant_id TEXT,
-        memory_thread_id TEXT
-    )
-    """)
-
-    # indexed_files: track which files have been indexed for a project
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS indexed_files (
-        projectid TEXT NOT NULL,
-        fileid TEXT NOT NULL,
-        content_hash TEXT NOT NULL,
-        indexed_at TEXT NOT NULL,
-        PRIMARY KEY (projectid, fileid, content_hash)
-    )
-    """)
-
-    conn.commit()
-
-
-init_db()
 
 def get_project_file_paths(projectid: str) -> list[str]:
     cursor.execute("""
@@ -790,125 +744,24 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
 
     return {"success": True, "deck": deck, "cards": cards}
 
-def sha256_file(path: str, chunk_size: int = 1024 * 1024) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        while True:
-            b = f.read(chunk_size)
-            if not b:
-                break
-            h.update(b)
-    return h.hexdigest()
-
-
 @app.post("/projects/{projectid}/index")
 async def index_project_documents(projectid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    # verify project belongs to user
-    cursor.execute(
-        "SELECT 1 FROM projects WHERE projectid=? AND userid=?",
-        (projectid, userid),
-    )
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
     if not BACKBOARD_API_KEY:
         return {"success": False, "message": "BACKBOARD_API_KEY not set"}
 
-    client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
-
-    # Get fileid + relative filepath from DB
-    cursor.execute(
-        """
-        SELECT f.fileid, f.filepath
-        FROM files f
-        JOIN fileinproj fp ON fp.fileid = f.fileid
-        WHERE fp.projectid = ?
-        """,
-        (projectid,),
+    return await index_project_documents_impl(
+        projectid=projectid,
+        userid=userid,
+        cursor=cursor,
+        conn=conn,
+        client_factory=None,              # optional, you can remove if unused
+        get_memory=get_or_create_backboard_memory,
     )
-    rows = cursor.fetchall()
-
-    base_dir = os.path.dirname(__file__)
-
-    uploaded_docs = 0
-    uploaded_split_docs = 0
-    skipped = 0
-    failed = 0
-
-    for fileid, rel_path in rows:
-        try:
-            abs_path = os.path.normpath(os.path.join(base_dir, rel_path))
-
-            if not os.path.exists(abs_path):
-                logger.warning(f"Missing file on disk: {abs_path}")
-                continue
-
-            # Compute content hash
-            content_hash = sha256_file(abs_path)
-
-            # Check if already indexed
-            cursor.execute(
-                """
-                SELECT 1 FROM indexed_files
-                WHERE projectid=? AND fileid=? AND content_hash=?
-                """,
-                (projectid, fileid, content_hash),
-            )
-            if cursor.fetchone() is not None:
-                skipped += 1
-                continue
-
-            size = os.path.getsize(abs_path)
-
-            # <=10MB: upload directly
-            if size <= MAX_BYTES:
-                await client.upload_document_to_thread(
-                    thread_id=thread_id,
-                    file_path=abs_path,
-                )
-                uploaded_docs += 1
-
-            # >10MB: split then upload
-            else:
-                parts = split_pdf_to_max_size(abs_path, max_bytes=MAX_BYTES)
-
-                for part_path in parts:
-                    await client.upload_document_to_thread(
-                        thread_id=thread_id,
-                        file_path=part_path,
-                    )
-                    uploaded_split_docs += 1
-
-                    # cleanup temp split file
-                    try:
-                        os.remove(part_path)
-                    except Exception:
-                        pass
-
-            # Mark as indexed ONLY after successful upload(s)
-            cursor.execute(
-                """
-                INSERT OR IGNORE INTO indexed_files
-                (projectid, fileid, content_hash, indexed_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (projectid, fileid, content_hash, datetime.utcnow().isoformat()),
-            )
-            conn.commit()
-
-        except Exception as e:
-            failed += 1
-            logger.error(f"Indexing failed for fileid={fileid}: {e}")
-
-    return {
-        "success": True,
-        "thread_id": thread_id,
-        "uploaded_documents": uploaded_docs,
-        "uploaded_split_documents": uploaded_split_docs,
-        "skipped_files": skipped,
-        "failed_files": failed,
-    }
