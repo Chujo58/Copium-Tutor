@@ -2,5 +2,19 @@
     "python-envs.defaultEnvManager": "ms-python.python:conda",
     "python-envs.defaultPackageManager": "ms-python.python:conda",
     "python-envs.pythonProjects": [],
-    "css.lint.unknownAtRules": "ignore"
+    "css.lint.unknownAtRules": "ignore",
+    "cSpell.words": [
+        "autoretrieval",
+        "cardid",
+        "checkpw",
+        "Copium",
+        "createddate",
+        "deckid",
+        "dotenv",
+        "fileinproj",
+        "gensalt",
+        "hashpw",
+        "uniqid",
+        "uploaddate"
+    ]
 }

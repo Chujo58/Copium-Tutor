@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+bcrypt
+python-multipart
+backboard-sdk
+python-dotenv
+pypdf
