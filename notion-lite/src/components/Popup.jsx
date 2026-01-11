@@ -48,57 +48,73 @@ export function UploadPopup({ onClose, projectName, onUploaded }) {
     const [files, setFiles] = React.useState([]);
     const [uploadStatus, setUploadStatus] = React.useState({});
     const fileInputRef = React.useRef(null);
+    const fileIdCounter = React.useRef(0);
 
     const uploadOne = async (file) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("project", projectName);
 
-        const res = await fetch(`${API_URL}/upload`, {
-            method: "POST",
-            body: formData,
-            credentials: "include",
-        });
+        try {
+            const res = await fetch(`${API_URL}/upload`, {
+                method: "POST",
+                body: formData,
+                credentials: "include",
+            });
 
-        const data = await res.json();
-        if (!data.success) {
-            throw new Error(data.message || `Upload failed: ${file.name}`);
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+
+            const data = await res.json();
+            if (!data.success) {
+                throw new Error(data.message || `Upload failed: ${file.name}`);
+            }
+            return data;
+        } catch (err) {
+            throw new Error(err.message || `Network error uploading ${file.name}`);
         }
-        return data;
     };
 
     const handleFiles = async (selectedFiles) => {
         if (selectedFiles.length === 0) return;
 
-        const fileArray = Array.from(selectedFiles);
+        const fileArray = Array.from(selectedFiles).map((file) => ({
+            file,
+            id: `file-${fileIdCounter.current++}`,
+        }));
         setFiles((prev) => [...prev, ...fileArray]);
 
         const newStatus = {};
-        for (const file of fileArray) {
-            newStatus[file.name] = { status: "pending", progress: 0 };
+        for (const { id } of fileArray) {
+            newStatus[id] = { status: "pending", progress: 0 };
         }
         setUploadStatus((prev) => ({ ...prev, ...newStatus }));
 
-        for (const file of fileArray) {
+        let allSuccess = true;
+        for (const { file, id } of fileArray) {
             try {
                 setUploadStatus((prev) => ({
                     ...prev,
-                    [file.name]: { status: "uploading", progress: 50 },
+                    [id]: { status: "uploading", progress: 50 },
                 }));
                 await uploadOne(file);
                 setUploadStatus((prev) => ({
                     ...prev,
-                    [file.name]: { status: "success", progress: 100 },
+                    [id]: { status: "success", progress: 100 },
                 }));
             } catch (err) {
+                allSuccess = false;
                 setUploadStatus((prev) => ({
                     ...prev,
-                    [file.name]: { status: "error", progress: 0, error: err.message },
+                    [id]: { status: "error", progress: 0, error: err.message },
                 }));
             }
         }
 
-        onUploaded?.();
+        if (allSuccess) {
+            onUploaded?.();
+        }
     };
 
     function handleDrop(e) {
@@ -150,10 +166,10 @@ export function UploadPopup({ onClose, projectName, onUploaded }) {
                 <div className="mt-4">
                     <h3 className="font-semibold mb-2">Files:</h3>
                     <ul className="space-y-2">
-                        {files.map((file, index) => {
-                            const status = uploadStatus[file.name];
+                        {files.map(({ file, id }) => {
+                            const status = uploadStatus[id];
                             return (
-                                <li key={index} className="flex items-center justify-between text-sm">
+                                <li key={id} className="flex items-center justify-between text-sm">
                                     <span className="truncate flex-1">{file.name}</span>
                                     <span className="ml-2">
                                         {status?.status === "pending" && (
