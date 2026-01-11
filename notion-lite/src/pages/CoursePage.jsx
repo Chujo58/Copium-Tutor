@@ -5,6 +5,7 @@ import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder } from "lucide-react";
+import { BlockWithDivider, PlumDivider } from "../components/Divider";
 
 export default function CoursePage() {
     const { projectId } = useParams();
@@ -166,14 +167,15 @@ export default function CoursePage() {
                 ) : (
                     <>
                         <div className="mt-4">
-                            <div className="text-3xl main-header font-sans text-dark">
+                            <div className="text-3xl main-header font-card w-min text-dark">
                                 {course.name}
+                                <PlumDivider />
                             </div>
 
                             {course.description ? (
-                                <div className="mt-1 opacity-80">
-                                    {course.description}
-                                </div>
+                                <BlockWithDivider color="border-rose-plum">
+                                    <div className="p-1">{course.description}</div>
+                                </BlockWithDivider>
                             ) : null}
 
                             <div className="mt-2 text-sm opacity-60">
