@@ -44,23 +44,137 @@ export default function Popup({ title, children, onClose, wide = false }) {
     );
 }
 
-export function UploadPopup({ onClose }) {
-    // TODO: implement file upload logic
+export function UploadPopup({ onClose, projectName, onUploaded }) {
+    const [files, setFiles] = React.useState([]);
+    const [uploadStatus, setUploadStatus] = React.useState({});
+    const fileInputRef = React.useRef(null);
+
+    const uploadOne = async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("project", projectName);
+
+        const res = await fetch(`${API_URL}/upload`, {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+        });
+
+        const data = await res.json();
+        if (!data.success) {
+            throw new Error(data.message || `Upload failed: ${file.name}`);
+        }
+        return data;
+    };
+
+    const handleFiles = async (selectedFiles) => {
+        if (selectedFiles.length === 0) return;
+
+        const fileArray = Array.from(selectedFiles);
+        setFiles((prev) => [...prev, ...fileArray]);
+
+        const newStatus = {};
+        for (const file of fileArray) {
+            newStatus[file.name] = { status: "pending", progress: 0 };
+        }
+        setUploadStatus((prev) => ({ ...prev, ...newStatus }));
+
+        for (const file of fileArray) {
+            try {
+                setUploadStatus((prev) => ({
+                    ...prev,
+                    [file.name]: { status: "uploading", progress: 50 },
+                }));
+                await uploadOne(file);
+                setUploadStatus((prev) => ({
+                    ...prev,
+                    [file.name]: { status: "success", progress: 100 },
+                }));
+            } catch (err) {
+                setUploadStatus((prev) => ({
+                    ...prev,
+                    [file.name]: { status: "error", progress: 0, error: err.message },
+                }));
+            }
+        }
+
+        onUploaded?.();
+    };
+
     function handleDrop(e) {
         e.preventDefault();
-        // Handle file drop
+        const droppedFiles = e.dataTransfer.files;
+        handleFiles(droppedFiles);
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+    }
+
+    function handleFileSelect(e) {
+        const selectedFiles = e.target.files;
+        handleFiles(selectedFiles);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    }
+
+    function handleChooseFile() {
+        fileInputRef.current?.click();
     }
 
     return (
         <Popup title="Upload file" onClose={onClose}>
             {/* Drag drop zone */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-rose-500 transition-colors text-gray-400 text-center">
-                Drag and Drop files here or 
-                <a className="text-rose-600 underline ml-1 cursor-pointer">
+            <div
+                className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-rose-500 transition-colors text-gray-400 text-center"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onClick={handleChooseFile}
+            >
+                Drag and Drop files here or{" "}
+                <span className="text-rose-600 underline ml-1 cursor-pointer">
                     Choose file
-                </a>
+                </span>
             </div>
+            <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                accept=".pdf,.doc,.docx,.txt"
+                style={{ display: "none" }}
+            />
             {/* List of uploaded files added with popup */}
+            {files.length > 0 && (
+                <div className="mt-4">
+                    <h3 className="font-semibold mb-2">Files:</h3>
+                    <ul className="space-y-2">
+                        {files.map((file, index) => {
+                            const status = uploadStatus[file.name];
+                            return (
+                                <li key={index} className="flex items-center justify-between text-sm">
+                                    <span className="truncate flex-1">{file.name}</span>
+                                    <span className="ml-2">
+                                        {status?.status === "pending" && (
+                                            <span className="text-gray-500">Pending...</span>
+                                        )}
+                                        {status?.status === "uploading" && (
+                                            <span className="text-blue-500">Uploading...</span>
+                                        )}
+                                        {status?.status === "success" && (
+                                            <span className="text-green-500">✓ Uploaded</span>
+                                        )}
+                                        {status?.status === "error" && (
+                                            <span className="text-red-500">✗ Failed</span>
+                                        )}
+                                    </span>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
+            )}
         </Popup>
     );
 }
