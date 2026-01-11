@@ -1,6 +1,6 @@
 import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid, json
 from dataclasses import dataclass
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie, Body
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import datetime as dt
@@ -9,6 +9,8 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import asyncio
 from backboard import BackboardClient
+from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
+
 
 load_dotenv()
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
@@ -145,6 +147,17 @@ def init_db():
         projectid TEXT PRIMARY KEY,
         assistant_id TEXT,
         memory_thread_id TEXT
+    )
+    """)
+
+    # indexed_files: track which files have been indexed for a project
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS indexed_files (
+        projectid TEXT NOT NULL,
+        fileid TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        indexed_at TEXT NOT NULL,
+        PRIMARY KEY (projectid, fileid, content_hash)
     )
     """)
 
@@ -614,10 +627,13 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
     ]
     return {"success": True, "decks": decks}
 
-# Create a new deck in a project 
+# Create a new deck in a project (QUERY ONLY — assumes documents already indexed)
+
 FLASHCARDS_SYSTEM = """
 You are an expert tutor.
 Return ONLY valid JSON (no markdown, no commentary).
+If you cannot comply, return exactly: {"cards":[]}
+
 Schema:
 {
   "cards": [
@@ -627,8 +643,20 @@ Schema:
 Rules:
 - 10 to 20 cards
 - Front is a question/term, Back is concise explanation
-- Use the uploaded PDFs as the source of truth
-"""
+- Use ONLY the course documents already indexed in memory as the source of truth
+""".strip()
+
+
+def _extract_json_object(raw: str) -> str | None:
+    """Best-effort extraction of the first JSON object in a string."""
+    if not isinstance(raw, str):
+        raw = str(raw)
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return raw[start:end + 1]
+
 
 @app.post("/projects/{projectid}/decks")
 async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
@@ -650,66 +678,90 @@ async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Co
     )
     conn.commit()
 
-    # ---- Backboard generation starts here ----
+    # ---- Backboard generation starts here (QUERY ONLY) ----
     print("BACKBOARD KEY PRESENT:", bool(BACKBOARD_API_KEY))
 
     if not BACKBOARD_API_KEY:
-        return {"success": True, "deckid": deckid, "warning": "BACKBOARD_API_KEY not set, cards not generated"}
-
-    file_paths = get_project_file_paths(projectid)
-    print("FILES SENT TO BACKBOARD:", file_paths)
+        return {
+            "success": True,
+            "deckid": deckid,
+            "generated": 0,
+            "warning": "BACKBOARD_API_KEY not set, cards not generated",
+        }
 
     client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
 
-    user_prompt = f"""
-        Course: {projectid}
-        Deck name: {body.name}
+    generation_prompt = f"""
+Course: {projectid}
+Deck name: {body.name}
 
-        User study prompt:
-        {body.prompt}
-        """
+User study prompt:
+{body.prompt}
 
-    # Attach PDFs directly
-    response = await client.add_message(
-        thread_id=thread_id,
-        content=FLASHCARDS_SYSTEM + "\n\n" + user_prompt,
-        files=file_paths if file_paths else None,
-        llm_provider="openai",
-        model_name="gpt-4o",
-        stream=False,
-        memory="Auto",   # key for persistence/autoretrieval
-    )
+Task:
+Generate 10–20 high-quality flashcards using ONLY the indexed course documents in memory.
+Focus on definitions, core concepts, key equations, comparisons, and exam-relevant facts.
+""".strip()
 
-    print("BACKBOARD RAW RESPONSE:", getattr(response, "content", response))
-
-    # response.content should be JSON text per our instruction
-    cards_json = None
     try:
-        cards_json = json.loads(response.content)
-        cards = cards_json.get("cards", [])
-    except Exception:
+        response = await client.add_message(
+            thread_id=thread_id,
+            content=FLASHCARDS_SYSTEM + "\n\n" + generation_prompt,
+            llm_provider="openai",
+            model_name="gpt-4o",
+            stream=False,
+            memory="Auto",
+        )
+    except Exception as e:
+        logger.error(f"Backboard generation failed: {e}")
+        return {
+            "success": True,
+            "deckid": deckid,
+            "generated": 0,
+            "warning": "Backboard generation failed (see server logs)",
+        }
+
+    raw = getattr(response, "content", response)
+    print("BACKBOARD RAW RESPONSE:", raw)
+
+    # Parse JSON safely
+    cards = []
+    try:
+        raw_str = raw if isinstance(raw, str) else str(raw)
+        json_text = _extract_json_object(raw_str) or raw_str
+        cards_json = json.loads(json_text)
+        if isinstance(cards_json, dict):
+            cards = cards_json.get("cards", []) or []
+    except Exception as e:
+        logger.error(f"Failed to parse JSON from Backboard: {e}")
         cards = []
-    
+
     print("PARSED CARDS COUNT:", len(cards))
 
     # Save cards
+    inserted = 0
     for c in cards:
+        if not isinstance(c, dict):
+            continue
         front = (c.get("front") or "").strip()
         back = (c.get("back") or "").strip()
         if not front or not back:
             continue
+
         cardid = uuid.uuid4().hex[:8]
         cursor.execute(
             "INSERT INTO cards (cardid, deckid, front, back) VALUES (?, ?, ?, ?)",
             (cardid, deckid, front, back),
         )
+        inserted += 1
+
+    conn.commit()
 
     cursor.execute("SELECT COUNT(*) FROM cards WHERE deckid=?", (deckid,))
     print("DB CARDS INSERTED:", cursor.fetchone()[0])
 
-    conn.commit()
+    return {"success": True, "deckid": deckid, "generated": inserted}
 
-    return {"success": True, "deckid": deckid, "generated": len(cards)}
 
 
 # Get deck details and cards
@@ -742,3 +794,125 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
 
     return {"success": True, "deck": deck, "cards": cards}
 
+def sha256_file(path: str, chunk_size: int = 1024 * 1024) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while True:
+            b = f.read(chunk_size)
+            if not b:
+                break
+            h.update(b)
+    return h.hexdigest()
+
+
+@app.post("/projects/{projectid}/index")
+async def index_project_documents(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    # verify project belongs to user
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?",
+        (projectid, userid),
+    )
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    if not BACKBOARD_API_KEY:
+        return {"success": False, "message": "BACKBOARD_API_KEY not set"}
+
+    client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
+
+    # Get fileid + relative filepath from DB
+    cursor.execute(
+        """
+        SELECT f.fileid, f.filepath
+        FROM files f
+        JOIN fileinproj fp ON fp.fileid = f.fileid
+        WHERE fp.projectid = ?
+        """,
+        (projectid,),
+    )
+    rows = cursor.fetchall()
+
+    base_dir = os.path.dirname(__file__)
+
+    uploaded_docs = 0
+    uploaded_split_docs = 0
+    skipped = 0
+    failed = 0
+
+    for fileid, rel_path in rows:
+        try:
+            abs_path = os.path.normpath(os.path.join(base_dir, rel_path))
+
+            if not os.path.exists(abs_path):
+                logger.warning(f"Missing file on disk: {abs_path}")
+                continue
+
+            # Compute content hash
+            content_hash = sha256_file(abs_path)
+
+            # Check if already indexed
+            cursor.execute(
+                """
+                SELECT 1 FROM indexed_files
+                WHERE projectid=? AND fileid=? AND content_hash=?
+                """,
+                (projectid, fileid, content_hash),
+            )
+            if cursor.fetchone() is not None:
+                skipped += 1
+                continue
+
+            size = os.path.getsize(abs_path)
+
+            # <=10MB: upload directly
+            if size <= MAX_BYTES:
+                await client.upload_document_to_thread(
+                    thread_id=thread_id,
+                    file_path=abs_path,
+                )
+                uploaded_docs += 1
+
+            # >10MB: split then upload
+            else:
+                parts = split_pdf_to_max_size(abs_path, max_bytes=MAX_BYTES)
+
+                for part_path in parts:
+                    await client.upload_document_to_thread(
+                        thread_id=thread_id,
+                        file_path=part_path,
+                    )
+                    uploaded_split_docs += 1
+
+                    # cleanup temp split file
+                    try:
+                        os.remove(part_path)
+                    except Exception:
+                        pass
+
+            # Mark as indexed ONLY after successful upload(s)
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO indexed_files
+                (projectid, fileid, content_hash, indexed_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (projectid, fileid, content_hash, datetime.utcnow().isoformat()),
+            )
+            conn.commit()
+
+        except Exception as e:
+            failed += 1
+            logger.error(f"Indexing failed for fileid={fileid}: {e}")
+
+    return {
+        "success": True,
+        "thread_id": thread_id,
+        "uploaded_documents": uploaded_docs,
+        "uploaded_split_documents": uploaded_split_docs,
+        "skipped_files": skipped,
+        "failed_files": failed,
+    }
