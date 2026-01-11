@@ -1,6 +1,15 @@
 import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid, json
 from dataclasses import dataclass
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie, Body
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    UploadFile,
+    File,
+    Form,
+    Response,
+    Cookie,
+    Body,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import datetime as dt
@@ -26,6 +35,7 @@ cursor = conn.cursor()
 
 init_db()
 
+
 @dataclass
 class User:
     userid: str
@@ -41,6 +51,7 @@ class File:
     file_size: int
     file_type: str
 
+
 @dataclass
 class Project:
     projectid: str
@@ -49,14 +60,17 @@ class Project:
     created_date: str
     userid: str
 
+
 @dataclass
 class FileProjectRelation:
     fileid: str
     projectid: str
 
+
 class CreateDeckRequest(BaseModel):
     name: str
     prompt: str
+
 
 async def get_or_create_backboard_memory(projectid: str):
     # check DB first
@@ -121,12 +135,15 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
 
 
 def get_project_file_paths(projectid: str) -> list[str]:
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT f.filepath
         FROM files f
         JOIN fileinproj fp ON fp.fileid = f.fileid
         WHERE fp.projectid = ?
-    """, (projectid,))
+    """,
+        (projectid,),
+    )
     rows = cursor.fetchall()
 
     base_dir = os.path.dirname(__file__)  # folder where main.py lives (backend/)
@@ -312,6 +329,7 @@ async def upload_file(
 async def get_file(fileid: str):
     cursor.execute("SELECT filepath FROM files WHERE fileid=?", (fileid,))
     row = cursor.fetchone()
+    logger.debug(row)
     if not row:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -332,7 +350,9 @@ async def get_file_path(fileid: str):
     filepath = row[0]
     return {"success": True, "filepath": os.path.abspath(filepath)}
 
+
 # Get course specific files
+
 
 @app.get("/projects/{projectid}/files")
 async def list_project_files(projectid: str, session: str = Cookie(None)):
@@ -552,9 +572,11 @@ async def delete_project(projectid: str, session: str = Cookie(None)):
 
     return {"success": True, "message": "Project deleted successfully"}
 
+
 ###############
 # DECKS
 ###############
+
 
 # List decks in a project
 @app.get("/projects/{projectid}/decks")
@@ -565,7 +587,9 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
     userid = session
 
     # ensure this project belongs to the user
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -580,6 +604,7 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
         for r in rows
     ]
     return {"success": True, "decks": decks}
+
 
 # Create a new deck in a project (QUERY ONLY — assumes documents already indexed)
 
@@ -609,17 +634,21 @@ def _extract_json_object(raw: str) -> str | None:
     end = raw.rfind("}")
     if start == -1 or end == -1 or end <= start:
         return None
-    return raw[start:end + 1]
+    return raw[start : end + 1]
 
 
 @app.post("/projects/{projectid}/decks")
-async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
+async def create_deck(
+    projectid: str, body: CreateDeckRequest, session: str = Cookie(None)
+):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
     # verify project belongs to user
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -717,7 +746,6 @@ Focus on definitions, core concepts, key equations, comparisons, and exam-releva
     return {"success": True, "deckid": deckid, "generated": inserted}
 
 
-
 # Get deck details and cards
 @app.get("/decks/{deckid}")
 async def get_deck(deckid: str, session: str = Cookie(None)):
@@ -748,13 +776,16 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
 
     return {"success": True, "deck": deck, "cards": cards}
 
+
 @app.post("/projects/{projectid}/index")
 async def index_project_documents(projectid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -766,9 +797,10 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         userid=userid,
         cursor=cursor,
         conn=conn,
-        client_factory=None,              # optional, you can remove if unused
+        client_factory=None,  # optional, you can remove if unused
         get_memory=get_or_create_backboard_memory,
     )
+
 
 @app.delete("/decks/{deckid}")
 async def delete_deck(deckid: str, session: str = Cookie(None)):
@@ -777,7 +809,9 @@ async def delete_deck(deckid: str, session: str = Cookie(None)):
     userid = session
 
     # Verify deck belongs to this user
-    cursor.execute("SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
+    cursor.execute(
+        "SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid)
+    )
     row = cursor.fetchone()
     if row is None:
         return {"success": False, "message": "Deck not found"}
