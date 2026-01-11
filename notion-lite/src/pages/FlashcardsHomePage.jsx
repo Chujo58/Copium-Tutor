@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 
 export default function FlashcardsHomePage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+
+  const [projects, setProjects] = useState([]);
+  const [course, setCourse] = useState(null);
+  const [courseLoading, setCourseLoading] = useState(true);
 
   const [decks, setDecks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,7 +18,32 @@ export default function FlashcardsHomePage() {
   const [prompt, setPrompt] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const fetchDecks = async () => {
+  const fetchProjectsAndCourse = useCallback(async () => {
+    setCourseLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/projects`, {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProjects(data.projects || []);
+        const found = (data.projects || []).find((p) => p.projectid === projectId);
+        setCourse(found ?? null);
+      } else {
+        setProjects([]);
+        setCourse(null);
+      }
+    } catch (e) {
+      console.error(e);
+      setProjects([]);
+      setCourse(null);
+    } finally {
+      setCourseLoading(false);
+    }
+  }, [projectId]);
+
+  const fetchDecks = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/projects/${projectId}/decks`, {
@@ -27,7 +57,16 @@ export default function FlashcardsHomePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchProjectsAndCourse();
+    fetchDecks();
+  }, [fetchProjectsAndCourse, fetchDecks]);
+
+  const projectsList = useMemo(() => {
+    return projects.map((p) => ({ name: p.name, href: `/project/${p.projectid}` }));
+  }, [projects]);
 
   const createDeck = async () => {
     if (!name.trim() || !prompt.trim()) {
@@ -50,7 +89,6 @@ export default function FlashcardsHomePage() {
       setName("");
       setPrompt("");
       await fetchDecks();
-      // optional: jump straight into the new deck
       navigate(`/project/${projectId}/flashcards/${data.deckid}`);
     } catch (e) {
       console.error(e);
@@ -72,87 +110,96 @@ export default function FlashcardsHomePage() {
       alert(data.message || "Failed to delete deck");
       return;
     }
-    // refresh list
     fetchDecks();
   };
 
-
-  useEffect(() => {
-    fetchDecks();
-  }, [projectId]);
-
   return (
-    <div className="p-10">
-      <Link to={`/project/${projectId}`} className="underline">
-        ← Back to Course
-      </Link>
+    <div className="flex">
+      <Sidebar projectsList={projectsList} />
 
-      <h1 className="text-3xl mt-4">Flashcards</h1>
-      <div className="opacity-70">projectId: {projectId}</div>
+      <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
+        <Link to={`/project/${projectId}`} className="underline">
+          ← Back to Course
+        </Link>
 
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold">Create a deck</h2>
-
-        <div className="mt-3 flex flex-col gap-2 max-w-xl">
-          <input
-            className="border p-2"
-            placeholder="Deck name (e.g., Midterm)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={creating}
-          />
-          <textarea
-            className="border p-2"
-            placeholder='Prompt: "What do you need to study?"'
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={creating}
-            rows={4}
-          />
-          <button
-            className="border px-3 py-2"
-            onClick={createDeck}
-            disabled={creating}
-          >
-            {creating ? "Creating…" : "Create deck"}
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-10">
-        <h2 className="text-xl font-semibold">Your decks</h2>
-
-        {loading ? (
-          <div className="mt-2 opacity-70">Loading…</div>
-        ) : decks.length === 0 ? (
-          <div className="mt-2 opacity-70">No decks yet.</div>
+        {courseLoading ? (
+          <div className="mt-6">Loading…</div>
+        ) : !course ? (
+          <div className="mt-6">
+            <div className="text-2xl font-semibold">Course not found</div>
+            <div className="opacity-70">(Either it doesn’t exist, or you’re not logged in.)</div>
+          </div>
         ) : (
-          <ul className="mt-3 space-y-2">
-            {decks.map((d) => (
-              <li key={d.deckid} className="flex items-start justify-between gap-4">
-                <div>
-                  <Link
-                    className="underline"
-                    to={`/project/${projectId}/flashcards/${d.deckid}`}
-                  >
-                    {d.name}
-                  </Link>
-                  <div className="text-sm opacity-70">{d.prompt}</div>
-                </div>
+          <>
+            <div className="mt-4">
+              <div className="text-3xl main-header font-sans text-dark">
+                Flashcards
+              </div>
+              <div className="opacity-70">{course.name}</div>
+              <div className="mt-2 text-sm opacity-60">projectId: {projectId}</div>
+            </div>
 
-                <button
-                  onClick={(e) => {
-                    e.preventDefault(); // prevent navigation
-                    deleteDeck(d.deckid);
-                  }}
-                  className="text-sm underline opacity-60 hover:opacity-100"
-                >
-                  Delete
+            <div className="mt-10">
+              <h2 className="text-xl font-semibold">Create a deck</h2>
+
+              <div className="mt-3 flex flex-col gap-2 max-w-xl">
+                <input
+                  className="border p-2"
+                  placeholder="Deck name (e.g., Midterm)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={creating}
+                />
+                <textarea
+                  className="border p-2"
+                  placeholder='Prompt: "What do you need to study?"'
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  disabled={creating}
+                  rows={4}
+                />
+                <button className="border px-3 py-2" onClick={createDeck} disabled={creating}>
+                  {creating ? "Creating…" : "Create deck"}
                 </button>
-              </li>
+              </div>
+            </div>
 
-            ))}
-          </ul>
+            <div className="mt-10">
+              <h2 className="text-xl font-semibold">Your decks</h2>
+
+              {loading ? (
+                <div className="mt-2 opacity-70">Loading…</div>
+              ) : decks.length === 0 ? (
+                <div className="mt-2 opacity-70">No decks yet.</div>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {decks.map((d) => (
+                    <li key={d.deckid} className="flex items-start justify-between gap-4">
+                      <div>
+                        <Link
+                          className="underline"
+                          to={`/project/${projectId}/flashcards/${d.deckid}`}
+                        >
+                          {d.name}
+                        </Link>
+                        <div className="text-sm opacity-70">{d.prompt}</div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          deleteDeck(d.deckid);
+                        }}
+                        className="text-sm underline opacity-60 hover:opacity-100"
+                      >
+                        Delete
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
