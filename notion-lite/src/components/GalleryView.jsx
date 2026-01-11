@@ -1,4 +1,5 @@
 import SubjectCard from "./Card";
+import { Link } from "react-router-dom";
 
 //  This stuff should create a gallery view for subjects for a user. The gallery should also show some button to add a new subject.
 export default function GalleryView({ subjects, onAddSubject }) {
@@ -18,6 +19,11 @@ export default function GalleryView({ subjects, onAddSubject }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {subjects.map((subject) => (
+                <Link
+                    key={subject.projectid}
+                    to={`/project/${subject.projectid}`}
+                    className="block"
+                >
                     <SubjectCard
                         key={subject.projectid}
                         title={subject.name}
@@ -26,6 +32,7 @@ export default function GalleryView({ subjects, onAddSubject }) {
                         color={subject.color}
                         icon={subject.icon}
                     />
+                </Link>
                 ))}
             </div>
         </div>

@@ -1,11 +1,20 @@
-import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging
+import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid, json
 from dataclasses import dataclass
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie, Body
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import datetime as dt
-
+from pydantic import BaseModel
 from fastapi.responses import FileResponse
+from dotenv import load_dotenv
+import asyncio
+from backboard import BackboardClient
+from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
+from db import conn, cursor, init_db
+from backboard_ops import index_project_documents_impl
+
+load_dotenv()
+BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
 
 logger = logging.getLogger("uvicorn.error")
 logger.setLevel(logging.DEBUG)
@@ -15,6 +24,7 @@ salt = bcrypt.gensalt()
 conn = sqlite3.connect("database.db")
 cursor = conn.cursor()
 
+init_db()
 
 @dataclass
 class User:
@@ -31,7 +41,6 @@ class File:
     file_size: int
     file_type: str
 
-
 @dataclass
 class Project:
     projectid: str
@@ -40,11 +49,46 @@ class Project:
     created_date: str
     userid: str
 
-
 @dataclass
 class FileProjectRelation:
     fileid: str
     projectid: str
+
+class CreateDeckRequest(BaseModel):
+    name: str
+    prompt: str
+
+async def get_or_create_backboard_memory(projectid: str):
+    # check DB first
+    cursor.execute(
+        "SELECT assistant_id, memory_thread_id FROM backboard_projects WHERE projectid=?",
+        (projectid,),
+    )
+    row = cursor.fetchone()
+
+    client = BackboardClient(api_key=BACKBOARD_API_KEY)
+
+    if row and row[0] and row[1]:
+        return client, row[0], row[1]
+
+    # create new assistant + thread for this course
+    assistant = await client.create_assistant(
+        name=f"CopiumTutor Course {projectid}",
+        description="Study tutor that generates flashcards/quizzes using course documents and memory.",
+    )
+    thread = await client.create_thread(assistant.assistant_id)
+
+    # Convert UUIDs to strings BEFORE inserting into sqlite
+    assistant_id = str(assistant.assistant_id)
+    thread_id = str(thread.thread_id)
+
+    cursor.execute(
+        "INSERT OR REPLACE INTO backboard_projects (projectid, assistant_id, memory_thread_id) VALUES (?, ?, ?)",
+        (projectid, assistant_id, thread_id),
+    )
+    conn.commit()
+
+    return client, assistant_id, thread_id
 
 
 def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
@@ -74,6 +118,31 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
         uid += gen_uuid(22, salt)
 
     return uid[:length]
+
+
+def get_project_file_paths(projectid: str) -> list[str]:
+    cursor.execute("""
+        SELECT f.filepath
+        FROM files f
+        JOIN fileinproj fp ON fp.fileid = f.fileid
+        WHERE fp.projectid = ?
+    """, (projectid,))
+    rows = cursor.fetchall()
+
+    base_dir = os.path.dirname(__file__)  # folder where main.py lives (backend/)
+    paths = []
+
+    for (rel_path,) in rows:
+        if not rel_path:
+            continue
+
+        # Make it absolute and normalized
+        abs_path = os.path.normpath(os.path.join(base_dir, rel_path))
+
+        if os.path.exists(abs_path) and os.path.isfile(abs_path):
+            paths.append(abs_path)
+
+    return paths
 
 
 # Allow frontend
@@ -263,6 +332,40 @@ async def get_file_path(fileid: str):
     filepath = row[0]
     return {"success": True, "filepath": os.path.abspath(filepath)}
 
+# Get course specific files
+
+@app.get("/projects/{projectid}/files")
+async def list_project_files(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    cursor.execute(
+        """
+        SELECT f.fileid, f.filepath, f.uploaddate, f.filesize, f.filetype
+        FROM files f
+        JOIN fileinproj fp ON f.fileid = fp.fileid
+        JOIN projects p ON fp.projectid = p.projectid
+        WHERE p.projectid=? AND p.userid=?
+        """,
+        (projectid, userid),
+    )
+    rows = cursor.fetchall()
+
+    files = [
+        {
+            "fileid": r[0],
+            "filepath": r[1],
+            "upload_date": r[2],
+            "file_size": r[3],
+            "file_type": r[4],
+        }
+        for r in rows
+    ]
+
+    return {"success": True, "files": files}
+
 
 # Document removal:
 @app.delete("/files/{fileid}")
@@ -448,3 +551,240 @@ async def delete_project(projectid: str, session: str = Cookie(None)):
     conn.commit()
 
     return {"success": True, "message": "Project deleted successfully"}
+
+###############
+# DECKS
+###############
+
+# List decks in a project
+@app.get("/projects/{projectid}/decks")
+async def list_decks(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    # ensure this project belongs to the user
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    cursor.execute(
+        "SELECT deckid, name, prompt, createddate FROM decks WHERE projectid=? AND userid=? ORDER BY createddate DESC",
+        (projectid, userid),
+    )
+    rows = cursor.fetchall()
+
+    decks = [
+        {"deckid": r[0], "name": r[1], "prompt": r[2], "createddate": r[3]}
+        for r in rows
+    ]
+    return {"success": True, "decks": decks}
+
+# Create a new deck in a project (QUERY ONLY — assumes documents already indexed)
+
+FLASHCARDS_SYSTEM = """
+You are an expert tutor.
+Return ONLY valid JSON (no markdown, no commentary).
+If you cannot comply, return exactly: {"cards":[]}
+
+Schema:
+{
+  "cards": [
+    { "front": "...", "back": "..." }
+  ]
+}
+Rules:
+- 10 to 20 cards
+- Front is a question/term, Back is concise explanation
+- Use ONLY the course documents already indexed in memory as the source of truth
+""".strip()
+
+
+def _extract_json_object(raw: str) -> str | None:
+    """Best-effort extraction of the first JSON object in a string."""
+    if not isinstance(raw, str):
+        raw = str(raw)
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return raw[start:end + 1]
+
+
+@app.post("/projects/{projectid}/decks")
+async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    # verify project belongs to user
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    deckid = uuid.uuid4().hex[:8]
+    createddate = datetime.utcnow().isoformat()
+
+    cursor.execute(
+        "INSERT INTO decks (deckid, projectid, userid, name, prompt, createddate) VALUES (?, ?, ?, ?, ?, ?)",
+        (deckid, projectid, userid, body.name, body.prompt, createddate),
+    )
+    conn.commit()
+
+    # ---- Backboard generation starts here (QUERY ONLY) ----
+    print("BACKBOARD KEY PRESENT:", bool(BACKBOARD_API_KEY))
+
+    if not BACKBOARD_API_KEY:
+        return {
+            "success": True,
+            "deckid": deckid,
+            "generated": 0,
+            "warning": "BACKBOARD_API_KEY not set, cards not generated",
+        }
+
+    client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
+
+    generation_prompt = f"""
+Course: {projectid}
+Deck name: {body.name}
+
+User study prompt:
+{body.prompt}
+
+Task:
+Generate 10–20 high-quality flashcards using ONLY the indexed course documents in memory.
+Focus on definitions, core concepts, key equations, comparisons, and exam-relevant facts.
+""".strip()
+
+    try:
+        response = await client.add_message(
+            thread_id=thread_id,
+            content=FLASHCARDS_SYSTEM + "\n\n" + generation_prompt,
+            llm_provider="openai",
+            model_name="gpt-4o",
+            stream=False,
+            memory="Auto",
+        )
+    except Exception as e:
+        logger.error(f"Backboard generation failed: {e}")
+        return {
+            "success": True,
+            "deckid": deckid,
+            "generated": 0,
+            "warning": "Backboard generation failed (see server logs)",
+        }
+
+    raw = getattr(response, "content", response)
+    print("BACKBOARD RAW RESPONSE:", raw)
+
+    # Parse JSON safely
+    cards = []
+    try:
+        raw_str = raw if isinstance(raw, str) else str(raw)
+        json_text = _extract_json_object(raw_str) or raw_str
+        cards_json = json.loads(json_text)
+        if isinstance(cards_json, dict):
+            cards = cards_json.get("cards", []) or []
+    except Exception as e:
+        logger.error(f"Failed to parse JSON from Backboard: {e}")
+        cards = []
+
+    print("PARSED CARDS COUNT:", len(cards))
+
+    # Save cards
+    inserted = 0
+    for c in cards:
+        if not isinstance(c, dict):
+            continue
+        front = (c.get("front") or "").strip()
+        back = (c.get("back") or "").strip()
+        if not front or not back:
+            continue
+
+        cardid = uuid.uuid4().hex[:8]
+        cursor.execute(
+            "INSERT INTO cards (cardid, deckid, front, back) VALUES (?, ?, ?, ?)",
+            (cardid, deckid, front, back),
+        )
+        inserted += 1
+
+    conn.commit()
+
+    cursor.execute("SELECT COUNT(*) FROM cards WHERE deckid=?", (deckid,))
+    print("DB CARDS INSERTED:", cursor.fetchone()[0])
+
+    return {"success": True, "deckid": deckid, "generated": inserted}
+
+
+
+# Get deck details and cards
+@app.get("/decks/{deckid}")
+async def get_deck(deckid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+
+    cursor.execute(
+        "SELECT deckid, projectid, name, prompt, createddate FROM decks WHERE deckid=? AND userid=?",
+        (deckid, userid),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Deck not found"}
+
+    deck = {
+        "deckid": row[0],
+        "projectid": row[1],
+        "name": row[2],
+        "prompt": row[3],
+        "createddate": row[4],
+    }
+
+    cursor.execute("SELECT cardid, front, back FROM cards WHERE deckid=?", (deckid,))
+    card_rows = cursor.fetchall()
+    cards = [{"cardid": r[0], "front": r[1], "back": r[2]} for r in card_rows]
+
+    return {"success": True, "deck": deck, "cards": cards}
+
+@app.post("/projects/{projectid}/index")
+async def index_project_documents(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    if not BACKBOARD_API_KEY:
+        return {"success": False, "message": "BACKBOARD_API_KEY not set"}
+
+    return await index_project_documents_impl(
+        projectid=projectid,
+        userid=userid,
+        cursor=cursor,
+        conn=conn,
+        client_factory=None,              # optional, you can remove if unused
+        get_memory=get_or_create_backboard_memory,
+    )
+
+@app.delete("/decks/{deckid}")
+async def delete_deck(deckid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    # Verify deck belongs to this user
+    cursor.execute("SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Deck not found"}
+
+    # Delete cards first (safe even without foreign keys)
+    cursor.execute("DELETE FROM cards WHERE deckid=?", (deckid,))
+    cursor.execute("DELETE FROM decks WHERE deckid=?", (deckid,))
+    conn.commit()
+
+    return {"success": True, "deleted_deckid": deckid}
