@@ -1,0 +1,82 @@
+import { useEffect, useState } from "react";
+import { LoginPopup, SignupPopup } from "../components/Popup";
+import { useAuth } from "../contexts/AuthContext";
+
+// Landing page, should have some sort of login and signup buttons that will open the corresponding popups
+export function LandingPage() {
+    const [showLogin, setShowLogin] = useState(false);
+    const [showSignup, setShowSignup] = useState(false);
+    const { user, login, logout } = useAuth();
+    const [loggedIn, setLoggedIn] = useState(false);
+
+    // Verify if user is logged in before rendering
+    useEffect(() => {
+        setLoggedIn(!!user);
+    }, [user]);
+
+    return (
+        <div className="flex h-screen">
+            <div className="flex flex-col items-center justify-center w-screen bg-gradient-to-b from-rose-china to-rose-copper text-white">
+                <h1 className="text-5xl font-bold mb-6">
+                    Welcome to{" "}
+                    <a className="font-card main-header text-dark">
+                        Copium Tutor
+                    </a>
+                </h1>
+                <p className="text-xl mb-8">
+                    A backboard.io app for learning and coping.
+                </p>
+                {loggedIn ? (
+                    <div className="space-x-4">
+                        <button
+                            className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
+                            onClick={() =>
+                                (window.location.href = "/dashboard")
+                            }
+                        >
+                            Access Dashboard
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-x-4">
+                        <button
+                            className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
+                            onClick={() => setShowLogin(true)}
+                        >
+                            Login
+                        </button>
+                        <button
+                            className="bg-white text-dark px-6 py-3 rounded-full font-semibold hover:bg-gray-200 transition"
+                            onClick={() => setShowSignup(true)}
+                        >
+                            Sign Up
+                        </button>
+                    </div>
+                )}
+
+                {showLogin && (
+                    <LoginPopup
+                        onClose={() => setShowLogin(false)}
+                        onLogin={async () => {
+                            const ok = await login();
+                            setLoggedIn(!!ok);
+                            setShowLogin(false);
+                        }}
+                    />
+                )}
+                {showSignup && (
+                    <SignupPopup
+                        onClose={() => setShowSignup(false)}
+                        onSignup={async () => {
+                            // After successful signup the backend sets the session cookie,
+                            // re-fetch current user from backend to populate context.
+                            const ok = await login();
+                            setLoggedIn(!!ok);
+                            setShowSignup(false);
+                        }}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
