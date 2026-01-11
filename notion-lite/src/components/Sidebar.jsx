@@ -3,13 +3,7 @@ import { API_URL } from "../config";
 
 import { CopperDivider } from "./Divider";
 
-import {
-    CircleChevronRight,
-    CircleChevronLeft,
-    LayoutDashboard,
-    Pin,
-    PinOff,
-} from "lucide-react";
+import { LayoutDashboard, Pin, PinOff, HomeIcon } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export function SidebarItem({ href, icon: Icon, name, color, collapsed }) {
@@ -23,9 +17,7 @@ export function SidebarItem({ href, icon: Icon, name, color, collapsed }) {
             }`}
         >
             {Icon && (
-                <Icon
-                    className={`${!collapsed ? "mr-2" : ""}`} color={color}
-                />
+                <Icon className={`${!collapsed ? "mr-2" : ""}`} color={color} />
             )}
             {!collapsed && <span>{name}</span>}
         </a>
@@ -99,7 +91,10 @@ export default function Sidebar({ projectsList }) {
                             const next = !pinned;
                             setPinned(next);
                             try {
-                                localStorage.setItem("sidebarPinned", String(next));
+                                localStorage.setItem(
+                                    "sidebarPinned",
+                                    String(next)
+                                );
                             } catch (err) {
                                 // ignore localStorage errors
                             }
@@ -112,6 +107,14 @@ export default function Sidebar({ projectsList }) {
                     {/* Divider */}
                     {collapsed && <CopperDivider margins="mt-2" />}
                 </div>
+                <SidebarItem
+                    key="home"
+                    href="/"
+                    collapsed={collapsed}
+                    icon={HomeIcon}
+                    name="Home"
+                    color="#754B4D"
+                />
                 <SidebarItem
                     key="dashboard"
                     href="/dashboard"

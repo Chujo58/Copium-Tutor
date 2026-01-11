@@ -1,13 +1,6 @@
 import { useState } from "react";
 import { API_URL } from "../config";
 
-
-export function DocumentUploader({ projectsList }) {
-    // If the projectsList is only one project, we default to that project for file uploads.
-    
-}
-
-
 export default function DriveStyleUploader() {
     const [files, setFiles] = useState([]);
     const [previewFile, setPreviewFile] = useState(null);

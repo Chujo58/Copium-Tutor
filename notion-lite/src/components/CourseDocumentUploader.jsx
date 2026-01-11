@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { API_URL } from "../config";
+import { UploadPopup } from "../components/Popup";
 
 export default function CourseDocumentUploader({ projectName, onUploaded }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [showPopup, setShowPopup] = useState(false);
 
   const uploadOne = async (file) => {
     const formData = new FormData();
@@ -46,7 +48,16 @@ export default function CourseDocumentUploader({ projectName, onUploaded }) {
 
   return (
     <div className="mt-4">
-      <input
+      <input type="button" value="Upload Documents" onClick={() => setShowPopup(true)} className="px-4 py-2 bg-rose-plum text-white rounded hover:bg-rose-copper cursor-pointer" />
+      {showPopup && (
+        <UploadPopup
+          onClose={() => setShowPopup(false)}
+          // onFileSelected={handleFileChange}
+          // uploading={uploading}
+          // progress={progress}
+        />
+      )}
+      {/* <input
         type="file"
         multiple
         onChange={handleFileChange}
@@ -58,7 +69,7 @@ export default function CourseDocumentUploader({ projectName, onUploaded }) {
         <div className="text-sm opacity-70 mt-2">
           Uploading {progress.done}/{progress.total}…
         </div>
-      )}
+      )} */}
     </div>
   );
 }

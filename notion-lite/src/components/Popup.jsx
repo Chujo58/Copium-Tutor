@@ -45,12 +45,18 @@ export default function Popup({ title, children, onClose, wide = false }) {
 }
 
 export function UploadPopup({ onClose }) {
+    // TODO: implement file upload logic
+    function handleDrop(e) {
+        e.preventDefault();
+        // Handle file drop
+    }
+
     return (
         <Popup title="Upload file" onClose={onClose}>
             {/* Drag drop zone */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-rose-500 transition-colors text-gray-400 text-center">
-                Drag and Drop files here or{" "}
-                <a href="#" className="text-rose-600 underline">
+                Drag and Drop files here or 
+                <a className="text-rose-600 underline ml-1 cursor-pointer">
                     Choose file
                 </a>
             </div>
