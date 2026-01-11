@@ -1,4 +1,4 @@
-import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid
+import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid, json
 from dataclasses import dataclass
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,13 +75,18 @@ async def get_or_create_backboard_memory(projectid: str):
     )
     thread = await client.create_thread(assistant.assistant_id)
 
+    # Convert UUIDs to strings BEFORE inserting into sqlite
+    assistant_id = str(assistant.assistant_id)
+    thread_id = str(thread.thread_id)
+
     cursor.execute(
         "INSERT OR REPLACE INTO backboard_projects (projectid, assistant_id, memory_thread_id) VALUES (?, ?, ?)",
-        (projectid, assistant.assistant_id, thread.thread_id),
+        (projectid, assistant_id, thread_id),
     )
     conn.commit()
 
-    return client, assistant.assistant_id, thread.thread_id
+    return client, assistant_id, thread_id
+
 
 def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
     """
@@ -150,26 +155,28 @@ init_db()
 
 def get_project_file_paths(projectid: str) -> list[str]:
     cursor.execute("""
-        SELECT f.fileid, f.filename
+        SELECT f.filepath
         FROM files f
         JOIN fileinproj fp ON fp.fileid = f.fileid
         WHERE fp.projectid = ?
     """, (projectid,))
     rows = cursor.fetchall()
 
+    base_dir = os.path.dirname(__file__)  # folder where main.py lives (backend/)
     paths = []
-    for fileid, filename in rows:
-        candidate = os.path.join("uploaded_files", f"{fileid}_{filename}")
-        if os.path.exists(candidate):
-            paths.append(candidate)
+
+    for (rel_path,) in rows:
+        if not rel_path:
             continue
 
-        candidate2 = os.path.join("uploaded_files", filename)
-        if os.path.exists(candidate2):
-            paths.append(candidate2)
-            continue
+        # Make it absolute and normalized
+        abs_path = os.path.normpath(os.path.join(base_dir, rel_path))
+
+        if os.path.exists(abs_path) and os.path.isfile(abs_path):
+            paths.append(abs_path)
 
     return paths
+
 
 # Allow frontend
 app.add_middleware(
@@ -627,14 +634,14 @@ Rules:
 async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
-
     userid = session
 
+    # verify project belongs to user
     cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
-    deckid = uuid.uuid4().hex[:8]  # short id like your project ids
+    deckid = uuid.uuid4().hex[:8]
     createddate = datetime.utcnow().isoformat()
 
     cursor.execute(
@@ -643,7 +650,67 @@ async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Co
     )
     conn.commit()
 
-    return {"success": True, "deckid": deckid}
+    # ---- Backboard generation starts here ----
+    print("BACKBOARD KEY PRESENT:", bool(BACKBOARD_API_KEY))
+
+    if not BACKBOARD_API_KEY:
+        return {"success": True, "deckid": deckid, "warning": "BACKBOARD_API_KEY not set, cards not generated"}
+
+    file_paths = get_project_file_paths(projectid)
+    print("FILES SENT TO BACKBOARD:", file_paths)
+
+    client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
+
+    user_prompt = f"""
+        Course: {projectid}
+        Deck name: {body.name}
+
+        User study prompt:
+        {body.prompt}
+        """
+
+    # Attach PDFs directly
+    response = await client.add_message(
+        thread_id=thread_id,
+        content=FLASHCARDS_SYSTEM + "\n\n" + user_prompt,
+        files=file_paths if file_paths else None,
+        llm_provider="openai",
+        model_name="gpt-4o",
+        stream=False,
+        memory="Auto",   # key for persistence/autoretrieval
+    )
+
+    print("BACKBOARD RAW RESPONSE:", getattr(response, "content", response))
+
+    # response.content should be JSON text per our instruction
+    cards_json = None
+    try:
+        cards_json = json.loads(response.content)
+        cards = cards_json.get("cards", [])
+    except Exception:
+        cards = []
+    
+    print("PARSED CARDS COUNT:", len(cards))
+
+    # Save cards
+    for c in cards:
+        front = (c.get("front") or "").strip()
+        back = (c.get("back") or "").strip()
+        if not front or not back:
+            continue
+        cardid = uuid.uuid4().hex[:8]
+        cursor.execute(
+            "INSERT INTO cards (cardid, deckid, front, back) VALUES (?, ?, ?, ?)",
+            (cardid, deckid, front, back),
+        )
+
+    cursor.execute("SELECT COUNT(*) FROM cards WHERE deckid=?", (deckid,))
+    print("DB CARDS INSERTED:", cursor.fetchone()[0])
+
+    conn.commit()
+
+    return {"success": True, "deckid": deckid, "generated": len(cards)}
+
 
 # Get deck details and cards
 @app.get("/decks/{deckid}")
