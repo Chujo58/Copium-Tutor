@@ -765,3 +765,22 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         client_factory=None,              # optional, you can remove if unused
         get_memory=get_or_create_backboard_memory,
     )
+
+@app.delete("/decks/{deckid}")
+async def delete_deck(deckid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    # Verify deck belongs to this user
+    cursor.execute("SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Deck not found"}
+
+    # Delete cards first (safe even without foreign keys)
+    cursor.execute("DELETE FROM cards WHERE deckid=?", (deckid,))
+    cursor.execute("DELETE FROM decks WHERE deckid=?", (deckid,))
+    conn.commit()
+
+    return {"success": True, "deleted_deckid": deckid}
