@@ -510,7 +510,7 @@ async def list_files(session: str = Cookie(None)):
 
 
 ###############
-# PROJECTS
+# PROJECTS / COURSES
 ###############
 
 
