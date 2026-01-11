@@ -60,6 +60,17 @@ export default function Sidebar({ projectsList }) {
 
     useEffect(() => {
         fetchUserProfile();
+
+        try {
+            const stored = localStorage.getItem("sidebarPinned");
+            if (stored !== null) {
+                const p = stored === "true";
+                setPinned(p);
+                if (!p) setCollapsed(true);
+            }
+        } catch (err) {
+            // ignore localStorage errors
+        }
     }, []);
 
     return (
@@ -85,7 +96,14 @@ export default function Sidebar({ projectsList }) {
                     )}
                     <button
                         onClick={() => {
-                            setPinned(!pinned);
+                            const next = !pinned;
+                            setPinned(next);
+                            try {
+                                localStorage.setItem("sidebarPinned", String(next));
+                            } catch (err) {
+                                // ignore localStorage errors
+                            }
+                            if (!next) setCollapsed(true);
                         }}
                         className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
                     >
