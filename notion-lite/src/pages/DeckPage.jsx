@@ -209,7 +209,7 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
 }
 
 export default function DeckPage() {
-  const { projectId, deckId } = useParams();
+  const { projectid, deckId } = useParams();
 
   const [projects, setProjects] = useState([]);
   const [course, setCourse] = useState(null);
@@ -240,7 +240,7 @@ export default function DeckPage() {
       const data = await res.json();
       if (data.success) {
         setProjects(data.projects || []);
-        const found = (data.projects || []).find((p) => p.projectid === projectId);
+        const found = (data.projects || []).find((p) => p.projectid === projectid);
         setCourse(found ?? null);
       } else {
         setProjects([]);
@@ -253,7 +253,7 @@ export default function DeckPage() {
     } finally {
       setCourseLoading(false);
     }
-  }, [projectId]);
+  }, [projectid]);
 
   // Fetch deck + cards
   const fetchDeck = useCallback(async () => {
@@ -548,7 +548,7 @@ export default function DeckPage() {
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
         <div className="p-10">
           <Link
-            to={`/project/${projectId}/flashcards`}
+            to={`/project/${projectid}/flashcards`}
             className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
           >
             <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
@@ -574,7 +574,7 @@ export default function DeckPage() {
                     <div className="text-3xl font-semibold text-[#754B4D]">{deck.name}</div>
                     <div className="mt-1 text-[#754B4D]/70">{deck.prompt}</div>
                     <div className="mt-3 text-sm text-[#754B4D]/60">
-                      {course.name} · projectId: {projectId}
+                      {course.name} · projectid: {projectid}
                     </div>
                   </div>
 
