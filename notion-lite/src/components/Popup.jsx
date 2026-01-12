@@ -1,9 +1,10 @@
 // Create a login page popup:
-import React from "react";
+import React, { useEffect } from "react";
 import { API_URL } from "../config";
 import { CircleX } from "lucide-react";
 import * as Icons from "lucide-react";
 import IconPicker from "./IconPicker";
+import { DocumentCard } from "./Card";
 
 export default function Popup({ title, children, onClose, wide = false }) {
     React.useEffect(() => {
@@ -46,6 +47,9 @@ export default function Popup({ title, children, onClose, wide = false }) {
 
 export function UploadPopup({ projects, onClose }) {
     const [uploadedFiles, setUploadedFiles] = React.useState([]);
+    const [fileIds, setFileIds] = React.useState([]);
+
+    
 
     const handleDrop = (e) => {
         e.preventDefault();
@@ -58,15 +62,31 @@ export function UploadPopup({ projects, onClose }) {
         }));
         setUploadedFiles((prev) => [...prev, ...mappedFiles]);
 
-        // mappedFiles.forEach(uploadFile);
+        console.log("Dropped files:", mappedFiles);
+        mappedFiles.forEach(uploadFile);
     };
 
     const handleDragOver = (e) => {
         e.preventDefault();
     };
 
+    const handleInput = (e) => {
+        const files = Array.from(e.target.files);
+        const mappedFiles = files.map((file) => ({
+            file,
+            id: Date.now() + Math.random(),
+            thumbnail: null,
+            progress: 0,
+        }));
+        setUploadedFiles((prev) => [...prev, ...mappedFiles]);
+
+        console.log("Input files:", mappedFiles);
+        mappedFiles.forEach(uploadFile);
+    }
+
     const removeFile = (id) => {
         setUploadedFiles((prev) => prev.filter((f) => f.id !== id));
+        setFileIds((prev) => prev.filter((_, index) => uploadedFiles[index].id !== id));
     };
 
     const uploadFile = (f) => {
@@ -84,7 +104,7 @@ export function UploadPopup({ projects, onClose }) {
                 if (!response.ok) {
                     console.error("Upload failed:", response.statusText);
                 } else {
-                    console.log("Upload successful");
+                    console.log("Upload successful", response);
                     // Update uploadedFileId here
                     response.json().then((data) => {
                         const uploadedFileId = data.fileid;
@@ -116,6 +136,8 @@ export function UploadPopup({ projects, onClose }) {
                                 }
                             });
                         }
+                        // Store the uploaded file ID
+                        setFileIds((prev) => [...prev, uploadedFileId]);
                     });
                 }
             });
@@ -124,8 +146,6 @@ export function UploadPopup({ projects, onClose }) {
         }
     };
 
-    // TODO: Drag and drop zone
-    // TODO: List of uploaded files added with the popup
     return (
         <Popup title="Upload file" onClose={onClose}>
             {/* Drag drop zone */}
@@ -141,24 +161,22 @@ export function UploadPopup({ projects, onClose }) {
                         type="file"
                         multiple
                         className="hidden"
-                        onChange={(e) => {
-                            const files = Array.from(e.target.files);
-                            const mappedFiles = files.map((file) => ({
-                                file,
-                                id: Date.now() + Math.random(),
-                                thumbnail: null,
-                                progress: 0,
-                            }));
-                            setUploadedFiles((prev) => [
-                                ...prev,
-                                ...mappedFiles,
-                            ]);
-                        }}
+                        onChange={handleInput}
                     />
                 </label>
             </div>
             {/* List of uploaded files added with popup */}
-            
+            {uploadedFiles.map((f) => (
+                <DocumentCard
+                    key={f.id}
+                    docTitle={f.file.name}
+                    id={fileIds[uploadedFiles.indexOf(f)]}
+                    onDeleted={() => {
+                        removeFile(f.id);
+                    }}
+                />
+            ))    
+            }
         </Popup>
     );
 }
