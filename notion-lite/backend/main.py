@@ -674,6 +674,68 @@ def _extract_json_object(raw: str) -> str | None:
         return None
     return raw[start:end + 1]
 
+def _fix_unescaped_newlines(json_text: str) -> str:
+    fixed = []
+    in_string = False
+    escaped = False
+    for ch in json_text:
+        if in_string:
+            if ch in "\r\n":
+                fixed.append("\\n")
+                escaped = False
+                continue
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+        fixed.append(ch)
+    return "".join(fixed)
+
+def _extract_questions_array(raw: str) -> list:
+    if not isinstance(raw, str):
+        return []
+    key = '"questions"'
+    key_idx = raw.find(key)
+    if key_idx == -1:
+        return []
+    bracket_idx = raw.find("[", key_idx)
+    if bracket_idx == -1:
+        return []
+    depth = 0
+    for i in range(bracket_idx, len(raw)):
+        if raw[i] == "[":
+            depth += 1
+        elif raw[i] == "]":
+            depth -= 1
+            if depth == 0:
+                snippet = raw[bracket_idx : i + 1]
+                try:
+                    return json.loads(snippet)
+                except json.JSONDecodeError:
+                    try:
+                        return json.loads(_fix_unescaped_newlines(snippet))
+                    except json.JSONDecodeError:
+                        return []
+    return []
+
+def _parse_quiz_payload(raw_text: str):
+    json_text = _extract_json_object(raw_text) or raw_text
+    try:
+        return json.loads(json_text)
+    except json.JSONDecodeError:
+        try:
+            return json.loads(_fix_unescaped_newlines(json_text))
+        except json.JSONDecodeError:
+            questions_only = _extract_questions_array(raw_text)
+            if questions_only:
+                return questions_only
+            raise
+
 def _safe_int(value, default=None):
     try:
         return int(value)
@@ -864,8 +926,7 @@ If needed, you may use any indexed course documents to complete the quiz.
         raw = getattr(response, "content", response)
         raw_str = raw if isinstance(raw, str) else str(raw)
         logger.debug("Quiz raw response: %s", raw_str[:2000])
-        json_text = _extract_json_object(raw_str) or raw_str
-        payload = json.loads(json_text)
+        payload = _parse_quiz_payload(raw_str)
 
         questions = []
         answer_key = {}
@@ -888,8 +949,7 @@ If needed, you may use any indexed course documents to complete the quiz.
             raw = getattr(response, "content", response)
             raw_str = raw if isinstance(raw, str) else str(raw)
             logger.debug("Quiz retry raw response: %s", raw_str[:2000])
-            json_text = _extract_json_object(raw_str) or raw_str
-            payload = json.loads(json_text)
+            payload = _parse_quiz_payload(raw_str)
             if isinstance(payload, dict) or isinstance(payload, list):
                 questions, answer_key, explanations = _normalize_quiz_payload(
                     payload, quiz_type, num_questions
