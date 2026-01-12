@@ -36,6 +36,28 @@ export function UserDashboard() {
         fetchProjects();
     }, []);
 
+    const deleteProject = async (project) => {
+        if (!confirm(`Delete "${project.name}"? This cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/projects/${project.projectid}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert(data.message || "Failed to delete course");
+                return;
+            }
+            fetchProjects();
+        } catch (err) {
+            console.error(err);
+            alert("Error deleting course");
+        }
+    };
+
     return (
         <div className="flex">
             <Sidebar
@@ -74,12 +96,13 @@ export function UserDashboard() {
                                     ? Icons[project.icon]
                                     : Folder,
                             color:
-                                project.color !== null
-                                    ? project.color
-                                    : "#754B4D",
+                                    project.color !== null
+                                        ? project.color
+                                        : "#754B4D",
                         })),
                     ]}
                     onAddSubject={() => setShowAddProject(true)}
+                    onDeleteSubject={deleteProject}
                 />
                 {showAddProject && (
                     <CreateProjectPopup
