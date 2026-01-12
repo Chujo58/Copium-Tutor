@@ -6,6 +6,7 @@ import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder } from "lucide-react";
 import { BlockWithDivider, PlumDivider } from "../components/Divider";
+import { DocumentCard } from "../components/Card";
 
 export default function CoursePage() {
     const { projectId } = useParams();
@@ -294,22 +295,20 @@ export default function CoursePage() {
                                 ) : (
                                     <ul className="mt-3 space-y-2">
                                         {files.map((f) => (
-                                            <li
+                                            <DocumentCard
                                                 key={f.fileid}
-                                                className="flex items-center gap-3"
-                                            >
-                                                <a
-                                                    className="underline"
-                                                    href={`${API_URL}/files/${f.fileid}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    {displayName(f.filepath)}
-                                                </a>
-                                                <span className="text-xs opacity-60">
-                                                    ({f.file_type || "file"})
-                                                </span>
-                                            </li>
+                                                docTitle={displayName(
+                                                    f.filepath
+                                                )}
+                                                docType={f.file_type}
+                                                id={f.fileid}
+                                                onDeleted={() => {
+                                                    fetchFiles();
+                                                    // new deletions mean indexing status might be stale
+                                                    // setIndexResult(null);
+                                                    // setIndexError("");
+                                                }}
+                                            />
                                         ))}
                                     </ul>
                                 )}
