@@ -2,6 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import AskBar from "../components/AskBar";
 import { ChatAPI } from "../services/chat";
+import { API_URL } from "../config";
+
+// ✅ Markdown rendering
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+/**
+ * Palette (same as your DeckPage comments):
+ * - Copper Rose: #A86A65
+ * - Dusty Rose:  #AB8882
+ * - Rosewater:   #D8A694
+ * - China Doll:  #E0CBB9
+ * - Plum Wine:   #754B4D
+ */
 
 const MODEL_OPTIONS = [
   { label: "GPT-4o (fast)", llm_provider: "openai", model_name: "gpt-4o" },
@@ -9,19 +23,84 @@ const MODEL_OPTIONS = [
   { label: "o3-mini (reasoning)", llm_provider: "openai", model_name: "o3-mini" },
 ];
 
-function MessageBubble({ role, content }) {
+function fmtTime(iso) {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  return new Date(t).toLocaleString();
+}
+
+// --- Pretty markdown styles, tuned to match DeckPage typography/colors
+function MarkdownNice({ content }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => <h1 className="text-lg font-semibold text-[#754B4D] mb-2">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base font-semibold text-[#754B4D] mt-4 mb-2">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm font-semibold text-[#754B4D] mt-3 mb-1">{children}</h3>,
+        p: ({ children }) => <p className="text-sm text-[#2b1b1c] leading-relaxed mb-2">{children}</p>,
+        ul: ({ children }) => <ul className="list-disc pl-5 text-sm text-[#2b1b1c] space-y-1 mb-2">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal pl-5 text-sm text-[#2b1b1c] space-y-1 mb-2">{children}</ol>,
+        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+        strong: ({ children }) => <strong className="font-semibold text-[#2b1b1c]">{children}</strong>,
+        em: ({ children }) => <em className="italic">{children}</em>,
+        code: ({ inline, children }) =>
+          inline ? (
+            <code className="rounded-md bg-black/5 px-1 py-0.5 text-[12px] text-[#2b1b1c]">
+              {children}
+            </code>
+          ) : (
+            <pre className="rounded-2xl bg-black/5 p-4 text-[12px] text-[#2b1b1c] overflow-x-auto border border-black/10">
+              <code>{children}</code>
+            </pre>
+          ),
+        blockquote: ({ children }) => (
+          <blockquote className="my-2 rounded-2xl border-l-4 border-[#754B4D]/40 bg-white/65 px-4 py-2">
+            <div className="text-sm text-[#2b1b1c]/90">{children}</div>
+          </blockquote>
+        ),
+      }}
+    >
+      {content || ""}
+    </ReactMarkdown>
+  );
+}
+
+function MessageBubble({ role, content, created_at }) {
   const isUser = role === "user";
+
+  // Cards > bubbles, like DeckPage cards
+  const shell = isUser
+    ? "bg-[#D8A694]/25 border-white/40"
+    : "bg-white/70 border-white/40";
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
         className={[
-          "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed",
-          isUser
-            ? "bg-gradient-to-br from-rose-400/20 to-fuchsia-400/10 text-white border border-white/10"
-            : "bg-white/5 text-white border border-white/10",
+          "max-w-[86%] rounded-3xl border backdrop-blur shadow-sm px-5 py-4",
+          shell,
         ].join(" ")}
       >
-        {content}
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs text-[#754B4D]/60">
+            {isUser ? "You" : "Copium Tutor"}
+          </div>
+          {created_at ? (
+            <div className="text-[11px] text-[#754B4D]/45">{fmtTime(created_at)}</div>
+          ) : null}
+        </div>
+
+        <div className="mt-2">
+          {isUser ? (
+            <div className="whitespace-pre-wrap text-sm text-[#2b1b1c] leading-relaxed">
+              {content}
+            </div>
+          ) : (
+            <MarkdownNice content={content} />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -39,6 +118,7 @@ export default function CourseChatPage() {
 
   const [llmProvider, setLlmProvider] = useState("openai");
   const [modelName, setModelName] = useState("gpt-4o");
+  const [courseName, setCourseName] = useState("");
 
   const bottomRef = useRef(null);
   const didAutoSendRef = useRef(false);
@@ -46,7 +126,6 @@ export default function CourseChatPage() {
   const selectedKey = `${llmProvider}::${modelName}`;
   const firstMessage = location.state?.firstMessage;
 
-  // ---- LOG: mount + route params
   useEffect(() => {
     console.log("[CourseChatPage] mounted/route", {
       projectid,
@@ -57,19 +136,33 @@ export default function CourseChatPage() {
     });
   }, [projectid, chatid, location.pathname, location.state, firstMessage]);
 
-  // Load sidebar threads
+  // Load course name
+  useEffect(() => {
+    (async () => {
+      try {
+        console.log("[CourseChatPage] fetching course name via /projects", { projectid });
+        const res = await fetch(`${API_URL}/projects`, { credentials: "include" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const found = (data.projects || []).find((p) => p.projectid === projectid);
+        if (found?.name) setCourseName(found.name);
+      } catch (e) {
+        console.warn("[CourseChatPage] course name fetch failed (non-blocking)", e);
+      }
+    })();
+  }, [projectid]);
+
+  // Sidebar chat list
   useEffect(() => {
     (async () => {
       console.log("[CourseChatPage] listChats()", { projectid });
       const list = await ChatAPI.listChats(projectid);
       console.log("[CourseChatPage] listChats result:", list);
       if (list?.success) setSidebarChats(list.chats || []);
-    })().catch((err) => {
-      console.error("[CourseChatPage] listChats error:", err);
-    });
+    })().catch((err) => console.error("[CourseChatPage] listChats error:", err));
   }, [projectid]);
 
-  // Load current chat messages
+  // Current chat + messages
   useEffect(() => {
     (async () => {
       console.log("[CourseChatPage] getChat()", { chatid });
@@ -82,9 +175,7 @@ export default function CourseChatPage() {
       setMessages(data.messages || []);
       setLlmProvider(data.chat.llm_provider || "openai");
       setModelName(data.chat.model_name || "gpt-4o");
-    })().catch((err) => {
-      console.error("[CourseChatPage] getChat error:", err);
-    });
+    })().catch((err) => console.error("[CourseChatPage] getChat error:", err));
   }, [chatid]);
 
   // Autoscroll
@@ -105,19 +196,11 @@ export default function CourseChatPage() {
 
   async function handleAsk(text) {
     const trimmed = (text || "").trim();
-    console.log("[CourseChatPage] handleAsk()", {
-      chatid,
-      projectid,
-      trimmed,
-      llmProvider,
-      modelName,
-    });
-
+    console.log("[CourseChatPage] handleAsk()", { chatid, projectid, trimmed, llmProvider, modelName });
     if (!trimmed) return;
 
     setBusy(true);
     try {
-      // optimistic append
       const tempUser = {
         msgid: `temp-${Date.now()}`,
         role: "user",
@@ -150,32 +233,27 @@ export default function CourseChatPage() {
     }
   }
 
-  // Auto-send first message once after chat is loaded
+  // Auto-send first message once
   useEffect(() => {
     if (!firstMessage) return;
     if (didAutoSendRef.current) return;
-
-    // Wait until chat is present (ensures we're on the correct session page)
     if (!chatid) return;
 
     didAutoSendRef.current = true;
     console.log("[CourseChatPage] auto-send firstMessage", { firstMessage });
-
-    // Fire-and-forget; handleAsk has its own try/catch
     handleAsk(firstMessage);
-    // Note: we can't easily clear location.state without navigating.
-    // didAutoSendRef prevents repeats on re-render.
-  }, [firstMessage, chatid]); // intentionally not depending on handleAsk to avoid re-trigger
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstMessage, chatid]);
 
   async function handleNewChat() {
     console.log("[CourseChatPage] handleNewChat()", { projectid, llmProvider, modelName });
-
     try {
       const created = await ChatAPI.createChat(projectid, {
         title: "New chat",
         llm_provider: llmProvider,
         model_name: modelName,
       });
+
       console.log("[CourseChatPage] createChat result:", created);
 
       if (created?.success) {
@@ -191,47 +269,51 @@ export default function CourseChatPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-0px)] w-full bg-gradient-to-b from-[#120A14] via-[#0E0B14] to-[#07060A] text-white">
-      <div className="flex h-full">
-        {/* Left sidebar */}
-        <aside className="w-[320px] shrink-0 border-r border-white/10 bg-black/20">
-          <div className="flex items-center justify-between px-4 py-4">
-            <div className="text-sm font-semibold opacity-90">Chats</div>
-            <button
-              onClick={handleNewChat}
-              className="rounded-xl bg-white/10 px-3 py-1.5 text-xs hover:bg-white/15"
-            >
-              + New
-            </button>
-          </div>
+    <div className="h-screen w-full">
+      {/* same “paper” background feel as DeckPage */}
+      <div className="flex h-full bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+        {/* Left sidebar (soft panel, like DeckPage cards) */}
+        <aside className="w-[320px] shrink-0 border-r border-white/40 bg-white/35 backdrop-blur">
+          <div className="px-4 py-5">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-[#754B4D]">Chats</div>
+              <button
+                onClick={handleNewChat}
+                className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-1.5 text-xs text-[#754B4D] hover:bg-white transition"
+                type="button"
+              >
+                + New
+              </button>
+            </div>
 
-          <div className="px-4 pb-3">
-            <label className="text-xs opacity-60">Model</label>
-            <select
-              value={selectedKey}
-              onChange={(e) => {
-                const [p, m] = e.target.value.split("::");
-                console.log("[CourseChatPage] model select changed", { p, m });
-                setLlmProvider(p);
-                setModelName(m);
-              }}
-              className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none"
-            >
-              {MODEL_OPTIONS.map((opt) => (
-                <option
-                  key={`${opt.llm_provider}::${opt.model_name}`}
-                  value={`${opt.llm_provider}::${opt.model_name}`}
-                >
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <div className="mt-2 text-[11px] opacity-50">
-              Model is saved per chat when you send a message.
+            <div className="mt-4">
+              <label className="text-xs text-[#754B4D]/60">Model</label>
+              <select
+                value={selectedKey}
+                onChange={(e) => {
+                  const [p, m] = e.target.value.split("::");
+                  console.log("[CourseChatPage] model select changed", { p, m });
+                  setLlmProvider(p);
+                  setModelName(m);
+                }}
+                className="mt-1 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+              >
+                {MODEL_OPTIONS.map((opt) => (
+                  <option
+                    key={`${opt.llm_provider}::${opt.model_name}`}
+                    value={`${opt.llm_provider}::${opt.model_name}`}
+                  >
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="mt-2 text-[11px] text-[#754B4D]/60">
+                Model is saved per chat when you send a message.
+              </div>
             </div>
           </div>
 
-          <div className="px-2">
+          <div className="px-3 pb-6">
             {sidebarChats.map((c) => {
               const active = c.chatid === chatid;
               return (
@@ -239,69 +321,101 @@ export default function CourseChatPage() {
                   key={c.chatid}
                   to={`/project/${projectid}/chat/${c.chatid}`}
                   className={[
-                    "block rounded-xl px-3 py-2 text-sm",
-                    active ? "bg-white/10" : "hover:bg-white/5",
+                    "block rounded-2xl px-3 py-2 mb-2 border transition",
+                    active
+                      ? "bg-white/75 border-white/40 shadow-sm"
+                      : "bg-white/45 border-transparent hover:bg-white/60",
                   ].join(" ")}
                   onClick={() => console.log("[CourseChatPage] sidebar click", { to: c.chatid })}
                 >
-                  <div className="truncate font-medium">{c.title}</div>
-                  <div className="truncate text-xs opacity-50">{c.model_name}</div>
+                  <div className="truncate font-semibold text-[#754B4D]">{c.title}</div>
+                  <div className="truncate text-xs text-[#754B4D]/60">{c.model_name}</div>
                 </Link>
               );
             })}
           </div>
         </aside>
 
-        {/* Main chat */}
+        {/* Main */}
         <main className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-            <div className="min-w-0">
-              <div className="truncate text-lg font-semibold">{chat?.title || "Chat"}</div>
-              <div className="text-xs opacity-60">
-                Course memory is shared across all chats in this course.
-              </div>
-              <div className="mt-1 text-[11px] opacity-50">
-                debug: projectid={projectid} chatid={chatid}
-              </div>
-            </div>
+          {/* Header card (match DeckPage top card) */}
+          <div className="px-10 pt-8">
+            <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl border border-[#E0CBB9] bg-white/70 px-3 py-1.5 text-sm font-semibold text-[#754B4D]">
+                      {courseName || "Course"}
+                    </div>
+                    <div className="truncate text-2xl font-semibold text-[#754B4D]">
+                      {chat?.title || "Chat"}
+                    </div>
+                  </div>
 
-            <Link
-              to={`/project/${projectid}`}
-              className="rounded-xl bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15"
-              onClick={() => console.log("[CourseChatPage] back to course clicked")}
-            >
-              Back to course
-            </Link>
-          </header>
+                  <div className="mt-2 text-sm text-[#754B4D]/70">
+                    Course memory is shared across all chats in this course.
+                  </div>
 
-          <div className="flex-1 overflow-auto px-6 py-6">
-            <div className="mx-auto flex max-w-3xl flex-col gap-3">
-              {messages.length === 0 && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm opacity-80">
-                  Ask about assignments, concepts, practice problems, or request
-                  step-by-step reasoning.
+                  <div className="mt-2 text-xs text-[#754B4D]/55">
+                    debug: projectid={projectid} · chatid={chatid}
+                  </div>
                 </div>
-              )}
 
-              {messages.map((m) => (
-                <MessageBubble key={m.msgid} role={m.role} content={m.content} />
-              ))}
-              <div ref={bottomRef} />
+                <Link
+                  to={`/project/${projectid}`}
+                  className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-2 text-sm text-[#754B4D] hover:bg-white transition"
+                  onClick={() => console.log("[CourseChatPage] back to course clicked")}
+                >
+                  Back to course
+                </Link>
+              </div>
             </div>
           </div>
 
-          <div className="border-t border-white/10 px-6 py-4">
-            <div className="mx-auto max-w-3xl">
-              <AskBar
-                disabled={busy}
-                placeholder={busy ? "Thinking…" : "Ask a question…"}
-                onSubmit={(text) => {
-                  console.log("[CourseChatPage] AskBar onSubmit fired", { text });
-                  handleAsk(text);
-                }}
-              />
-              <div className="mt-2 text-[11px] opacity-50">
-                Tip: paste the problem statement + what you tried + where you’re stuck.
+          {/* Messages in a big “card” like DeckPage */}
+          <div className="flex-1 min-h-0 px-10 pt-6 pb-6">
+            <div className="h-full rounded-3xl border border-white/40 bg-white/55 backdrop-blur shadow-sm overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-auto p-6">
+                <div className="mx-auto max-w-3xl flex flex-col gap-4">
+                  {messages.length === 0 ? (
+                    <div className="rounded-3xl border border-white/40 bg-white/70 shadow-sm p-6">
+                      <div className="text-sm font-semibold text-[#754B4D]">No messages yet</div>
+                      <div className="mt-2 text-sm text-[#754B4D]/70">
+                        Ask about assignments, concepts, practice problems, or request step-by-step reasoning.
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {messages.map((m) => (
+                    <MessageBubble
+                      key={m.msgid}
+                      role={m.role}
+                      content={m.content}
+                      created_at={m.created_at}
+                    />
+                  ))}
+
+                  <div ref={bottomRef} />
+                </div>
+              </div>
+
+              {/* Ask bar footer (also card-like) */}
+              <div className="border-t border-white/40 bg-white/50 px-6 py-4">
+                <div className="mx-auto max-w-3xl">
+                  <AskBar
+                    disabled={busy}
+                    placeholder={busy ? "Thinking…" : "Ask a question…"}
+                    onSubmit={(text) => {
+                      console.log("[CourseChatPage] AskBar onSubmit fired", { text });
+                      handleAsk(text);
+                    }}
+                    // make it pop + match flashcards:
+                    className="bg-white/90 border border-[#E0CBB9] shadow-sm"
+                  />
+                  <div className="mt-2 text-[11px] text-[#754B4D]/60">
+                    Tip: paste the problem statement + what you tried + where you’re stuck.
+                  </div>
+                </div>
               </div>
             </div>
           </div>
