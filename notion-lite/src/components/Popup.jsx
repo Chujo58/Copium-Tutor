@@ -1,9 +1,10 @@
 // Create a login page popup:
-import React from "react";
+import React, { useEffect } from "react";
 import { API_URL } from "../config";
 import { CircleX } from "lucide-react";
 import * as Icons from "lucide-react";
 import IconPicker from "./IconPicker";
+import { DocumentCard } from "./Card";
 
 export default function Popup({ title, children, onClose, wide = false }) {
     React.useEffect(() => {
@@ -44,17 +45,138 @@ export default function Popup({ title, children, onClose, wide = false }) {
     );
 }
 
-export function UploadPopup({ onClose }) {
+export function UploadPopup({ projects, onClose }) {
+    const [uploadedFiles, setUploadedFiles] = React.useState([]);
+    const [fileIds, setFileIds] = React.useState([]);
+
+    
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        const files = Array.from(e.dataTransfer.files);
+        const mappedFiles = files.map((file) => ({
+            file,
+            id: Date.now() + Math.random(),
+            thumbnail: null,
+            progress: 0,
+        }));
+        setUploadedFiles((prev) => [...prev, ...mappedFiles]);
+
+        console.log("Dropped files:", mappedFiles);
+        mappedFiles.forEach(uploadFile);
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+    };
+
+    const handleInput = (e) => {
+        const files = Array.from(e.target.files);
+        const mappedFiles = files.map((file) => ({
+            file,
+            id: Date.now() + Math.random(),
+            thumbnail: null,
+            progress: 0,
+        }));
+        setUploadedFiles((prev) => [...prev, ...mappedFiles]);
+
+        console.log("Input files:", mappedFiles);
+        mappedFiles.forEach(uploadFile);
+    }
+
+    const removeFile = (id) => {
+        setUploadedFiles((prev) => prev.filter((f) => f.id !== id));
+        setFileIds((prev) => prev.filter((_, index) => uploadedFiles[index].id !== id));
+    };
+
+    const uploadFile = (f) => {
+        // Upload the file to the first project in the list
+        try {
+            const formData = new FormData();
+            formData.append("file", f.file);
+            formData.append("project", projects[0]?.name || "default");
+
+            fetch(`${API_URL}/upload`, {
+                method: "POST",
+                body: formData,
+                credentials: "include",
+            }).then((response) => {
+                if (!response.ok) {
+                    console.error("Upload failed:", response.statusText);
+                } else {
+                    console.log("Upload successful", response);
+                    // Update uploadedFileId here
+                    response.json().then((data) => {
+                        const uploadedFileId = data.fileid;
+                        // If there are multiple projects, link the uploaded file to them
+                        for (let i = 1; i < projects.length; i++) {
+                            const formDataLink = new FormData();
+                            formDataLink.append(
+                                "project",
+                                projects[i]?.name || "default"
+                            );
+
+                            fetch(
+                                `${API_URL}/files/${uploadedFileId}/add_project`,
+                                {
+                                    method: "POST",
+                                    body: formDataLink,
+                                    credentials: "include",
+                                }
+                            ).then((res) => {
+                                if (!res.ok) {
+                                    console.error(
+                                        "Linking file to project failed:",
+                                        res.statusText
+                                    );
+                                } else {
+                                    console.log(
+                                        "File linked to project successfully"
+                                    );
+                                }
+                            });
+                        }
+                        // Store the uploaded file ID
+                        setFileIds((prev) => [...prev, uploadedFileId]);
+                    });
+                }
+            });
+        } catch (err) {
+            console.error("Error uploading file:", err);
+        }
+    };
+
     return (
         <Popup title="Upload file" onClose={onClose}>
             {/* Drag drop zone */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-rose-500 transition-colors text-gray-400 text-center">
+            <div
+                className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-rose-500 transition-colors text-gray-400 text-center"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+            >
                 Drag and Drop files here or{" "}
-                <a href="#" className="text-rose-600 underline">
-                    Choose file
-                </a>
+                <label className="ml-1 cursor-pointer underline text-blue-500 hover:text-blue-600">
+                    browse files
+                    <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleInput}
+                    />
+                </label>
             </div>
             {/* List of uploaded files added with popup */}
+            {uploadedFiles.map((f) => (
+                <DocumentCard
+                    key={f.id}
+                    docTitle={f.file.name}
+                    id={fileIds[uploadedFiles.indexOf(f)]}
+                    onDeleted={() => {
+                        removeFile(f.id);
+                    }}
+                />
+            ))    
+            }
         </Popup>
     );
 }
@@ -133,13 +255,19 @@ export function CreateProjectPopup({ onClose }) {
                         onChange={(e) => setColor(e.target.value)}
                     />
                 </div>
-                <button className="flex items-center gap-2 rounded border px-3 py-2" onClick={()=>{
-                    setShowIconPicker(!showIconPicker);
-                }} type="button">
+                <button
+                    className="flex items-center gap-2 rounded border px-3 py-2"
+                    onClick={() => {
+                        setShowIconPicker(!showIconPicker);
+                    }}
+                    type="button"
+                >
                     {SelectedIcon && <SelectedIcon size={18} />}
                     Choose Icon
                 </button>
-                {showIconPicker && <IconPicker value={icon} onChange={setIcon} />}
+                {showIconPicker && (
+                    <IconPicker value={icon} onChange={setIcon} />
+                )}
                 <div>{error}</div>
                 <button type="submit">Create Project</button>
             </form>

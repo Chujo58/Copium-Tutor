@@ -1,9 +1,18 @@
 import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid, json
 from pathlib import Path
 from dataclasses import dataclass
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response, Cookie, Body
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    UploadFile,
+    File,
+    Form,
+    Response,
+    Cookie,
+    Body,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+from datetime import datetime, timedelta
 import datetime as dt
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
@@ -14,6 +23,7 @@ from backboard.exceptions import BackboardNotFoundError
 from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
 from db import conn, cursor, init_db, DB_PATH
 from backboard_ops import index_project_documents_impl
+from typing import Literal
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
@@ -27,6 +37,7 @@ conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
 init_db()
+
 
 @dataclass
 class User:
@@ -43,6 +54,7 @@ class File:
     file_size: int
     file_type: str
 
+
 @dataclass
 class Project:
     projectid: str
@@ -51,10 +63,12 @@ class Project:
     created_date: str
     userid: str
 
+
 @dataclass
 class FileProjectRelation:
     fileid: str
     projectid: str
+
 
 class CreateDeckRequest(BaseModel):
     name: str
@@ -72,6 +86,18 @@ class SubmitQuizRequest(BaseModel):
 async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
     db_cursor = db_cursor or cursor
     db_conn = db_conn or conn
+class CreateCardRequest(BaseModel):
+    front: str
+    back: str
+
+class UpdateCardRequest(BaseModel):
+    front: str | None = None
+    back: str | None = None
+
+class ReviewCardRequest(BaseModel):
+    rating: Literal["again", "hard", "good", "easy"]
+
+async def get_or_create_backboard_memory(projectid: str):
     # check DB first
     db_cursor.execute(
         "SELECT assistant_id, memory_thread_id FROM backboard_projects WHERE projectid=?",
@@ -155,12 +181,15 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
 
 
 def get_project_file_paths(projectid: str) -> list[str]:
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT f.filepath
         FROM files f
         JOIN fileinproj fp ON fp.fileid = f.fileid
         WHERE fp.projectid = ?
-    """, (projectid,))
+    """,
+        (projectid,),
+    )
     rows = cursor.fetchall()
 
     base_dir = os.path.dirname(__file__)  # folder where main.py lives (backend/)
@@ -178,6 +207,20 @@ def get_project_file_paths(projectid: str) -> list[str]:
 
     return paths
 
+def _require_deck_owned(deckid: str, userid: str):
+    cursor.execute("SELECT 1 FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
+    if cursor.fetchone() is None:
+        return False
+    return True
+
+def _get_card_and_verify_owner(cardid: str, userid: str):
+    cursor.execute("""
+        SELECT c.cardid, c.deckid, c.front, c.back
+        FROM cards c
+        JOIN decks d ON d.deckid = c.deckid
+        WHERE c.cardid=? AND d.userid=?
+    """, (cardid, userid))
+    return cursor.fetchone()
 
 # Allow frontend
 app.add_middleware(
@@ -190,6 +233,12 @@ app.add_middleware(
 
 UPLOAD_DIR = "uploaded_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+#==================================================================
+#==================================================================
+#                         ENDPOINTS START HERE
+#==================================================================
+#==================================================================
 
 
 # ME
@@ -346,6 +395,7 @@ async def upload_file(
 async def get_file(fileid: str):
     cursor.execute("SELECT filepath FROM files WHERE fileid=?", (fileid,))
     row = cursor.fetchone()
+    logger.debug(row)
     if not row:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -366,7 +416,9 @@ async def get_file_path(fileid: str):
     filepath = row[0]
     return {"success": True, "filepath": os.path.abspath(filepath)}
 
+
 # Get course specific files
+
 
 @app.get("/projects/{projectid}/files")
 async def list_project_files(projectid: str, session: str = Cookie(None)):
@@ -493,7 +545,7 @@ async def list_files(session: str = Cookie(None)):
 
 
 ###############
-# PROJECTS
+# PROJECTS / COURSES
 ###############
 
 
@@ -586,9 +638,11 @@ async def delete_project(projectid: str, session: str = Cookie(None)):
 
     return {"success": True, "message": "Project deleted successfully"}
 
+
 ###############
 # DECKS
 ###############
+
 
 # List decks in a project
 @app.get("/projects/{projectid}/decks")
@@ -599,7 +653,9 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
     userid = session
 
     # ensure this project belongs to the user
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -615,23 +671,39 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
     ]
     return {"success": True, "decks": decks}
 
+
+
 # Create a new deck in a project (QUERY ONLY — assumes documents already indexed)
 
 FLASHCARDS_SYSTEM = """
-You are an expert tutor.
-Return ONLY valid JSON (no markdown, no commentary).
-If you cannot comply, return exactly: {"cards":[]}
+You are an expert tutor creating study flashcards.
 
-Schema:
+You have access to the course's INDEXED documents for this course (retrieval may be automatic).
+
+Return ONLY valid JSON:
 {
+  "ok": true,
+  "mode": "grounded" | "mixed" | "external_only",
+  "confidence": 0-100,
   "cards": [
-    { "front": "...", "back": "..." }
+    {
+      "front": "...",
+      "back": "...",
+      "external": true/false,
+      "note": "string"
+    }
   ]
 }
+
 Rules:
-- 10 to 20 cards
-- Front is a question/term, Back is concise explanation
-- Use ONLY the course documents already indexed in memory as the source of truth
+- ALWAYS return ok=true.
+- Produce 10–20 cards.
+- Cards do NOT need to be verbatim excerpts; paraphrase and synthesize.
+- Prefer indexed docs. If a card is not clearly supported by indexed docs, set external=true and
+  note="General knowledge (not found in course docs)."
+- If most cards are doc-supported: mode="grounded".
+- If mix: mode="mixed".
+- If you could not rely on docs at all: mode="external_only".
 """.strip()
 
 QUIZ_SYSTEM = """
@@ -665,7 +737,8 @@ Rules:
 
 
 def _extract_json_object(raw: str) -> str | None:
-    """Best-effort extraction of the first JSON object in a string."""
+    if raw is None:
+        return None
     if not isinstance(raw, str):
         raw = str(raw)
     start = raw.find("{")
@@ -1165,16 +1238,38 @@ def _normalize_quiz_payload(payload, quiz_type: str, num_questions: int):
     return questions, answer_key, explanations
 
 
+def _safe_json_load(raw: str):
+    try:
+        return json.loads(raw)
+    except Exception:
+        extracted = _extract_json_object(raw)
+        if extracted:
+            try:
+                return json.loads(extracted)
+            except Exception:
+                return None
+        return None
+
+
 @app.post("/projects/{projectid}/decks")
 async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
+
+    print("\n" + "=" * 80)
+    print(f"[CREATE_DECK] projectid={projectid}")
+    print(f"[DECK NAME] {body.name}")
+    print(f"[USER PROMPT] {body.prompt}")
+
     if session is None:
+        print("[AUTH] ❌ Unauthorized")
         return {"success": False, "message": "Unauthorized"}
     userid = session
+    print(f"[AUTH] ✅ userid={userid}")
 
-    # verify project belongs to user
     cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
     if cursor.fetchone() is None:
+        print("[PROJECT] ❌ Project not found or not owned by user")
         return {"success": False, "message": "Project not found"}
+    print("[PROJECT] ✅ Ownership verified")
 
     deckid = uuid.uuid4().hex[:8]
     createddate = datetime.utcnow().isoformat()
@@ -1184,70 +1279,112 @@ async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Co
         (deckid, projectid, userid, body.name, body.prompt, createddate),
     )
     conn.commit()
+    print(f"[DB] Deck created deckid={deckid}")
 
-    # ---- Backboard generation starts here (QUERY ONLY) ----
-    print("BACKBOARD KEY PRESENT:", bool(BACKBOARD_API_KEY))
-
+    print("[BACKBOARD] API key present:", bool(BACKBOARD_API_KEY))
     if not BACKBOARD_API_KEY:
+        print("[BACKBOARD] ❌ No API key, skipping generation")
         return {
             "success": True,
             "deckid": deckid,
             "generated": 0,
+            "confidence": 0,
+            "mode": "external_only",
             "warning": "BACKBOARD_API_KEY not set, cards not generated",
         }
 
     client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
+    print("[BACKBOARD]")
+    print("  assistant_id:", assistant_id)
+    print("  thread_id:", thread_id)
 
-    generation_prompt = f"""
+    file_paths = get_project_file_paths(projectid)
+    file_names = [os.path.basename(p) for p in (file_paths or [])]
+
+    print("[INDEXED FILES]")
+    if not file_names:
+        print("  ⚠️ NONE FOUND")
+    else:
+        for n in file_names:
+            print("  -", n)
+
+    user_prompt = f"""
 Course: {projectid}
 Deck name: {body.name}
 
 User study prompt:
 {body.prompt}
 
-Task:
-Generate 10–20 high-quality flashcards using ONLY the indexed course documents in memory.
-Focus on definitions, core concepts, key equations, comparisons, and exam-relevant facts.
+Indexed file names (for context; retrieval uses the indexed docs automatically):
+{chr(10).join(f"- {n}" for n in file_names) if file_names else "- (none found)"}
 """.strip()
 
-    try:
-        response = await client.add_message(
+    # -------------------------
+    # Generate cards (single pass + one retry if JSON is bad)
+    # -------------------------
+    warning = None
+    print("[GENERATION] Generating flashcards (single-pass)")
+
+    gen = await client.add_message(
+        thread_id=thread_id,
+        content=FLASHCARDS_SYSTEM + "\n\n" + user_prompt,
+        llm_provider="openai",
+        model_name="gpt-4o",
+        stream=False,
+        # use Readonly so you don't store flashcards in memory
+        memory="Readonly",
+    )
+
+    gen_raw = getattr(gen, "content", gen)
+    print("[GENERATION RAW]")
+    print(gen_raw)
+
+    gen_json = _safe_json_load(gen_raw)
+    if not isinstance(gen_json, dict):
+        print("[GENERATION] ❌ Invalid JSON; retrying once")
+        retry = await client.add_message(
             thread_id=thread_id,
-            content=FLASHCARDS_SYSTEM + "\n\n" + generation_prompt,
+            content="Return ONLY valid JSON. No markdown. No commentary.\n\n"
+                    + FLASHCARDS_SYSTEM + "\n\n" + user_prompt,
             llm_provider="openai",
             model_name="gpt-4o",
             stream=False,
-            memory="Auto",
+            memory="Readonly",
         )
-    except Exception as e:
-        logger.error(f"Backboard generation failed: {e}")
-        return {
-            "success": True,
-            "deckid": deckid,
-            "generated": 0,
-            "warning": "Backboard generation failed (see server logs)",
-        }
+        retry_raw = getattr(retry, "content", retry)
+        print("[RETRY RAW]")
+        print(retry_raw)
+        gen_json = _safe_json_load(retry_raw)
 
-    raw = getattr(response, "content", response)
-    print("BACKBOARD RAW RESPONSE:", raw)
-
-    # Parse JSON safely
+    mode = "external_only"
+    confidence = 25
     cards = []
-    try:
-        raw_str = raw if isinstance(raw, str) else str(raw)
-        json_text = _extract_json_object(raw_str) or raw_str
-        cards_json = json.loads(json_text)
-        if isinstance(cards_json, dict):
-            cards = cards_json.get("cards", []) or []
-    except Exception as e:
-        logger.error(f"Failed to parse JSON from Backboard: {e}")
+
+    if isinstance(gen_json, dict):
+        mode = (gen_json.get("mode") or "external_only").strip().lower()
+        if mode not in ("grounded", "mixed", "external_only"):
+            mode = "external_only"
+
+        try:
+            confidence = int(gen_json.get("confidence", 25))
+        except Exception:
+            confidence = 25
+        confidence = max(0, min(100, confidence))
+
+        cards = gen_json.get("cards") or []
+        if not isinstance(cards, list):
+            cards = []
+    else:
+        warning = "Model did not return valid JSON; padded with generic cards."
+        mode = "external_only"
+        confidence = 20
         cards = []
 
-    print("PARSED CARDS COUNT:", len(cards))
-
-    # Save cards
-    inserted = 0
-    for c in cards:
+    # -------------------------
+    # Clean & ensure 10 cards minimum (always generate)
+    # -------------------------
+    cleaned = []
+    for c in cards[:20]:
         if not isinstance(c, dict):
             continue
         front = (c.get("front") or "").strip()
@@ -1255,23 +1392,65 @@ Focus on definitions, core concepts, key equations, comparisons, and exam-releva
         if not front or not back:
             continue
 
+        external = bool(c.get("external", True))
+        note = (c.get("note") or "").strip()
+        if external and not note:
+            note = "General knowledge (not found in course docs)."
+
+        cleaned.append({"front": front, "back": back, "external": external, "note": note})
+
+    while len(cleaned) < 10:
+        cleaned.append({
+            "front": f"Key idea #{len(cleaned)+1}",
+            "back": "Write a concise explanation and one example from your notes.",
+            "external": True,
+            "note": "General study template (not found in course docs).",
+        })
+        confidence = min(confidence, 25)
+        warning = warning or "Some cards were padded with general study templates."
+
+    cleaned = cleaned[:20]
+
+    print("[GENERATION FINAL]")
+    print("  final_mode:", mode)
+    print("  final_confidence:", confidence)
+    print("  final_cards:", len(cleaned))
+    if warning:
+        print("  warning:", warning)
+
+    # -------------------------
+    # Save cards
+    # (DB only stores front/back; append external marker to back)
+    # -------------------------
+    inserted = 0
+    for c in cleaned:
         cardid = uuid.uuid4().hex[:8]
+
+        back_to_store = c["back"]
+        if c["external"]:
+            back_to_store += f"\n\n[External] {c['note']}"
+
         cursor.execute(
             "INSERT INTO cards (cardid, deckid, front, back) VALUES (?, ?, ?, ?)",
-            (cardid, deckid, front, back),
+            (cardid, deckid, c["front"], back_to_store),
         )
         inserted += 1
 
     conn.commit()
+    print(f"[DB] cards inserted: {inserted}")
 
-    cursor.execute("SELECT COUNT(*) FROM cards WHERE deckid=?", (deckid,))
-    print("DB CARDS INSERTED:", cursor.fetchone()[0])
+    return {
+        "success": True,
+        "deckid": deckid,
+        "generated": inserted,
+        "confidence": confidence,
+        "mode": mode,
+        "matched_files": file_names,
+        "warning": warning,
+    }
 
-    return {"success": True, "deckid": deckid, "generated": inserted}
 
-
-
-# Get deck details and cards
+# Get deck details and cards (with scheduling fields)
 @app.get("/decks/{deckid}")
 async def get_deck(deckid: str, session: str = Cookie(None)):
     if session is None:
@@ -1279,6 +1458,7 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
 
     userid = session
 
+    # Deck ownership check
     cursor.execute(
         "SELECT deckid, projectid, name, prompt, createddate FROM decks WHERE deckid=? AND userid=?",
         (deckid, userid),
@@ -1295,33 +1475,42 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
         "createddate": row[4],
     }
 
-    cursor.execute("SELECT cardid, front, back FROM cards WHERE deckid=?", (deckid,))
-    card_rows = cursor.fetchall()
-    cards = [{"cardid": r[0], "front": r[1], "back": r[2]} for r in card_rows]
+    # Cards + scheduling fields
+    cursor.execute("""
+        SELECT
+            cardid,
+            front,
+            back,
+            COALESCE(position, 999999) as pos,
+            due_at,
+            interval_days,
+            ease,
+            reps,
+            lapses,
+            last_reviewed_at
+        FROM cards
+        WHERE deckid=?
+        ORDER BY pos ASC, rowid ASC
+    """, (deckid,))
+
+    rows = cursor.fetchall()
+
+    cards = []
+    for r in rows:
+        cards.append({
+            "cardid": r[0],
+            "front": r[1],
+            "back": r[2],
+            "position": r[3],
+            "due_at": r[4],
+            "interval_days": r[5],
+            "ease": r[6],
+            "reps": r[7],
+            "lapses": r[8],
+            "last_reviewed_at": r[9],
+        })
 
     return {"success": True, "deck": deck, "cards": cards}
-
-@app.post("/projects/{projectid}/index")
-async def index_project_documents(projectid: str, session: str = Cookie(None)):
-    if session is None:
-        return {"success": False, "message": "Unauthorized"}
-    userid = session
-
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
-    if cursor.fetchone() is None:
-        return {"success": False, "message": "Project not found"}
-
-    if not BACKBOARD_API_KEY:
-        return {"success": False, "message": "BACKBOARD_API_KEY not set"}
-
-    return await index_project_documents_impl(
-        projectid=projectid,
-        userid=userid,
-        cursor=cursor,
-        conn=conn,
-        client_factory=None,              # optional, you can remove if unused
-        get_memory=get_or_create_backboard_memory,
-    )
 
 @app.delete("/decks/{deckid}")
 async def delete_deck(deckid: str, session: str = Cookie(None)):
@@ -1348,6 +1537,12 @@ async def delete_deck(deckid: str, session: str = Cookie(None)):
 
 @app.get("/projects/{projectid}/quizzes")
 async def list_quizzes(projectid: str, session: str = Cookie(None)):
+# CARDS
+###############
+
+# create card
+@app.post("/decks/{deckid}/cards")
+async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1384,6 +1579,34 @@ async def list_quizzes(projectid: str, session: str = Cookie(None)):
 
 @app.post("/projects/{projectid}/quizzes")
 async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Cookie(None)):
+    if not _require_deck_owned(deckid, userid):
+        return {"success": False, "message": "Deck not found"}
+
+    front = (body.front or "").strip()
+    back = (body.back or "").strip()
+    if not front or not back:
+        return {"success": False, "message": "front and back are required"}
+
+    # position = max(position)+1 (fallback if null)
+    cursor.execute("SELECT COALESCE(MAX(position), 0) FROM cards WHERE deckid=?", (deckid,))
+    max_pos = cursor.fetchone()[0] or 0
+    pos = int(max_pos) + 1
+
+    cardid = uuid.uuid4().hex[:8]
+    cursor.execute(
+        "INSERT INTO cards (cardid, deckid, front, back, position) VALUES (?, ?, ?, ?, ?)",
+        (cardid, deckid, front, back, pos),
+    )
+    conn.commit()
+
+    return {
+        "success": True,
+        "card": {"cardid": cardid, "deckid": deckid, "front": front, "back": back, "position": pos},
+    }
+
+# edit card
+@app.patch("/cards/{cardid}")
+async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1496,6 +1719,31 @@ async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Co
 
 @app.get("/quizzes/{quizid}")
 async def get_quiz(quizid: str, session: str = Cookie(None)):
+    row = _get_card_and_verify_owner(cardid, userid)
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    current_front, current_back = row[2], row[3]
+    new_front = current_front if body.front is None else (body.front or "").strip()
+    new_back = current_back if body.back is None else (body.back or "").strip()
+
+    if not new_front or not new_back:
+        return {"success": False, "message": "front/back cannot be empty"}
+
+    cursor.execute(
+        "UPDATE cards SET front=?, back=? WHERE cardid=?",
+        (new_front, new_back, cardid),
+    )
+    conn.commit()
+
+    return {
+        "success": True,
+        "card": {"cardid": cardid, "deckid": row[1], "front": new_front, "back": new_back},
+    }
+
+# delete card
+@app.delete("/cards/{cardid}")
+async def delete_card(cardid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1534,6 +1782,18 @@ async def get_quiz(quizid: str, session: str = Cookie(None)):
 
 @app.post("/quizzes/{quizid}/generate")
 async def generate_quiz(quizid: str, session: str = Cookie(None)):
+    row = _get_card_and_verify_owner(cardid, userid)
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    cursor.execute("DELETE FROM cards WHERE cardid=?", (cardid,))
+    conn.commit()
+
+    return {"success": True, "deleted": True, "cardid": cardid}
+
+# review card
+@app.post("/cards/{cardid}/review")
+async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1583,6 +1843,86 @@ async def generate_quiz(quizid: str, session: str = Cookie(None)):
 
 @app.post("/quizzes/{quizid}/submit")
 async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cookie(None)):
+    # verify ownership via join
+    cursor.execute("""
+        SELECT c.deckid, c.due_at, c.interval_days, c.ease, c.reps, c.lapses
+        FROM cards c
+        JOIN decks d ON d.deckid = c.deckid
+        WHERE c.cardid=? AND d.userid=?
+    """, (cardid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    deckid, due_at, interval_days, ease, reps, lapses = row
+
+    # defaults
+    ease = float(ease) if ease is not None else 2.5
+    interval_days = float(interval_days) if interval_days is not None else 0.0
+    reps = int(reps) if reps is not None else 0
+    lapses = int(lapses) if lapses is not None else 0
+
+    rating = body.rating
+    now = datetime.utcnow()
+
+    # Simple Anki-ish rules
+    if rating == "again":
+        ease = max(1.3, ease - 0.2)
+        interval_days = 0.02  # ~30 minutes
+        lapses += 1
+    elif rating == "hard":
+        ease = max(1.3, ease - 0.15)
+        if reps == 0:
+            interval_days = 0.5
+        else:
+            interval_days = max(0.5, interval_days * 1.2)
+    elif rating == "good":
+        if reps == 0:
+            interval_days = 1.0
+        else:
+            interval_days = max(1.0, interval_days * ease)
+    elif rating == "easy":
+        ease = ease + 0.15
+        if reps == 0:
+            interval_days = 2.0
+        else:
+            interval_days = max(2.0, interval_days * ease * 1.3)
+
+    reps += 1
+    due = now + timedelta(days=interval_days)
+
+    cursor.execute("""
+        UPDATE cards
+        SET due_at=?, interval_days=?, ease=?, reps=?, lapses=?, last_reviewed_at=?
+        WHERE cardid=?
+    """, (
+        due.isoformat(),
+        interval_days,
+        ease,
+        reps,
+        lapses,
+        now.isoformat(),
+        cardid
+    ))
+    conn.commit()
+
+    return {
+        "success": True,
+        "cardid": cardid,
+        "deckid": deckid,
+        "rating": rating,
+        "due_at": due.isoformat(),
+        "interval_days": interval_days,
+        "ease": ease,
+        "reps": reps,
+        "lapses": lapses,
+        "last_reviewed_at": now.isoformat(),
+    }
+
+
+# Index project documents
+@app.post("/projects/{projectid}/index")
+async def index_project_documents(projectid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1675,3 +2015,19 @@ async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cooki
     conn.commit()
 
     return {"success": True, "score": score, "feedback": feedback}
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    if not BACKBOARD_API_KEY:
+        return {"success": False, "message": "BACKBOARD_API_KEY not set"}
+
+    return await index_project_documents_impl(
+        projectid=projectid,
+        userid=userid,
+        cursor=cursor,
+        conn=conn,
+        client_factory=None,  # optional, you can remove if unused
+        get_memory=get_or_create_backboard_memory,
+    )

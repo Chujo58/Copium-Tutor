@@ -5,6 +5,53 @@ import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder } from "lucide-react";
 
+/**
+ * Rose palette inspired by your image:
+ * - Copper Rose: #A86A65
+ * - Dusty Rose:  #AB8882
+ * - Rosewater:   #D8A694
+ * - China Doll:  #E0CBB9
+ * - Plum Wine:   #754B4D
+ */
+
+function SoftButton({ children, onClick, disabled, title, variant = "light", type = "button" }) {
+  const base =
+    "px-4 py-2 rounded-xl border transition disabled:opacity-40 disabled:cursor-not-allowed";
+  const cls =
+    variant === "primary"
+      ? "border-[#754B4D]/30 bg-[#754B4D] text-white hover:bg-[#754B4D]/90"
+      : variant === "danger"
+      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-[#754B4D] hover:bg-[#A86A65]/20"
+      : "border-[#AB8882]/50 bg-white/70 text-[#754B4D] hover:bg-white";
+
+  return (
+    <button className={`${base} ${cls}`} onClick={onClick} disabled={disabled} title={title} type={type}>
+      {children}
+    </button>
+  );
+}
+
+function Badge({ children, title }) {
+  return (
+    <span
+      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border border-[#AB8882]/40 bg-white/60 text-[#754B4D]"
+      title={title}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div className="rounded-2xl border border-white/40 bg-white/50 backdrop-blur p-5 shadow-sm">
+      <div className="h-5 w-40 bg-[#E0CBB9]/60 rounded" />
+      <div className="mt-3 h-4 w-full bg-[#E0CBB9]/40 rounded" />
+      <div className="mt-2 h-4 w-2/3 bg-[#E0CBB9]/35 rounded" />
+    </div>
+  );
+}
+
 export default function FlashcardsHomePage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -19,6 +66,9 @@ export default function FlashcardsHomePage() {
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // NEW: search/filter
+  const [query, setQuery] = useState("");
 
   const fetchProjectsAndCourse = useCallback(async () => {
     setCourseLoading(true);
@@ -75,6 +125,7 @@ export default function FlashcardsHomePage() {
       alert("Please fill in deck name + prompt.");
       return;
     }
+
     setCreating(true);
     try {
       const res = await fetch(`${API_URL}/projects/${projectId}/decks`, {
@@ -83,13 +134,16 @@ export default function FlashcardsHomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, prompt }),
       });
+
       const data = await res.json();
       if (!data.success) {
         alert(data.message || "Failed to create deck");
         return;
       }
+
       setName("");
       setPrompt("");
+      setQuery(""); // reset filter so new deck is visible
       await fetchDecks();
       navigate(`/project/${projectId}/flashcards/${data.deckid}`);
     } catch (e) {
@@ -107,13 +161,28 @@ export default function FlashcardsHomePage() {
       method: "DELETE",
       credentials: "include",
     });
+
     const data = await res.json();
     if (!data.success) {
       alert(data.message || "Failed to delete deck");
       return;
     }
+
     fetchDecks();
   };
+
+  const deckCount = decks?.length ?? 0;
+
+  // NEW: filtered decks
+  const filteredDecks = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return decks;
+
+    return decks.filter((d) => {
+      const hay = `${d.name || ""} ${d.prompt || ""} ${d.deckid || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [decks, query]);
 
   return (
     <div className="flex">
@@ -133,90 +202,196 @@ export default function FlashcardsHomePage() {
                     })),
       ]} />
 
-      <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-        <Link to={`/project/${projectId}`} className="underline">
-          ← Back to Course
-        </Link>
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+        <div className="p-10">
+          <Link
+            to={`/project/${projectId}`}
+            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+          >
+            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            Back to Course
+          </Link>
 
-        {courseLoading ? (
-          <div className="mt-6">Loading…</div>
-        ) : !course ? (
-          <div className="mt-6">
-            <div className="text-2xl font-semibold">Course not found</div>
-            <div className="opacity-70">(Either it doesn’t exist, or you’re not logged in.)</div>
-          </div>
-        ) : (
-          <>
-            <div className="mt-4">
-              <div className="text-3xl main-header font-sans text-dark">
-                Flashcards
-              </div>
-              <div className="opacity-70">{course.name}</div>
-              <div className="mt-2 text-sm opacity-60">projectId: {projectId}</div>
+          {courseLoading ? (
+            <div className="mt-8 text-[#754B4D]/70">Loading…</div>
+          ) : !course ? (
+            <div className="mt-8">
+              <div className="text-2xl font-semibold text-[#754B4D]">Course not found</div>
+              <div className="text-[#754B4D]/70">(Either it doesn’t exist, or you’re not logged in.)</div>
             </div>
+          ) : (
+            <>
+              {/* Header card */}
+              <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-3xl font-semibold text-[#754B4D]">Flashcards</div>
+                    <div className="mt-1 text-[#754B4D]/70">{course.name}</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Badge title="Project identifier">{projectId}</Badge>
+                      <Badge title="Number of decks">{deckCount} deck{deckCount === 1 ? "" : "s"}</Badge>
+                    </div>
+                  </div>
 
-            <div className="mt-10">
-              <h2 className="text-xl font-semibold">Create a deck</h2>
-
-              <div className="mt-3 flex flex-col gap-2 max-w-xl">
-                <input
-                  className="border p-2"
-                  placeholder="Deck name (e.g., Midterm)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={creating}
-                />
-                <textarea
-                  className="border p-2"
-                  placeholder='Prompt: "What do you need to study?"'
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  disabled={creating}
-                  rows={4}
-                />
-                <button className="border px-3 py-2" onClick={createDeck} disabled={creating}>
-                  {creating ? "Creating…" : "Create deck"}
-                </button>
+                  <div className="text-right text-sm text-[#754B4D]/60">
+                    Create decks from your uploaded course docs, then review :)
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="mt-10">
-              <h2 className="text-xl font-semibold">Your decks</h2>
+              {/* Create deck + Deck list */}
+              <div className="mt-10 grid gap-6 lg:grid-cols-2">
+                {/* Create deck */}
+                <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-[#754B4D]">Create a deck</h2>
+                    {creating ? <Badge title="Creating state">Creating…</Badge> : null}
+                  </div>
 
-              {loading ? (
-                <div className="mt-2 opacity-70">Loading…</div>
-              ) : decks.length === 0 ? (
-                <div className="mt-2 opacity-70">No decks yet.</div>
-              ) : (
-                <ul className="mt-3 space-y-2">
-                  {decks.map((d) => (
-                    <li key={d.deckid} className="flex items-start justify-between gap-4">
-                      <div>
-                        <Link
-                          className="underline"
-                          to={`/project/${projectId}/flashcards/${d.deckid}`}
-                        >
-                          {d.name}
-                        </Link>
-                        <div className="text-sm opacity-70">{d.prompt}</div>
-                      </div>
+                  <div className="mt-4 grid gap-3">
+                    <input
+                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      placeholder="Deck name (e.g., Midterm)"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={creating}
+                    />
 
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          deleteDeck(d.deckid);
-                        }}
-                        className="text-sm underline opacity-60 hover:opacity-100"
+                    <textarea
+                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      placeholder='Prompt: "What do you need to study?"'
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      disabled={creating}
+                      rows={5}
+                    />
+
+                    <div className="flex items-center gap-2">
+                      <SoftButton
+                        variant="primary"
+                        onClick={createDeck}
+                        disabled={creating || !name.trim() || !prompt.trim()}
+                        title="Create deck and generate cards"
                       >
-                        Delete
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </>
-        )}
+                        {creating ? "Creating…" : "Create deck"}
+                      </SoftButton>
+
+                      <SoftButton
+                        onClick={() => {
+                          setName("");
+                          setPrompt("");
+                        }}
+                        disabled={creating}
+                        title="Clear fields"
+                      >
+                        Clear
+                      </SoftButton>
+                    </div>
+
+                    <div className="text-sm text-[#754B4D]/60">
+                      Tip: Keep the prompt specific (chapters, topics, exam focus) for better cards.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Deck list */}
+                <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-[#754B4D]">Your decks</h2>
+                    <SoftButton onClick={fetchDecks} disabled={loading} title="Refresh deck list">
+                      Refresh
+                    </SoftButton>
+                  </div>
+
+                  {/* NEW: Search bar */}
+                  <div className="mt-4 flex items-center gap-2">
+                    <input
+                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      placeholder="Search decks (name, prompt, id)…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      disabled={loading}
+                    />
+                    <SoftButton onClick={() => setQuery("")} disabled={loading || !query} title="Clear search">
+                      Clear
+                    </SoftButton>
+                  </div>
+
+                  {/* Search result meta */}
+                  <div className="mt-2 text-sm text-[#754B4D]/60">
+                    Showing <span className="font-semibold">{filteredDecks.length}</span> of{" "}
+                    <span className="font-semibold">{deckCount}</span>
+                    {query.trim() ? (
+                      <>
+                        {" "}
+                        for <Badge title="Search query">{query.trim()}</Badge>
+                      </>
+                    ) : null}
+                  </div>
+
+                  {loading ? (
+                    <div className="mt-4 space-y-3">
+                      <SkeletonRow />
+                      <SkeletonRow />
+                      <SkeletonRow />
+                    </div>
+                  ) : filteredDecks.length === 0 ? (
+                    <div className="mt-4 text-[#754B4D]/70">
+                      {deckCount === 0 ? "No decks yet. Create one on the left ✨" : "No decks match your search."}
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {filteredDecks.map((d) => (
+                        <div
+                          key={d.deckid}
+                          className="rounded-2xl border border-white/40 bg-white/65 backdrop-blur p-5 shadow-sm hover:bg-white/75 transition"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <Link
+                                to={`/project/${projectId}/flashcards/${d.deckid}`}
+                                className="text-lg font-semibold text-[#754B4D] hover:opacity-80 truncate block"
+                              >
+                                {d.name}
+                              </Link>
+                              <div className="mt-1 text-sm text-[#754B4D]/70 line-clamp-2">
+                                {d.prompt}
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <Badge title="Deck id">{d.deckid}</Badge>
+                                {d.createddate ? (
+                                  <Badge title="Created date">
+                                    {new Date(d.createddate).toLocaleDateString()}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <SoftButton
+                              variant="danger"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                deleteDeck(d.deckid);
+                              }}
+                              title="Delete deck"
+                            >
+                              Delete
+                            </SoftButton>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-4 text-xs text-[#754B4D]/55">
+                    Deleting a deck deletes all its cards.
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
