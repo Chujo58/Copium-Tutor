@@ -1,19 +1,33 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
-import { Folder } from "lucide-react";
+import { Folder, MessageSquare, Layers, FileText, RefreshCw } from "lucide-react";
 import { BlockWithDivider, PlumDivider } from "../components/Divider";
 import { DocumentCard } from "../components/Card";
+import AskBar from "../components/AskBar";
+import { ChatAPI } from "../services/chat";
+
+function formatWhen(iso) {
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
 
 export default function CoursePage() {
-    const { projectId } = useParams();
+  const { projectid } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    const [projects, setProjects] = useState([]);
-    const [course, setCourse] = useState(null);
-    const [loading, setLoading] = useState(true);
+  const [creatingChat, setCreatingChat] = useState(false);
+
+  const [projects, setProjects] = useState([]);
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
 
     const [files, setFiles] = useState([]);
     const [filesLoading, setFilesLoading] = useState(false);
@@ -21,56 +35,142 @@ export default function CoursePage() {
     const [quizzes, setQuizzes] = useState([]);
     const [quizzesLoading, setQuizzesLoading] = useState(false);
 
-    const [indexing, setIndexing] = useState(false);
-    const [indexResult, setIndexResult] = useState(null);
-    const [indexError, setIndexError] = useState("");
+  const [indexing, setIndexing] = useState(false);
+  const [indexResult, setIndexResult] = useState(null);
+  const [indexError, setIndexError] = useState("");
 
-    const fetchFiles = useCallback(async () => {
-        setFilesLoading(true);
-        try {
-            const res = await fetch(`${API_URL}/projects/${projectId}/files`, {
-                credentials: "include",
-                method: "GET",
-            });
-            const data = await res.json();
-            if (data.success) setFiles(data.files || []);
-            else setFiles([]);
-        } catch (err) {
-            console.error(err);
-            setFiles([]);
-        } finally {
-            setFilesLoading(false);
+  // Recent chats (course page)
+  const [recentChats, setRecentChats] = useState([]);
+  const [recentChatsLoading, setRecentChatsLoading] = useState(false);
+  const [recentChatsError, setRecentChatsError] = useState("");
+
+  // --- LOG: component mount + route params ---
+  useEffect(() => {
+    console.log("[CoursePage] mounted", { projectid, path: location.pathname });
+  }, [projectid, location.pathname]);
+
+  const startChatFromQuestion = useCallback(
+    async (question) => {
+      const text = (question || "").trim();
+
+      console.log("[CoursePage] startChatFromQuestion()", {
+        projectid,
+        text,
+        creatingChat,
+        currentPath: window.location.pathname,
+      });
+
+      if (!text) return;
+      if (creatingChat) return;
+
+      setCreatingChat(true);
+      try {
+        console.log("[CoursePage] creating chat session…");
+
+        const created = await ChatAPI.createChat(projectid, {
+          title: text.slice(0, 48) || "New chat",
+          llm_provider: "openai",
+          model_name: "gpt-4o",
+        });
+
+        console.log("[CoursePage] createChat response:", created);
+
+        if (!created?.success) {
+          console.error("[CoursePage] createChat failed:", created?.message || created);
+          return;
         }
-    }, [projectId]);
 
-    const fetchProjectsAndCourse = useCallback(async () => {
-        setLoading(true);
-        try {
-            const res = await fetch(`${API_URL}/projects`, {
-                credentials: "include",
-                method: "GET",
-            });
-            if (!res.ok) throw new Error("Failed to fetch projects");
-            const data = await res.json();
-
-            if (data.success) {
-                setProjects(data.projects || []);
-                const found = (data.projects || []).find(
-                    (p) => p.projectid === projectId
-                );
-                setCourse(found ?? null);
-            } else {
-                setProjects([]);
-                setCourse(null);
-            }
-        } catch (err) {
-            console.error(err);
-            setProjects([]);
-            setCourse(null);
-        } finally {
-            setLoading(false);
+        const chatid = created.chat?.chatid;
+        if (!chatid) {
+          console.error("[CoursePage] createChat missing chatid:", created);
+          return;
         }
-    }, [projectId]);
+
+        const to = `/project/${projectid}/chat/${chatid}`;
+        console.log("[CoursePage] navigating to chat route", { to, state: { firstMessage: text } });
+        navigate(to, { state: { firstMessage: text } });
+      } catch (e) {
+        console.error("[CoursePage] startChatFromQuestion error:", e);
+      } finally {
+        setCreatingChat(false);
+      }
+    },
+    [projectid, navigate, creatingChat]
+  );
+
+  const fetchFiles = useCallback(async () => {
+    console.log("[CoursePage] fetchFiles()", { projectid });
+    setFilesLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/projects/${projectid}/files`, {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      console.log("[CoursePage] fetchFiles response:", data);
+
+      if (data.success) setFiles(data.files || []);
+      else setFiles([]);
+    } catch (err) {
+      console.error("[CoursePage] fetchFiles error:", err);
+      setFiles([]);
+    } finally {
+      setFilesLoading(false);
+    }
+  }, [projectid]);
+
+  const fetchProjectsAndCourse = useCallback(async () => {
+    console.log("[CoursePage] fetchProjectsAndCourse()", { projectid });
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/projects`, {
+        credentials: "include",
+        method: "GET",
+      });
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      const data = await res.json();
+      console.log("[CoursePage] /projects response:", data);
+
+      if (data.success) {
+        setProjects(data.projects || []);
+        const found = (data.projects || []).find((p) => p.projectid === projectid);
+        setCourse(found ?? null);
+      } else {
+        setProjects([]);
+        setCourse(null);
+      }
+    } catch (err) {
+      console.error("[CoursePage] fetchProjectsAndCourse error:", err);
+      setProjects([]);
+      setCourse(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [projectid]);
+
+  const fetchRecentChats = useCallback(async () => {
+    console.log("[CoursePage] fetchRecentChats()", { projectid });
+    setRecentChatsLoading(true);
+    setRecentChatsError("");
+    try {
+      const resp = await ChatAPI.listChats(projectid);
+      console.log("[CoursePage] listChats response:", resp);
+
+      if (!resp?.success) {
+        setRecentChats([]);
+        setRecentChatsError(resp?.message || "Failed to load chats");
+        return;
+      }
+
+      setRecentChats((resp.chats || []).slice(0, 5));
+    } catch (e) {
+      console.error("[CoursePage] fetchRecentChats error:", e);
+      setRecentChats([]);
+      setRecentChatsError("Failed to load chats (network/server)");
+    } finally {
+      setRecentChatsLoading(false);
+    }
+  }, [projectid]);
 
     const fetchQuizzes = useCallback(async () => {
         setQuizzesLoading(true);
@@ -90,58 +190,60 @@ export default function CoursePage() {
         }
     }, [projectId]);
 
-    const indexDocuments = useCallback(
-        async ({ force = false } = {}) => {
-            setIndexing(true);
-            setIndexError("");
-            setIndexResult(null);
+  const indexDocuments = useCallback(
+    async ({ force = false } = {}) => {
+      console.log("[CoursePage] indexDocuments()", { projectid, force });
+      setIndexing(true);
+      setIndexError("");
+      setIndexResult(null);
 
-            try {
-                const url = force
-                    ? `${API_URL}/projects/${projectId}/index?force=1`
-                    : `${API_URL}/projects/${projectId}/index`;
+      try {
+        const url = force
+          ? `${API_URL}/projects/${projectid}/index?force=1`
+          : `${API_URL}/projects/${projectid}/index`;
 
-                const res = await fetch(url, {
-                    method: "POST",
-                    credentials: "include",
-                });
+        const res = await fetch(url, {
+          method: "POST",
+          credentials: "include",
+        });
 
-                const data = await res.json();
+        const data = await res.json();
+        console.log("[CoursePage] indexDocuments response:", data);
 
-                if (!data.success) {
-                    setIndexError(data.message || "Indexing failed");
-                    return;
-                }
-                setIndexResult(data);
-            } catch (e) {
-                console.error(e);
-                setIndexError("Indexing failed (network/server error)");
-            } finally {
-                setIndexing(false);
-            }
-        },
-        [projectId]
-    );
+        if (!data.success) {
+          setIndexError(data.message || "Indexing failed");
+          return;
+        }
+        setIndexResult(data);
+      } catch (e) {
+        console.error("[CoursePage] indexDocuments error:", e);
+        setIndexError("Indexing failed (network/server error)");
+      } finally {
+        setIndexing(false);
+      }
+    },
+    [projectid]
+  );
 
-    useEffect(() => {
-        fetchProjectsAndCourse();
-        fetchFiles();
+  useEffect(() => {
+    fetchProjectsAndCourse();
+    fetchFiles();
         fetchQuizzes();
-    }, [projectId, fetchProjectsAndCourse, fetchFiles, fetchQuizzes]);
+    fetchRecentChats();
+  }, [projectid, fetchProjectsAndCourse, fetchFiles, fetchRecentChats, fetchQuizzes]);
 
-    const projectsList = useMemo(() => {
-        return projects.map((project) => ({
-            name: project.name,
-            href: `/project/${project.projectid}`,
-        }));
-    }, [projects]);
+  const projectsList = useMemo(() => {
+    return projects.map((project) => ({
+      name: project.name,
+      href: `/project/${project.projectid}`,
+    }));
+  }, [projects]);
 
-    // helper: nicer label from "uploaded_files/<fileid>_OriginalName.pdf"
-    const displayName = (filepath) => {
-        const base = filepath.split("/").pop() || filepath;
-        const idx = base.indexOf("_");
-        return idx >= 0 ? base.slice(idx + 1) : base;
-    };
+  const displayName = (filepath) => {
+    const base = filepath.split("/").pop() || filepath;
+    const idx = base.indexOf("_");
+    return idx >= 0 ? base.slice(idx + 1) : base;
+  };
 
     const quizStatusLabel = (status) => {
         if (!status) return "Ready";
@@ -150,216 +252,324 @@ export default function CoursePage() {
         return status;
     };
 
-    const uploadedCount =
-        (indexResult?.uploaded_documents || 0) +
-        (indexResult?.uploaded_split_documents || 0);
+  const uploadedCount =
+    (indexResult?.uploaded_documents || 0) + (indexResult?.uploaded_split_documents || 0);
 
-    // "Already indexed" heuristic: nothing uploaded, but something skipped
-    const alreadyIndexed =
-        !!indexResult &&
-        uploadedCount === 0 &&
-        typeof indexResult.skipped_files === "number" &&
-        indexResult.skipped_files > 0;
+  const alreadyIndexed =
+    !!indexResult &&
+    uploadedCount === 0 &&
+    typeof indexResult.skipped_files === "number" &&
+    indexResult.skipped_files > 0;
 
-    return (
-        <div className="flex">
-            <Sidebar
-                projectsList={[
-                    ...projects.map((project) => ({
-                        projectid: project.projectid,
-                        name: project.name,
-                        href: `/project/${project.projectid}`,
-                        description: project.description,
-                        image: project.image,
-                        icon:
-                            project.icon in Icons && project.icon !== null
-                                ? Icons[project.icon]
-                                : Folder,
-                        color:
-                            project.color !== null ? project.color : "#754B4D",
-                    })),
-                ]}
-            />
+  return (
+    <div className="flex">
+      <Sidebar
+        projectsList={[
+          ...projects.map((project) => ({
+            projectid: project.projectid,
+            name: project.name,
+            href: `/project/${project.projectid}`,
+            description: project.description,
+            image: project.image,
+            icon:
+              project.icon in Icons && project.icon !== null ? Icons[project.icon] : Folder,
+            color: project.color !== null ? project.color : "#754B4D",
+          })),
+        ]}
+      />
 
-            <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-                {loading ? (
-                    <div className="mt-6">Loading course…</div>
-                ) : !course ? (
-                    <div className="mt-6">
-                        <div className="text-2xl font-semibold">
-                            Course not found
+      {/* Page */}
+      <div className="flex-1 overflow-auto bg-rose-china h-screen">
+        {loading ? (
+          <div className="p-10">Loading course…</div>
+        ) : !course ? (
+          <div className="p-10">
+            <div className="text-2xl font-semibold">Course not found</div>
+            <div className="opacity-70">(Either the course doesn’t exist, or you’re not logged in.)</div>
+          </div>
+        ) : (
+          <div className="p-8 md:p-10">
+            {/* Course title + underline (text-width only) */}
+            <div className="inline-block">
+                <div className="text-3xl main-header font-card text-dark">
+                    {course.name}
+                </div>
+                <PlumDivider />
+                </div>
+
+                {/* Description banner (UNDER title, shrink-to-content) */}
+                {course.description ? (
+                <div className="mt-2 block">
+                    <div className="inline-block">
+                    <BlockWithDivider color="border-rose-plum">
+                        <div className="p-1 whitespace-nowrap">
+                        {course.description}
                         </div>
-                        <div className="opacity-70">
-                            (Either the course doesn’t exist, or you’re not
-                            logged in.)
-                        </div>
+                    </BlockWithDivider>
                     </div>
-                ) : (
-                    <>
-                        <div className="mt-4">
-                            <div className="text-3xl main-header font-card w-min text-dark">
-                                {course.name}
-                                <PlumDivider />
-                            </div>
+                </div>
+                ) : null}
 
-                            {course.description ? (
-                                <BlockWithDivider color="border-rose-plum">
-                                    <div className="p-1">{course.description}</div>
-                                </BlockWithDivider>
-                            ) : null}
+                <div className="mt-2 text-sm opacity-60">
+                projectId: {course.projectid} (debug)
+            </div>
 
-                            <div className="mt-2 text-sm opacity-60">
-                                projectId: {course.projectid} (debug)
-                            </div>
-                        </div>
 
-                        {/* DOCUMENTS */}
-                        <div className="mt-10">
-                            <h2 className="text-xl font-semibold">Documents</h2>
-                            <div className="opacity-70">
-                                Upload PDFs/docs here. Index them once, then
-                                generate flashcards instantly.
-                            </div>
 
-                            <CourseDocumentUploader
-                                projectName={course.name}
-                                projectID={course.projectid}
-                                onUploaded={async () => {
-                                    // refresh list
-                                    await fetchFiles();
-                                    // new uploads mean indexing status might be stale
-                                    setIndexResult(null);
-                                    setIndexError("");
-                                }}
-                            />
+            {/* Big Ask Bar (centered, like scribble) */}
+            <div className="mt-8">
+              <div className="mx-auto max-w-3xl">
+                <div className="text-center text-lg font-semibold text-dark">
+                  Stuck? Have some copium :)
+                </div>
+                <div className="mt-3">
+                  <AskBar
+                    placeholder={
+                      creatingChat
+                        ? "Starting chat…"
+                        : "Ask anything about assignments, concepts, or practice problems…"
+                    }
+                    disabled={creatingChat}
+                    onSubmit={(text) => {
+                      console.log("[CoursePage] AskBar onSubmit fired", { text });
+                      startChatFromQuestion(text);
+                    }}
+                  />
+                </div>
+                <div className="mt-2 text-center text-xs opacity-60">
+                  Tip: paste the problem statement + what you tried + where you’re stuck.
+                </div>
+              </div>
+            </div>
 
-                            <div className="mt-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="font-semibold">
-                                        Course files
-                                    </div>
+            {/* Recent Chats (course page) */}
+            <div className="mt-8 mx-auto max-w-3xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-dark font-semibold">
+                  <MessageSquare size={18} className="opacity-70" />
+                  Recent chats
+                </div>
 
-                                    <button
-                                        className="text-sm underline opacity-80"
-                                        onClick={fetchFiles}
-                                        disabled={filesLoading}
-                                    >
-                                        {filesLoading
-                                            ? "Refreshing…"
-                                            : "Refresh"}
-                                    </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
+                  onClick={fetchRecentChats}
+                  disabled={recentChatsLoading}
+                >
+                  <RefreshCw size={14} className={recentChatsLoading ? "animate-spin" : ""} />
+                  {recentChatsLoading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
 
-                                    <button
-                                        className="text-sm underline opacity-80"
-                                        onClick={() =>
-                                            indexDocuments({ force: false })
-                                        }
-                                        disabled={
-                                            indexing ||
-                                            files.length === 0 ||
-                                            alreadyIndexed
-                                        }
-                                        title={
-                                            files.length === 0
-                                                ? "Upload documents first"
-                                                : alreadyIndexed
-                                                ? "Already indexed"
-                                                : ""
-                                        }
-                                    >
-                                        {alreadyIndexed
-                                            ? "Indexed ✓"
-                                            : indexing
-                                            ? "Indexing…"
-                                            : "Index documents"}
-                                    </button>
+              {recentChatsError ? (
+                <div className="mt-2 text-sm opacity-80">⚠️ {recentChatsError}</div>
+              ) : null}
 
-                                    {/* Optional “force” link (safe even if backend ignores it) */}
-                                    <button
-                                        className="text-sm underline opacity-60"
-                                        onClick={() =>
-                                            indexDocuments({ force: true })
-                                        }
-                                        disabled={
-                                            indexing || files.length === 0
-                                        }
-                                        title="Re-upload/index documents (use only if you changed files but kept same names)"
-                                    >
-                                        Force re-index
-                                    </button>
-                                </div>
+              {recentChatsLoading ? (
+                <div className="mt-3 opacity-70">Loading chats…</div>
+              ) : recentChats.length === 0 ? (
+                <div className="mt-3 opacity-70">No chats yet — ask your first question above.</div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {recentChats.map((c) => (
+                    <Link
+                      key={c.chatid}
+                      to={`/project/${projectid}/chat/${c.chatid}`}
+                      className="block rounded-2xl border border-black/10 bg-white/40 px-4 py-3 hover:bg-white/55 transition"
+                      onClick={() => console.log("[CoursePage] open recent chat", c.chatid)}
+                    >
+                      <div className="font-semibold text-dark truncate">{c.title}</div>
+                      <div className="text-xs opacity-60 mt-1 truncate">
+                        {c.model_name} • {formatWhen(c.updated_at)}
+                      </div>
+                    </Link>
+                  ))}
+                  <div className="pt-1">
+                    <Link
+                      to={`/project/${projectid}/chat/${recentChats[0].chatid}`}
+                      className="text-sm underline opacity-80"
+                    >
+                      See all (opens chat history)
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
 
-                                {indexError ? (
-                                    <div className="mt-2 text-sm opacity-80">
-                                        ⚠️ {indexError}
-                                    </div>
-                                ) : null}
+            {/* Main content grid (scribble-like): left cards + right documents panel */}
+            <div className="mt-10 grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* LEFT: Flashcards + Quizzes */}
+              <div className="lg:col-span-8 space-y-6">
+                {/* Flashcards */}
+                <div className="rounded-3xl border border-black/10 bg-white/35 shadow-sm p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-dark font-semibold text-xl">
+                      <Layers size={20} className="opacity-70" />
+                      Flashcards
+                    </div>
+                    <Link
+                      className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
+                      to={`/project/${projectid}/flashcards`}
+                    >
+                      Open
+                    </Link>
+                  </div>
 
-                                {indexResult ? (
-                                    <div className="mt-2 text-sm opacity-80">
-                                        ✅ Index result — uploaded:{" "}
-                                        {indexResult.uploaded_documents || 0},
-                                        split parts:{" "}
-                                        {indexResult.uploaded_split_documents ||
-                                            0}
-                                        {typeof indexResult.skipped_files ===
-                                        "number"
-                                            ? `, skipped: ${indexResult.skipped_files}`
-                                            : ""}
-                                        {typeof indexResult.failed_files ===
-                                        "number"
-                                            ? `, failed: ${indexResult.failed_files}`
-                                            : ""}
-                                    </div>
-                                ) : null}
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* "Decks preview" placeholders — you can replace with real decks list later */}
+                    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition">
+                      <div className="text-dark font-semibold">Create / Browse decks</div>
+                      <div className="text-xs opacity-60 mt-1">
+                        Study mode + edit mode + spaced repetition
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition">
+                      <div className="text-dark font-semibold">Due cards</div>
+                      <div className="text-xs opacity-60 mt-1">
+                        Jump straight into reviews
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition">
+                      <div className="text-dark font-semibold">Generate deck</div>
+                      <div className="text-xs opacity-60 mt-1">
+                        From indexed documents
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                                {filesLoading ? (
-                                    <div className="mt-2 opacity-70">
-                                        Loading files…
-                                    </div>
-                                ) : files.length === 0 ? (
-                                    <div className="mt-2 opacity-70">
-                                        No documents yet.
-                                    </div>
-                                ) : (
-                                    <ul className="mt-3 space-y-2">
-                                        {files.map((f) => (
-                                            <DocumentCard
-                                                key={f.fileid}
-                                                docTitle={displayName(
-                                                    f.filepath
-                                                )}
-                                                docType={f.file_type}
-                                                id={f.fileid}
-                                                onDeleted={() => {
-                                                    fetchFiles();
-                                                    // new deletions mean indexing status might be stale
-                                                    // setIndexResult(null);
-                                                    // setIndexError("");
-                                                }}
-                                            />
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        </div>
+                {/* Quizzes */}
+                <div className="rounded-3xl border border-black/10 bg-white/35 shadow-sm p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-dark font-semibold text-xl">
+                      <FileText size={20} className="opacity-70" />
+                      Quizzes
+                    </div>
+                    <button
+                      className="rounded-xl bg-white/20 px-3 py-1.5 text-sm text-dark border border-black/10 opacity-60 cursor-not-allowed"
+                      title="Coming soon"
+                      disabled
+                    >
+                      Coming soon
+                    </button>
+                  </div>
 
-                        {/* FLASHCARDS */}
-                        <div className="mt-10">
-                            <h2 className="text-xl font-semibold">
-                                Flashcards
-                            </h2>
-                            <div className="opacity-70">
-                                Tip: index documents first, then create decks
-                                for specific prompts.
-                            </div>
-                            <Link
-                                className="underline"
-                                to={`/project/${projectId}/flashcards`}
-                            >
-                                Open Flashcards
-                            </Link>
-                        </div>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="rounded-2xl border border-black/10 bg-white/30 p-4 opacity-70">
+                      <div className="text-dark font-semibold">Practice quiz</div>
+                      <div className="text-xs opacity-60 mt-1">Auto-generated from your docs</div>
+                    </div>
+                    <div className="rounded-2xl border border-black/10 bg-white/30 p-4 opacity-70">
+                      <div className="text-dark font-semibold">Exam mode</div>
+                      <div className="text-xs opacity-60 mt-1">Timed + scoring</div>
+                    </div>
+                    <div className="rounded-2xl border border-black/10 bg-white/30 p-4 opacity-70">
+                      <div className="text-dark font-semibold">Weak spots</div>
+                      <div className="text-xs opacity-60 mt-1">Target what you miss</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT: Documents panel (boxed list like scribble) */}
+              <div className="lg:col-span-4">
+                <div className="rounded-3xl border border-black/10 bg-white/45 shadow-sm p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-dark font-semibold text-xl">Documents</div>
+                    <div className="text-xs opacity-60">{files.length} file(s)</div>
+                  </div>
+
+                  <div className="mt-3">
+                    <CourseDocumentUploader
+                      projectName={course.name}
+                      projectID={course.projectid}
+                      onUploaded={async () => {
+                        console.log("[CoursePage] onUploaded -> refreshing files");
+                        await fetchFiles();
+                        setIndexResult(null);
+                        setIndexError("");
+                        fetchRecentChats(); // harmless, keeps UI fresh
+                      }}
+                    />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
+                      onClick={fetchFiles}
+                      disabled={filesLoading}
+                    >
+                      {filesLoading ? "Refreshing…" : "Refresh"}
+                    </button>
+
+                    <button
+                      className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40 disabled:opacity-50"
+                      onClick={() => indexDocuments({ force: false })}
+                      disabled={indexing || files.length === 0 || alreadyIndexed}
+                      title={
+                        files.length === 0
+                          ? "Upload documents first"
+                          : alreadyIndexed
+                          ? "Already indexed"
+                          : ""
+                      }
+                    >
+                      {alreadyIndexed ? "Indexed ✓" : indexing ? "Indexing…" : "Index"}
+                    </button>
+
+                    <button
+                      className="rounded-xl bg-white/20 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/30 disabled:opacity-50"
+                      onClick={() => indexDocuments({ force: true })}
+                      disabled={indexing || files.length === 0}
+                      title="Re-upload/index documents (use only if you changed files but kept same names)"
+                    >
+                      Force
+                    </button>
+                  </div>
+
+                  {indexError ? (
+                    <div className="mt-2 text-sm opacity-80">⚠️ {indexError}</div>
+                  ) : null}
+
+                  {indexResult ? (
+                    <div className="mt-2 text-xs opacity-70">
+                      ✅ uploaded: {indexResult.uploaded_documents || 0}, split:{" "}
+                      {indexResult.uploaded_split_documents || 0}
+                      {typeof indexResult.skipped_files === "number"
+                        ? `, skipped: ${indexResult.skipped_files}`
+                        : ""}
+                      {typeof indexResult.failed_files === "number"
+                        ? `, failed: ${indexResult.failed_files}`
+                        : ""}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4">
+                    {filesLoading ? (
+                      <div className="opacity-70">Loading files…</div>
+                    ) : files.length === 0 ? (
+                      <div className="opacity-70">No documents yet.</div>
+                    ) : (
+                      <ul className="space-y-2">
+                        {files.map((f) => (
+                          <DocumentCard
+                            key={f.fileid}
+                            docTitle={displayName(f.filepath)}
+                            docType={f.file_type}
+                            id={f.fileid}
+                            onDeleted={() => {
+                              console.log("[CoursePage] Document deleted -> refresh files");
+                              fetchFiles();
+                              setIndexResult(null);
+                              setIndexError("");
+                            }}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
 
                         {/* QUIZZES */}
                         <div className="mt-10">
@@ -412,4 +622,11 @@ export default function CoursePage() {
             </div>
         </div>
     );
+            {/* little bottom spacer */}
+            <div className="h-10" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

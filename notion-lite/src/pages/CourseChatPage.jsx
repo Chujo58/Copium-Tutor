@@ -1,6 +1,5 @@
-// src/pages/CourseChatPage.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import AskBar from "../components/AskBar";
 import { ChatAPI } from "../services/chat";
 
@@ -31,6 +30,7 @@ function MessageBubble({ role, content }) {
 export default function CourseChatPage() {
   const { projectid, chatid } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
 
   const [chat, setChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -41,74 +41,152 @@ export default function CourseChatPage() {
   const [modelName, setModelName] = useState("gpt-4o");
 
   const bottomRef = useRef(null);
+  const didAutoSendRef = useRef(false);
 
   const selectedKey = `${llmProvider}::${modelName}`;
+  const firstMessage = location.state?.firstMessage;
 
+  // ---- LOG: mount + route params
+  useEffect(() => {
+    console.log("[CourseChatPage] mounted/route", {
+      projectid,
+      chatid,
+      path: location.pathname,
+      state: location.state,
+      firstMessage,
+    });
+  }, [projectid, chatid, location.pathname, location.state, firstMessage]);
+
+  // Load sidebar threads
   useEffect(() => {
     (async () => {
+      console.log("[CourseChatPage] listChats()", { projectid });
       const list = await ChatAPI.listChats(projectid);
+      console.log("[CourseChatPage] listChats result:", list);
       if (list?.success) setSidebarChats(list.chats || []);
-    })().catch(() => {});
+    })().catch((err) => {
+      console.error("[CourseChatPage] listChats error:", err);
+    });
   }, [projectid]);
 
+  // Load current chat messages
   useEffect(() => {
     (async () => {
+      console.log("[CourseChatPage] getChat()", { chatid });
       const data = await ChatAPI.getChat(chatid);
+      console.log("[CourseChatPage] getChat result:", data);
+
       if (!data?.success) return;
 
       setChat(data.chat);
       setMessages(data.messages || []);
       setLlmProvider(data.chat.llm_provider || "openai");
       setModelName(data.chat.model_name || "gpt-4o");
-    })().catch(() => {});
+    })().catch((err) => {
+      console.error("[CourseChatPage] getChat error:", err);
+    });
   }, [chatid]);
 
+  // Autoscroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  async function refreshSidebar() {
+    try {
+      console.log("[CourseChatPage] refreshSidebar()", { projectid });
+      const list = await ChatAPI.listChats(projectid);
+      console.log("[CourseChatPage] refreshSidebar result:", list);
+      if (list?.success) setSidebarChats(list.chats || []);
+    } catch (e) {
+      console.error("[CourseChatPage] refreshSidebar error:", e);
+    }
+  }
+
   async function handleAsk(text) {
+    const trimmed = (text || "").trim();
+    console.log("[CourseChatPage] handleAsk()", {
+      chatid,
+      projectid,
+      trimmed,
+      llmProvider,
+      modelName,
+    });
+
+    if (!trimmed) return;
+
     setBusy(true);
     try {
       // optimistic append
       const tempUser = {
         msgid: `temp-${Date.now()}`,
         role: "user",
-        content: text,
+        content: trimmed,
         created_at: new Date().toISOString(),
       };
       setMessages((m) => [...m, tempUser]);
 
+      console.log("[CourseChatPage] sendMessage() -> calling API");
       const resp = await ChatAPI.sendMessage(chatid, {
-        content: text,
+        content: trimmed,
         llm_provider: llmProvider,
         model_name: modelName,
       });
+      console.log("[CourseChatPage] sendMessage response:", resp);
 
       if (resp?.success) {
-        // replace optimistic user msg + append assistant
         setMessages((prev) => {
           const withoutTemp = prev.filter((x) => x.msgid !== tempUser.msgid);
-          return [...withoutTemp, ...resp.messages];
+          return [...withoutTemp, ...(resp.messages || [])];
         });
-
-        // refresh sidebar ordering
-        const list = await ChatAPI.listChats(projectid);
-        if (list?.success) setSidebarChats(list.chats || []);
+        await refreshSidebar();
+      } else {
+        console.error("[CourseChatPage] sendMessage failed:", resp);
       }
+    } catch (e) {
+      console.error("[CourseChatPage] handleAsk error:", e);
     } finally {
       setBusy(false);
     }
   }
 
+  // Auto-send first message once after chat is loaded
+  useEffect(() => {
+    if (!firstMessage) return;
+    if (didAutoSendRef.current) return;
+
+    // Wait until chat is present (ensures we're on the correct session page)
+    if (!chatid) return;
+
+    didAutoSendRef.current = true;
+    console.log("[CourseChatPage] auto-send firstMessage", { firstMessage });
+
+    // Fire-and-forget; handleAsk has its own try/catch
+    handleAsk(firstMessage);
+    // Note: we can't easily clear location.state without navigating.
+    // didAutoSendRef prevents repeats on re-render.
+  }, [firstMessage, chatid]); // intentionally not depending on handleAsk to avoid re-trigger
+
   async function handleNewChat() {
-    const created = await ChatAPI.createChat(projectid, {
-      title: "New chat",
-      llm_provider: llmProvider,
-      model_name: modelName,
-    });
-    if (created?.success) {
-      nav(`/projects/${projectid}/chat/${created.chat.chatid}`);
+    console.log("[CourseChatPage] handleNewChat()", { projectid, llmProvider, modelName });
+
+    try {
+      const created = await ChatAPI.createChat(projectid, {
+        title: "New chat",
+        llm_provider: llmProvider,
+        model_name: modelName,
+      });
+      console.log("[CourseChatPage] createChat result:", created);
+
+      if (created?.success) {
+        const to = `/project/${projectid}/chat/${created.chat.chatid}`;
+        console.log("[CourseChatPage] navigating to new chat", { to });
+        nav(to);
+      } else {
+        console.error("[CourseChatPage] createChat failed:", created);
+      }
+    } catch (e) {
+      console.error("[CourseChatPage] handleNewChat error:", e);
     }
   }
 
@@ -133,6 +211,7 @@ export default function CourseChatPage() {
               value={selectedKey}
               onChange={(e) => {
                 const [p, m] = e.target.value.split("::");
+                console.log("[CourseChatPage] model select changed", { p, m });
                 setLlmProvider(p);
                 setModelName(m);
               }}
@@ -158,16 +237,15 @@ export default function CourseChatPage() {
               return (
                 <Link
                   key={c.chatid}
-                  to={`/projects/${projectid}/chat/${c.chatid}`}
+                  to={`/project/${projectid}/chat/${c.chatid}`}
                   className={[
                     "block rounded-xl px-3 py-2 text-sm",
                     active ? "bg-white/10" : "hover:bg-white/5",
                   ].join(" ")}
+                  onClick={() => console.log("[CourseChatPage] sidebar click", { to: c.chatid })}
                 >
                   <div className="truncate font-medium">{c.title}</div>
-                  <div className="truncate text-xs opacity-50">
-                    {c.model_name}
-                  </div>
+                  <div className="truncate text-xs opacity-50">{c.model_name}</div>
                 </Link>
               );
             })}
@@ -178,17 +256,19 @@ export default function CourseChatPage() {
         <main className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
             <div className="min-w-0">
-              <div className="truncate text-lg font-semibold">
-                {chat?.title || "Chat"}
-              </div>
+              <div className="truncate text-lg font-semibold">{chat?.title || "Chat"}</div>
               <div className="text-xs opacity-60">
                 Course memory is shared across all chats in this course.
+              </div>
+              <div className="mt-1 text-[11px] opacity-50">
+                debug: projectid={projectid} chatid={chatid}
               </div>
             </div>
 
             <Link
-              to={`/projects/${projectid}`}
+              to={`/project/${projectid}`}
               className="rounded-xl bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15"
+              onClick={() => console.log("[CourseChatPage] back to course clicked")}
             >
               Back to course
             </Link>
@@ -215,7 +295,10 @@ export default function CourseChatPage() {
               <AskBar
                 disabled={busy}
                 placeholder={busy ? "Thinking…" : "Ask a question…"}
-                onSubmit={handleAsk}
+                onSubmit={(text) => {
+                  console.log("[CourseChatPage] AskBar onSubmit fired", { text });
+                  handleAsk(text);
+                }}
               />
               <div className="mt-2 text-[11px] opacity-50">
                 Tip: paste the problem statement + what you tried + where you’re stuck.

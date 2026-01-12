@@ -53,7 +53,7 @@ function SkeletonRow() {
 }
 
 export default function FlashcardsHomePage() {
-  const { projectId } = useParams();
+  const { projectid } = useParams();
   const navigate = useNavigate();
 
   const [projects, setProjects] = useState([]);
@@ -80,7 +80,7 @@ export default function FlashcardsHomePage() {
       const data = await res.json();
       if (data.success) {
         setProjects(data.projects || []);
-        const found = (data.projects || []).find((p) => p.projectid === projectId);
+        const found = (data.projects || []).find((p) => p.projectid === projectid);
         setCourse(found ?? null);
       } else {
         setProjects([]);
@@ -93,12 +93,12 @@ export default function FlashcardsHomePage() {
     } finally {
       setCourseLoading(false);
     }
-  }, [projectId]);
+  }, [projectid]);
 
   const fetchDecks = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/projects/${projectId}/decks`, {
+      const res = await fetch(`${API_URL}/projects/${projectid}/decks`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -109,7 +109,7 @@ export default function FlashcardsHomePage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectid]);
 
   useEffect(() => {
     fetchProjectsAndCourse();
@@ -128,7 +128,7 @@ export default function FlashcardsHomePage() {
 
     setCreating(true);
     try {
-      const res = await fetch(`${API_URL}/projects/${projectId}/decks`, {
+      const res = await fetch(`${API_URL}/projects/${projectid}/decks`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -145,7 +145,7 @@ export default function FlashcardsHomePage() {
       setPrompt("");
       setQuery(""); // reset filter so new deck is visible
       await fetchDecks();
-      navigate(`/project/${projectId}/flashcards/${data.deckid}`);
+      navigate(`/project/${projectid}/flashcards/${data.deckid}`);
     } catch (e) {
       console.error(e);
       alert("Error creating deck");
@@ -205,7 +205,7 @@ export default function FlashcardsHomePage() {
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
         <div className="p-10">
           <Link
-            to={`/project/${projectId}`}
+            to={`/project/${projectid}`}
             className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
           >
             <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
@@ -228,7 +228,7 @@ export default function FlashcardsHomePage() {
                     <div className="text-3xl font-semibold text-[#754B4D]">Flashcards</div>
                     <div className="mt-1 text-[#754B4D]/70">{course.name}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Badge title="Project identifier">{projectId}</Badge>
+                      <Badge title="Project identifier">{projectid}</Badge>
                       <Badge title="Number of decks">{deckCount} deck{deckCount === 1 ? "" : "s"}</Badge>
                     </div>
                   </div>
@@ -349,7 +349,7 @@ export default function FlashcardsHomePage() {
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <Link
-                                to={`/project/${projectId}/flashcards/${d.deckid}`}
+                                to={`/project/${projectid}/flashcards/${d.deckid}`}
                                 className="text-lg font-semibold text-[#754B4D] hover:opacity-80 truncate block"
                               >
                                 {d.name}

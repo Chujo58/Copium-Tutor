@@ -2061,6 +2061,7 @@ async def list_chats(projectid: str, session: str = Cookie(None)):
 # Create new chat in a project
 @app.post("/projects/{projectid}/chats")
 async def create_chat(projectid: str, body: CreateChatRequest, session: str = Cookie(None)):
+    print("[create_chat] cookies.session =", session, "projectid =", projectid)
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session

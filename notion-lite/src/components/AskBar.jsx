@@ -9,14 +9,20 @@ export default function AskBar({
 
   return (
     <form
-      onSubmit={(e) => {
+        onSubmit={(e) => {
         e.preventDefault();
         const text = value.trim();
+        console.log("[AskBar] submit", { text, disabled });
         if (!text || disabled) return;
-        onSubmit?.(text);
+        try {
+            onSubmit?.(text);
+        } catch (err) {
+            console.error("[AskBar] onSubmit threw", err);
+        }
         setValue("");
-      }}
-      className="w-full"
+        }}
+
+        className="w-full"
     >
       <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 shadow-sm">
         <input
