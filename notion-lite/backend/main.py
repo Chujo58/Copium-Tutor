@@ -1532,17 +1532,175 @@ async def delete_deck(deckid: str, session: str = Cookie(None)):
     return {"success": True, "deleted_deckid": deckid}
 
 ###############
-# QUIZZES
-###############
-
-@app.get("/projects/{projectid}/quizzes")
-async def list_quizzes(projectid: str, session: str = Cookie(None)):
 # CARDS
 ###############
 
 # create card
 @app.post("/decks/{deckid}/cards")
 async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    if not _require_deck_owned(deckid, userid):
+        return {"success": False, "message": "Deck not found"}
+
+    front = (body.front or "").strip()
+    back = (body.back or "").strip()
+    if not front or not back:
+        return {"success": False, "message": "front and back are required"}
+
+    # position = max(position)+1 (fallback if null)
+    cursor.execute("SELECT COALESCE(MAX(position), 0) FROM cards WHERE deckid=?", (deckid,))
+    max_pos = cursor.fetchone()[0] or 0
+    pos = int(max_pos) + 1
+
+    cardid = uuid.uuid4().hex[:8]
+    cursor.execute(
+        "INSERT INTO cards (cardid, deckid, front, back, position) VALUES (?, ?, ?, ?, ?)",
+        (cardid, deckid, front, back, pos),
+    )
+    conn.commit()
+
+    return {
+        "success": True,
+        "card": {"cardid": cardid, "deckid": deckid, "front": front, "back": back, "position": pos},
+    }
+
+# edit card
+@app.patch("/cards/{cardid}")
+async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    row = _get_card_and_verify_owner(cardid, userid)
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    current_front, current_back = row[2], row[3]
+    new_front = current_front if body.front is None else (body.front or "").strip()
+    new_back = current_back if body.back is None else (body.back or "").strip()
+
+    if not new_front or not new_back:
+        return {"success": False, "message": "front/back cannot be empty"}
+
+    cursor.execute(
+        "UPDATE cards SET front=?, back=? WHERE cardid=?",
+        (new_front, new_back, cardid),
+    )
+    conn.commit()
+
+    return {
+        "success": True,
+        "card": {"cardid": cardid, "deckid": row[1], "front": new_front, "back": new_back},
+    }
+
+# delete card
+@app.delete("/cards/{cardid}")
+async def delete_card(cardid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    row = _get_card_and_verify_owner(cardid, userid)
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    cursor.execute("DELETE FROM cards WHERE cardid=?", (cardid,))
+    conn.commit()
+
+    return {"success": True, "deleted": True, "cardid": cardid}
+
+# review card
+@app.post("/cards/{cardid}/review")
+async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    # verify ownership via join
+    cursor.execute("""
+        SELECT c.deckid, c.due_at, c.interval_days, c.ease, c.reps, c.lapses
+        FROM cards c
+        JOIN decks d ON d.deckid = c.deckid
+        WHERE c.cardid=? AND d.userid=?
+    """, (cardid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Card not found"}
+
+    deckid, due_at, interval_days, ease, reps, lapses = row
+
+    # defaults
+    ease = float(ease) if ease is not None else 2.5
+    interval_days = float(interval_days) if interval_days is not None else 0.0
+    reps = int(reps) if reps is not None else 0
+    lapses = int(lapses) if lapses is not None else 0
+
+    rating = body.rating
+    now = datetime.utcnow()
+
+    # Simple Anki-ish rules
+    if rating == "again":
+        ease = max(1.3, ease - 0.2)
+        interval_days = 0.02  # ~30 minutes
+        lapses += 1
+    elif rating == "hard":
+        ease = max(1.3, ease - 0.15)
+        if reps == 0:
+            interval_days = 0.5
+        else:
+            interval_days = max(0.5, interval_days * 1.2)
+    elif rating == "good":
+        if reps == 0:
+            interval_days = 1.0
+        else:
+            interval_days = max(1.0, interval_days * ease)
+    elif rating == "easy":
+        ease = ease + 0.15
+        if reps == 0:
+            interval_days = 2.0
+        else:
+            interval_days = max(2.0, interval_days * ease * 1.3)
+
+    reps += 1
+    due = now + timedelta(days=interval_days)
+
+    cursor.execute("""
+        UPDATE cards
+        SET due_at=?, interval_days=?, ease=?, reps=?, lapses=?, last_reviewed_at=?
+        WHERE cardid=?
+    """, (
+        due.isoformat(),
+        interval_days,
+        ease,
+        reps,
+        lapses,
+        now.isoformat(),
+        cardid
+    ))
+    conn.commit()
+
+    return {
+        "success": True,
+        "cardid": cardid,
+        "deckid": deckid,
+        "rating": rating,
+        "due_at": due.isoformat(),
+        "interval_days": interval_days,
+        "ease": ease,
+        "reps": reps,
+        "lapses": lapses,
+        "last_reviewed_at": now.isoformat(),
+    }
+
+###############
+# QUIZZES
+###############
+
+@app.get("/projects/{projectid}/quizzes")
+async def list_quizzes(projectid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1579,34 +1737,6 @@ async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(N
 
 @app.post("/projects/{projectid}/quizzes")
 async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Cookie(None)):
-    if not _require_deck_owned(deckid, userid):
-        return {"success": False, "message": "Deck not found"}
-
-    front = (body.front or "").strip()
-    back = (body.back or "").strip()
-    if not front or not back:
-        return {"success": False, "message": "front and back are required"}
-
-    # position = max(position)+1 (fallback if null)
-    cursor.execute("SELECT COALESCE(MAX(position), 0) FROM cards WHERE deckid=?", (deckid,))
-    max_pos = cursor.fetchone()[0] or 0
-    pos = int(max_pos) + 1
-
-    cardid = uuid.uuid4().hex[:8]
-    cursor.execute(
-        "INSERT INTO cards (cardid, deckid, front, back, position) VALUES (?, ?, ?, ?, ?)",
-        (cardid, deckid, front, back, pos),
-    )
-    conn.commit()
-
-    return {
-        "success": True,
-        "card": {"cardid": cardid, "deckid": deckid, "front": front, "back": back, "position": pos},
-    }
-
-# edit card
-@app.patch("/cards/{cardid}")
-async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1719,31 +1849,6 @@ async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cooki
 
 @app.get("/quizzes/{quizid}")
 async def get_quiz(quizid: str, session: str = Cookie(None)):
-    row = _get_card_and_verify_owner(cardid, userid)
-    if row is None:
-        return {"success": False, "message": "Card not found"}
-
-    current_front, current_back = row[2], row[3]
-    new_front = current_front if body.front is None else (body.front or "").strip()
-    new_back = current_back if body.back is None else (body.back or "").strip()
-
-    if not new_front or not new_back:
-        return {"success": False, "message": "front/back cannot be empty"}
-
-    cursor.execute(
-        "UPDATE cards SET front=?, back=? WHERE cardid=?",
-        (new_front, new_back, cardid),
-    )
-    conn.commit()
-
-    return {
-        "success": True,
-        "card": {"cardid": cardid, "deckid": row[1], "front": new_front, "back": new_back},
-    }
-
-# delete card
-@app.delete("/cards/{cardid}")
-async def delete_card(cardid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1782,18 +1887,6 @@ async def delete_card(cardid: str, session: str = Cookie(None)):
 
 @app.post("/quizzes/{quizid}/generate")
 async def generate_quiz(quizid: str, session: str = Cookie(None)):
-    row = _get_card_and_verify_owner(cardid, userid)
-    if row is None:
-        return {"success": False, "message": "Card not found"}
-
-    cursor.execute("DELETE FROM cards WHERE cardid=?", (cardid,))
-    conn.commit()
-
-    return {"success": True, "deleted": True, "cardid": cardid}
-
-# review card
-@app.post("/cards/{cardid}/review")
-async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1843,86 +1936,6 @@ async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cooki
 
 @app.post("/quizzes/{quizid}/submit")
 async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cookie(None)):
-    # verify ownership via join
-    cursor.execute("""
-        SELECT c.deckid, c.due_at, c.interval_days, c.ease, c.reps, c.lapses
-        FROM cards c
-        JOIN decks d ON d.deckid = c.deckid
-        WHERE c.cardid=? AND d.userid=?
-    """, (cardid, userid))
-    row = cursor.fetchone()
-    if row is None:
-        return {"success": False, "message": "Card not found"}
-
-    deckid, due_at, interval_days, ease, reps, lapses = row
-
-    # defaults
-    ease = float(ease) if ease is not None else 2.5
-    interval_days = float(interval_days) if interval_days is not None else 0.0
-    reps = int(reps) if reps is not None else 0
-    lapses = int(lapses) if lapses is not None else 0
-
-    rating = body.rating
-    now = datetime.utcnow()
-
-    # Simple Anki-ish rules
-    if rating == "again":
-        ease = max(1.3, ease - 0.2)
-        interval_days = 0.02  # ~30 minutes
-        lapses += 1
-    elif rating == "hard":
-        ease = max(1.3, ease - 0.15)
-        if reps == 0:
-            interval_days = 0.5
-        else:
-            interval_days = max(0.5, interval_days * 1.2)
-    elif rating == "good":
-        if reps == 0:
-            interval_days = 1.0
-        else:
-            interval_days = max(1.0, interval_days * ease)
-    elif rating == "easy":
-        ease = ease + 0.15
-        if reps == 0:
-            interval_days = 2.0
-        else:
-            interval_days = max(2.0, interval_days * ease * 1.3)
-
-    reps += 1
-    due = now + timedelta(days=interval_days)
-
-    cursor.execute("""
-        UPDATE cards
-        SET due_at=?, interval_days=?, ease=?, reps=?, lapses=?, last_reviewed_at=?
-        WHERE cardid=?
-    """, (
-        due.isoformat(),
-        interval_days,
-        ease,
-        reps,
-        lapses,
-        now.isoformat(),
-        cardid
-    ))
-    conn.commit()
-
-    return {
-        "success": True,
-        "cardid": cardid,
-        "deckid": deckid,
-        "rating": rating,
-        "due_at": due.isoformat(),
-        "interval_days": interval_days,
-        "ease": ease,
-        "reps": reps,
-        "lapses": lapses,
-        "last_reviewed_at": now.isoformat(),
-    }
-
-
-# Index project documents
-@app.post("/projects/{projectid}/index")
-async def index_project_documents(projectid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -2015,6 +2028,16 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
     conn.commit()
 
     return {"success": True, "score": score, "feedback": feedback}
+
+
+# Index project documents
+@app.post("/projects/{projectid}/index")
+async def index_project_documents(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute(
         "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
     )
     if cursor.fetchone() is None:
