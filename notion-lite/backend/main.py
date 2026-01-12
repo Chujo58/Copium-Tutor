@@ -1866,6 +1866,29 @@ async def get_quiz(quizid: str, session: str = Cookie(None)):
 
 @app.delete("/quizzes/{quizid}")
 async def delete_quiz(quizid: str, session: str = Cookie(None)):
+<<<<<<< HEAD
+=======
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute(
+        "SELECT 1 FROM quizzes WHERE quizid=? AND userid=?",
+        (quizid, userid),
+    )
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Quiz not found"}
+
+    cursor.execute("DELETE FROM attempts WHERE quizid=? AND userid=?", (quizid, userid))
+    cursor.execute("DELETE FROM quizzes WHERE quizid=? AND userid=?", (quizid, userid))
+    conn.commit()
+
+    return {"success": True, "deleted": True, "quizid": quizid}
+
+
+@app.delete("/cards/{cardid}")
+async def delete_card(cardid: str, session: str = Cookie(None)):
+>>>>>>> 0895659 (Fixed the indexing crash;)
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
