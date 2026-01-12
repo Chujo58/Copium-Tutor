@@ -83,9 +83,6 @@ class CreateQuizRequest(BaseModel):
 class SubmitQuizRequest(BaseModel):
     answers: dict
 
-async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
-    db_cursor = db_cursor or cursor
-    db_conn = db_conn or conn
 class CreateCardRequest(BaseModel):
     front: str
     back: str
@@ -97,7 +94,9 @@ class UpdateCardRequest(BaseModel):
 class ReviewCardRequest(BaseModel):
     rating: Literal["again", "hard", "good", "easy"]
 
-async def get_or_create_backboard_memory(projectid: str):
+async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
+    db_cursor = db_cursor or cursor
+    db_conn = db_conn or conn
     # check DB first
     db_cursor.execute(
         "SELECT assistant_id, memory_thread_id FROM backboard_projects WHERE projectid=?",
@@ -1883,6 +1882,25 @@ async def get_quiz(quizid: str, session: str = Cookie(None)):
         questions = {"questions": []}
 
     return {"success": True, "quiz": quiz, "questions": questions}
+
+@app.delete("/quizzes/{quizid}")
+async def delete_quiz(quizid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute(
+        "SELECT 1 FROM quizzes WHERE quizid=? AND userid=?",
+        (quizid, userid),
+    )
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Quiz not found"}
+
+    cursor.execute("DELETE FROM attempts WHERE quizid=? AND userid=?", (quizid, userid))
+    cursor.execute("DELETE FROM quizzes WHERE quizid=? AND userid=?", (quizid, userid))
+    conn.commit()
+
+    return {"success": True, "deleted": True, "quizid": quizid}
 
 
 @app.post("/quizzes/{quizid}/generate")

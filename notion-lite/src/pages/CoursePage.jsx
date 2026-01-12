@@ -18,9 +18,6 @@ export default function CoursePage() {
     const [files, setFiles] = useState([]);
     const [filesLoading, setFilesLoading] = useState(false);
 
-    const [quizzes, setQuizzes] = useState([]);
-    const [quizzesLoading, setQuizzesLoading] = useState(false);
-
     const [indexing, setIndexing] = useState(false);
     const [indexResult, setIndexResult] = useState(null);
     const [indexError, setIndexError] = useState("");
@@ -72,23 +69,6 @@ export default function CoursePage() {
         }
     }, [projectId]);
 
-    const fetchQuizzes = useCallback(async () => {
-        setQuizzesLoading(true);
-        try {
-            const res = await fetch(`${API_URL}/projects/${projectId}/quizzes`, {
-                credentials: "include",
-                method: "GET",
-            });
-            const data = await res.json();
-            if (data.success) setQuizzes(data.quizzes || []);
-            else setQuizzes([]);
-        } catch (err) {
-            console.error(err);
-            setQuizzes([]);
-        } finally {
-            setQuizzesLoading(false);
-        }
-    }, [projectId]);
 
     const indexDocuments = useCallback(
         async ({ force = false } = {}) => {
@@ -126,8 +106,7 @@ export default function CoursePage() {
     useEffect(() => {
         fetchProjectsAndCourse();
         fetchFiles();
-        fetchQuizzes();
-    }, [projectId, fetchProjectsAndCourse, fetchFiles, fetchQuizzes]);
+    }, [projectId, fetchProjectsAndCourse, fetchFiles]);
 
     const projectsList = useMemo(() => {
         return projects.map((project) => ({
@@ -141,13 +120,6 @@ export default function CoursePage() {
         const base = filepath.split("/").pop() || filepath;
         const idx = base.indexOf("_");
         return idx >= 0 ? base.slice(idx + 1) : base;
-    };
-
-    const quizStatusLabel = (status) => {
-        if (!status) return "Ready";
-        if (status === "pending") return "Generating";
-        if (status === "failed") return "Failed";
-        return status;
     };
 
     const uploadedCount =
@@ -374,38 +346,6 @@ export default function CoursePage() {
                             >
                                 Open Quizzes
                             </Link>
-
-                            <div className="mt-3">
-                                {quizzesLoading ? (
-                                    <div className="opacity-70">
-                                        Loading quizzes…
-                                    </div>
-                                ) : quizzes.length === 0 ? (
-                                    <div className="opacity-70">
-                                        No quizzes yet.
-                                    </div>
-                                ) : (
-                                    <ul className="mt-2 space-y-2">
-                                        {quizzes.map((quiz) => (
-                                            <li key={quiz.quizid}>
-                                                <Link
-                                                    className="underline"
-                                                    to={`/project/${projectId}/quizzes/${quiz.quizid}`}
-                                                >
-                                                    {quiz.title}
-                                                </Link>
-                                                <span className="text-sm opacity-70">
-                                                    {" "}
-                                                    · {quiz.quiz_type} ·{" "}
-                                                    {quiz.num_questions} questions
-                                                    {" "}
-                                                    · {quizStatusLabel(quiz.status)}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
                         </div>
                     </>
                 )}

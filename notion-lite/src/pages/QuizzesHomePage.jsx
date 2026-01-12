@@ -226,6 +226,26 @@ export default function QuizzesHomePage() {
     }
   };
 
+  const deleteQuiz = async (quizid) => {
+    if (!confirm("Delete this quiz? This will delete its attempts.")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/quizzes/${quizid}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.message || "Failed to delete quiz");
+        return;
+      }
+      fetchQuizzes();
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting quiz");
+    }
+  };
+
   return (
     <div className="flex">
       <Sidebar
@@ -393,7 +413,10 @@ export default function QuizzesHomePage() {
               ) : (
                 <ul className="mt-3 space-y-2">
                   {quizzes.map((q) => (
-                    <li key={q.quizid} className="flex items-start justify-between gap-4">
+                    <li
+                      key={q.quizid}
+                      className="flex items-start justify-between gap-4"
+                    >
                       <div>
                         <Link
                           className="underline"
@@ -407,6 +430,13 @@ export default function QuizzesHomePage() {
                           {QUIZ_STATUS_LABELS[q.status] || q.status || "Ready"}
                         </div>
                       </div>
+                      <button
+                        className="text-sm underline text-rose-plum"
+                        onClick={() => deleteQuiz(q.quizid)}
+                        type="button"
+                      >
+                        Delete
+                      </button>
                     </li>
                   ))}
                 </ul>
