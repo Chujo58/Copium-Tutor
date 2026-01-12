@@ -1,4 +1,5 @@
 import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid, json
+from pathlib import Path
 from dataclasses import dataclass
 from fastapi import (
     FastAPI,
@@ -18,12 +19,13 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import asyncio
 from backboard import BackboardClient
+from backboard.exceptions import BackboardNotFoundError
 from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
-from db import conn, cursor, init_db
+from db import conn, cursor, init_db, DB_PATH
 from backboard_ops import index_project_documents_impl
 from typing import Literal
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
 
 logger = logging.getLogger("uvicorn.error")
@@ -31,7 +33,7 @@ logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 salt = bcrypt.gensalt()
-conn = sqlite3.connect("database.db")
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
 init_db()
@@ -72,6 +74,18 @@ class CreateDeckRequest(BaseModel):
     name: str
     prompt: str
 
+class CreateQuizRequest(BaseModel):
+    topic: str
+    quiz_type: str
+    num_questions: int
+    document_ids: list[str] = []
+
+class SubmitQuizRequest(BaseModel):
+    answers: dict
+
+async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
+    db_cursor = db_cursor or cursor
+    db_conn = db_conn or conn
 class CreateCardRequest(BaseModel):
     front: str
     back: str
@@ -85,16 +99,36 @@ class ReviewCardRequest(BaseModel):
 
 async def get_or_create_backboard_memory(projectid: str):
     # check DB first
-    cursor.execute(
+    db_cursor.execute(
         "SELECT assistant_id, memory_thread_id FROM backboard_projects WHERE projectid=?",
         (projectid,),
     )
-    row = cursor.fetchone()
+    row = db_cursor.fetchone()
 
     client = BackboardClient(api_key=BACKBOARD_API_KEY)
 
     if row and row[0] and row[1]:
-        return client, row[0], row[1]
+        assistant_id = row[0]
+        thread_id = row[1]
+        try:
+            await client.get_thread(thread_id)
+            return client, assistant_id, thread_id
+        except BackboardNotFoundError:
+            logger.warning("Backboard thread missing for project %s, recreating", projectid)
+            try:
+                thread = await client.create_thread(assistant_id)
+                thread_id = str(thread.thread_id)
+                db_cursor.execute(
+                    "UPDATE backboard_projects SET memory_thread_id=? WHERE projectid=?",
+                    (thread_id, projectid),
+                )
+                db_cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
+                db_conn.commit()
+                return client, assistant_id, thread_id
+            except BackboardNotFoundError:
+                logger.warning("Backboard assistant missing for project %s, recreating", projectid)
+            except Exception as e:
+                logger.warning("Backboard thread recreate failed for project %s: %s", projectid, e)
 
     # create new assistant + thread for this course
     assistant = await client.create_assistant(
@@ -107,11 +141,12 @@ async def get_or_create_backboard_memory(projectid: str):
     assistant_id = str(assistant.assistant_id)
     thread_id = str(thread.thread_id)
 
-    cursor.execute(
+    db_cursor.execute(
         "INSERT OR REPLACE INTO backboard_projects (projectid, assistant_id, memory_thread_id) VALUES (?, ?, ?)",
         (projectid, assistant_id, thread_id),
     )
-    conn.commit()
+    db_cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
+    db_conn.commit()
 
     return client, assistant_id, thread_id
 
@@ -671,6 +706,35 @@ Rules:
 - If you could not rely on docs at all: mode="external_only".
 """.strip()
 
+QUIZ_SYSTEM = """
+You are an expert tutor generating quizzes from course documents.
+Return ONLY valid JSON (no markdown, no commentary).
+Always return the requested number of questions; never return an empty questions list.
+
+Schema:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq|short|long",
+      "question": "...",
+      "choices": ["Option text A", "Option text B", "Option text C", "Option text D"] // for mcq only
+    }
+  ],
+  "answers": {
+    "q1": 0,           // mcq: index of correct choice
+    "q2": "..."        // short/long: model answer
+  },
+  "explanations": {
+    "q1": "..."
+  }
+}
+Rules:
+- Generate the requested number of questions exactly.
+- Use ONLY the course documents already indexed in memory as the source of truth.
+- For mcq: 4 choices, one correct; answers use 0-based index; choices must be full answer text (not labels like A/B/C/D).
+""".strip()
+
 
 def _extract_json_object(raw: str) -> str | None:
     if raw is None:
@@ -682,6 +746,496 @@ def _extract_json_object(raw: str) -> str | None:
     if start == -1 or end == -1 or end <= start:
         return None
     return raw[start:end + 1]
+
+def _fix_unescaped_newlines(json_text: str) -> str:
+    fixed = []
+    in_string = False
+    escaped = False
+    for ch in json_text:
+        if in_string:
+            if ch in "\r\n":
+                fixed.append("\\n")
+                escaped = False
+                continue
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+        else:
+            if ch == '"':
+                in_string = True
+        fixed.append(ch)
+    return "".join(fixed)
+
+def _extract_questions_array(raw: str) -> list:
+    if not isinstance(raw, str):
+        return []
+    key = '"questions"'
+    key_idx = raw.find(key)
+    if key_idx == -1:
+        return []
+    bracket_idx = raw.find("[", key_idx)
+    if bracket_idx == -1:
+        return []
+    depth = 0
+    for i in range(bracket_idx, len(raw)):
+        if raw[i] == "[":
+            depth += 1
+        elif raw[i] == "]":
+            depth -= 1
+            if depth == 0:
+                snippet = raw[bracket_idx : i + 1]
+                try:
+                    return json.loads(snippet)
+                except json.JSONDecodeError:
+                    try:
+                        return json.loads(_fix_unescaped_newlines(snippet))
+                    except json.JSONDecodeError:
+                        return []
+    return []
+
+def _parse_quiz_payload(raw_text: str):
+    json_text = _extract_json_object(raw_text) or raw_text
+    try:
+        return json.loads(json_text)
+    except json.JSONDecodeError:
+        try:
+            return json.loads(_fix_unescaped_newlines(json_text))
+        except json.JSONDecodeError:
+            questions_only = _extract_questions_array(raw_text)
+            if questions_only:
+                return questions_only
+            raise
+
+def _safe_int(value, default=None):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+def _normalize_tokens(text: str) -> list[str]:
+    if not text:
+        return []
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+def _token_overlap_ratio(expected: str, actual: str) -> float:
+    expected_tokens = set(_normalize_tokens(expected))
+    if not expected_tokens:
+        return 0.0
+    actual_tokens = set(_normalize_tokens(actual))
+    matches = sum(1 for token in expected_tokens if token in actual_tokens)
+    return matches / len(expected_tokens)
+
+def _normalize_document_status(status):
+    if status is None:
+        return None
+    value = getattr(status, "value", None)
+    if value:
+        return str(value).lower()
+    return str(status).lower()
+
+def _display_filename(filepath: str) -> str:
+    if not filepath:
+        return ""
+    base = filepath.split("/")[-1]
+    if "_" in base:
+        return base.split("_", 1)[1]
+    return base
+
+async def _wait_for_thread_ready(client, thread_id: str, timeout_s: int = 900, interval_s: int = 2):
+    deadline = time.monotonic() + timeout_s
+    last_statuses = []
+    while True:
+        try:
+            docs = await client.list_thread_documents(thread_id)
+            last_statuses = [_normalize_document_status(getattr(doc, "status", None)) for doc in docs]
+        except Exception:
+            last_statuses = []
+
+        if last_statuses and all(status in {"indexed", "failed"} for status in last_statuses):
+            return True, last_statuses
+
+        if time.monotonic() >= deadline:
+            return False, last_statuses
+
+        await asyncio.sleep(interval_s)
+
+def _set_quiz_status(db_cursor, db_conn, quizid: str, status: str, generation_error: str | None = None):
+    db_cursor.execute(
+        "UPDATE quizzes SET status=?, generation_error=? WHERE quizid=?",
+        (status, generation_error, quizid),
+    )
+    db_conn.commit()
+
+def _set_quiz_payload(
+    db_cursor,
+    db_conn,
+    quizid: str,
+    questions_payload: dict,
+    answer_key: dict,
+    explanations: dict,
+):
+    num_questions = len(questions_payload.get("questions", []))
+    db_cursor.execute(
+        """
+        UPDATE quizzes
+        SET status=?, generation_error=?, questions_json=?, answer_key_json=?, explanations_json=?, num_questions=?
+        WHERE quizid=?
+        """,
+        (
+            "ready",
+            None,
+            json.dumps(questions_payload),
+            json.dumps(answer_key),
+            json.dumps(explanations),
+            num_questions,
+            quizid,
+        ),
+    )
+    db_conn.commit()
+
+async def _generate_quiz_content(
+    quizid: str,
+    projectid: str,
+    userid: str,
+    topic: str,
+    quiz_type: str,
+    num_questions: int,
+    document_ids: list[str],
+):
+    local_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    local_cursor = local_conn.cursor()
+    try:
+        if not BACKBOARD_API_KEY:
+            _set_quiz_status(local_cursor, local_conn, quizid, "failed", "BACKBOARD_API_KEY not set")
+            return
+
+        if not document_ids:
+            _set_quiz_status(local_cursor, local_conn, quizid, "failed", "No documents selected.")
+            return
+
+        placeholders = ",".join(["?"] * len(document_ids))
+        local_cursor.execute(
+            f"""
+            SELECT COUNT(DISTINCT fileid)
+            FROM indexed_files
+            WHERE projectid=? AND fileid IN ({placeholders})
+            """,
+            (projectid, *document_ids),
+        )
+        count = local_cursor.fetchone()[0]
+        if count != len(set(document_ids)):
+            _set_quiz_status(
+                local_cursor,
+                local_conn,
+                quizid,
+                "failed",
+                "Selected documents are not indexed yet. Go to the course page and click Index documents.",
+            )
+            return
+
+        client, assistant_id, thread_id = await get_or_create_backboard_memory(
+            projectid, db_cursor=local_cursor, db_conn=local_conn
+        )
+
+        try:
+            docs = await client.list_thread_documents(thread_id)
+        except Exception:
+            docs = []
+
+        if not docs:
+            _set_quiz_status(
+                local_cursor,
+                local_conn,
+                quizid,
+                "failed",
+                "No indexed documents found for this course. Click Index documents first.",
+            )
+            return
+
+        logger.debug("Quiz generation: thread %s has %d documents", thread_id, len(docs))
+
+        ready, statuses = await _wait_for_thread_ready(client, thread_id)
+        if not ready:
+            _set_quiz_status(
+                local_cursor,
+                local_conn,
+                quizid,
+                "failed",
+                "Documents are still indexing. Try again soon.",
+            )
+            return
+
+        local_cursor.execute(
+            f"SELECT fileid, filepath FROM files WHERE fileid IN ({placeholders})",
+            (*document_ids,),
+        )
+        file_rows = local_cursor.fetchall()
+        selected_files = [_display_filename(row[1]) for row in file_rows if row and row[1]]
+
+        generation_prompt = f"""
+Course: {projectid}
+Quiz topic: {topic}
+Quiz type: {quiz_type}
+Number of questions: {num_questions}
+
+Task:
+Generate a quiz with the exact number of questions requested.
+Prioritize these files: {", ".join(selected_files) if selected_files else "selected documents"}.
+If needed, you may use any indexed course documents to complete the quiz.
+""".strip()
+
+        response = await client.add_message(
+            thread_id=thread_id,
+            content=QUIZ_SYSTEM + "\n\n" + generation_prompt,
+            llm_provider="openai",
+            model_name="gpt-4o",
+            stream=False,
+            memory="Auto",
+        )
+
+        raw = getattr(response, "content", response)
+        raw_str = raw if isinstance(raw, str) else str(raw)
+        logger.debug("Quiz raw response: %s", raw_str[:2000])
+        payload = _parse_quiz_payload(raw_str)
+
+        questions = []
+        answer_key = {}
+        explanations = {}
+        if isinstance(payload, dict) or isinstance(payload, list):
+            questions, answer_key, explanations = _normalize_quiz_payload(
+                payload, quiz_type, num_questions
+            )
+
+        if not questions:
+            retry_prompt = generation_prompt + "\n\nReturn the JSON directly. Do not return an empty questions list."
+            response = await client.add_message(
+                thread_id=thread_id,
+                content=QUIZ_SYSTEM + "\n\n" + retry_prompt,
+                llm_provider="openai",
+                model_name="gpt-4o",
+                stream=False,
+                memory="Auto",
+            )
+            raw = getattr(response, "content", response)
+            raw_str = raw if isinstance(raw, str) else str(raw)
+            logger.debug("Quiz retry raw response: %s", raw_str[:2000])
+            payload = _parse_quiz_payload(raw_str)
+            if isinstance(payload, dict) or isinstance(payload, list):
+                questions, answer_key, explanations = _normalize_quiz_payload(
+                    payload, quiz_type, num_questions
+                )
+
+        if not questions:
+            _set_quiz_status(
+                local_cursor,
+                local_conn,
+                quizid,
+                "failed",
+                "No questions were generated. Try re-indexing documents.",
+            )
+            return
+
+        _set_quiz_payload(
+            local_cursor,
+            local_conn,
+            quizid,
+            {"questions": questions},
+            answer_key,
+            explanations,
+        )
+
+    except Exception as e:
+        logger.error("Quiz generation failed: %s", e)
+        _set_quiz_status(local_cursor, local_conn, quizid, "failed", "Quiz generation failed")
+    finally:
+        local_conn.close()
+
+def _normalize_choice_list(raw):
+    if isinstance(raw, dict):
+        items = list(raw.items())
+        try:
+            items.sort(key=lambda kv: str(kv[0]))
+        except Exception:
+            pass
+        values = [str(v).strip() for _, v in items if str(v).strip()]
+        if values:
+            return values
+        return [str(k).strip() for k, _ in items if str(k).strip()]
+    if isinstance(raw, list):
+        cleaned = []
+        for choice in raw:
+            if isinstance(choice, dict):
+                value = (
+                    choice.get("text")
+                    or choice.get("option")
+                    or choice.get("choice")
+                    or choice.get("label")
+                    or choice.get("value")
+                )
+                if value is None and len(choice) == 1:
+                    value = next(iter(choice.values()))
+                if value is None:
+                    continue
+                cleaned.append(str(value).strip())
+            else:
+                cleaned.append(str(choice).strip())
+        return [c for c in cleaned if c]
+    if isinstance(raw, str):
+        for sep in ("\n", ";", ","):
+            parts = [p.strip() for p in raw.split(sep) if p.strip()]
+            if len(parts) >= 2:
+                return parts
+        return [raw.strip()] if raw.strip() else []
+    return []
+
+def _mcq_answer_to_index(answer, choices):
+    if answer is None or not choices:
+        return None
+    if isinstance(answer, (int, float)):
+        idx = int(answer)
+        if 0 <= idx < len(choices):
+            return idx
+        if 1 <= idx <= len(choices):
+            return idx - 1
+    answer_text = str(answer).strip()
+    if not answer_text:
+        return None
+    first = answer_text[0].upper()
+    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if first in letters:
+        idx = letters.index(first)
+        if idx < len(choices):
+            return idx
+    for i, choice in enumerate(choices):
+        if answer_text.lower() == str(choice).strip().lower():
+            return i
+    return None
+
+def _answer_from_question(question: dict):
+    for key in (
+        "answer",
+        "correct",
+        "correct_answer",
+        "correctAnswer",
+        "correct_index",
+        "correctIndex",
+        "correct_choice",
+        "correctChoice",
+    ):
+        if key in question:
+            return question.get(key)
+    return None
+
+def _explanation_from_question(question: dict):
+    for key in ("explanation", "rationale", "reasoning", "feedback"):
+        if key in question:
+            return question.get(key)
+    return None
+
+def _normalize_quiz_payload(payload, quiz_type: str, num_questions: int):
+    if isinstance(payload, list):
+        questions_in = payload
+        answers_in = {}
+        explanations_in = {}
+    elif isinstance(payload, dict):
+        questions_in = payload.get("questions") or payload.get("items") or []
+        answers_in = (
+            payload.get("answers")
+            or payload.get("answer_key")
+            or payload.get("answerKey")
+            or {}
+        )
+        explanations_in = payload.get("explanations") or payload.get("explanation") or {}
+        nested = payload.get("quiz") or payload.get("data") or {}
+        if not questions_in and isinstance(nested, dict):
+            questions_in = nested.get("questions") or nested.get("items") or []
+        if not answers_in and isinstance(nested, dict):
+            answers_in = (
+                nested.get("answers")
+                or nested.get("answer_key")
+                or nested.get("answerKey")
+                or {}
+            )
+        if not explanations_in and isinstance(nested, dict):
+            explanations_in = nested.get("explanations") or nested.get("explanation") or {}
+    else:
+        questions_in = []
+        answers_in = {}
+        explanations_in = {}
+
+    if isinstance(answers_in, list):
+        answers_map = {
+            str(a.get("id")): a.get("answer")
+            for a in answers_in
+            if isinstance(a, dict) and a.get("id") is not None
+        }
+    elif isinstance(answers_in, dict):
+        answers_map = answers_in
+    else:
+        answers_map = {}
+
+    if isinstance(explanations_in, list):
+        explanations_map = {
+            str(e.get("id")): e.get("explanation")
+            for e in explanations_in
+            if isinstance(e, dict) and e.get("id") is not None
+        }
+    elif isinstance(explanations_in, dict):
+        explanations_map = explanations_in
+    else:
+        explanations_map = {}
+
+    questions = []
+    answer_key = {}
+    explanations = {}
+    source_map = {}
+
+    for idx, q in enumerate(questions_in):
+        if not isinstance(q, dict):
+            continue
+        qid = str(q.get("id") or f"q{idx + 1}")
+        prompt = (q.get("question") or q.get("prompt") or "").strip()
+        if not prompt:
+            continue
+
+        item = {"id": qid, "type": quiz_type, "question": prompt}
+        if quiz_type == "mcq":
+            choices_raw = q.get("choices") or q.get("options") or q.get("options_list")
+            choices = _normalize_choice_list(choices_raw)
+            if len(choices) < 2:
+                continue
+            item["choices"] = choices[:4]
+
+        questions.append(item)
+        source_map[qid] = q
+        if len(questions) >= num_questions:
+            break
+
+    for q in questions:
+        qid = q["id"]
+        if quiz_type == "mcq":
+            answer_value = answers_map.get(qid)
+            if answer_value is None:
+                answer_value = _answer_from_question(source_map.get(qid, {}))
+            idx_value = _mcq_answer_to_index(answer_value, q.get("choices", []))
+            if idx_value is None:
+                idx_value = 0
+            answer_key[qid] = idx_value
+        else:
+            answer_text = answers_map.get(qid)
+            if answer_text is None:
+                answer_text = _answer_from_question(source_map.get(qid, {}))
+            answer_key[qid] = (str(answer_text).strip() if answer_text is not None else "")
+
+        explanation = explanations_map.get(qid)
+        if explanation is None:
+            explanation = _explanation_from_question(source_map.get(qid, {}))
+        explanations[qid] = (str(explanation).strip() if explanation is not None else "")
+
+    return questions, answer_key, explanations
 
 
 def _safe_json_load(raw: str):
@@ -978,6 +1532,11 @@ async def delete_deck(deckid: str, session: str = Cookie(None)):
     return {"success": True, "deleted_deckid": deckid}
 
 ###############
+# QUIZZES
+###############
+
+@app.get("/projects/{projectid}/quizzes")
+async def list_quizzes(projectid: str, session: str = Cookie(None)):
 # CARDS
 ###############
 
@@ -988,6 +1547,38 @@ async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(N
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    cursor.execute(
+        """
+        SELECT quizid, title, topic, quiz_type, num_questions, status, generation_error, createddate
+        FROM quizzes
+        WHERE projectid=? AND userid=?
+        ORDER BY createddate DESC
+        """,
+        (projectid, userid),
+    )
+    rows = cursor.fetchall()
+    quizzes = [
+        {
+            "quizid": r[0],
+            "title": r[1],
+            "topic": r[2],
+            "quiz_type": r[3],
+            "num_questions": r[4],
+            "status": r[5],
+            "generation_error": r[6],
+            "createddate": r[7],
+        }
+        for r in rows
+    ]
+    return {"success": True, "quizzes": quizzes}
+
+
+@app.post("/projects/{projectid}/quizzes")
+async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Cookie(None)):
     if not _require_deck_owned(deckid, userid):
         return {"success": False, "message": "Deck not found"}
 
@@ -1020,6 +1611,114 @@ async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cooki
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Project not found"}
+
+    topic = (body.topic or "").strip()
+    if not topic:
+        return {"success": False, "message": "Topic is required"}
+
+    quiz_type = (body.quiz_type or "").strip().lower()
+    if quiz_type not in {"mcq", "short", "long"}:
+        return {"success": False, "message": "Invalid quiz type"}
+
+    num_questions = _safe_int(body.num_questions, default=0)
+    if num_questions < 1 or num_questions > 50:
+        return {"success": False, "message": "Invalid number of questions"}
+
+    document_ids = [str(fid) for fid in (body.document_ids or []) if str(fid).strip()]
+    if document_ids:
+        placeholders = ",".join(["?"] * len(document_ids))
+        cursor.execute(
+            f"""
+            SELECT f.fileid
+            FROM files f
+            JOIN fileinproj fp ON fp.fileid = f.fileid
+            JOIN projects p ON p.projectid = fp.projectid
+            WHERE p.projectid=? AND p.userid=? AND f.fileid IN ({placeholders})
+            """,
+            (projectid, userid, *document_ids),
+        )
+        found = {r[0] for r in cursor.fetchall()}
+        if len(found) != len(set(document_ids)):
+            return {"success": False, "message": "Some selected documents were not found"}
+        document_ids = list(found)
+    else:
+        cursor.execute(
+            """
+            SELECT f.fileid
+            FROM files f
+            JOIN fileinproj fp ON fp.fileid = f.fileid
+            JOIN projects p ON p.projectid = fp.projectid
+            WHERE p.projectid=? AND p.userid=?
+            """,
+            (projectid, userid),
+        )
+        document_ids = [r[0] for r in cursor.fetchall()]
+
+    if not document_ids:
+        return {"success": False, "message": "No documents available for this course"}
+
+    quizid = uuid.uuid4().hex[:8]
+    createddate = datetime.utcnow().isoformat()
+    title = f"{topic} ({quiz_type.upper()})"
+
+    status = "pending"
+    generation_error = None
+
+    cursor.execute(
+        """
+        INSERT INTO quizzes (
+            quizid, projectid, userid, title, topic, quiz_type, num_questions,
+            document_ids_json, questions_json, answer_key_json, explanations_json,
+            status, generation_error, createddate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            quizid,
+            projectid,
+            userid,
+            title,
+            topic,
+            quiz_type,
+            num_questions,
+            json.dumps(document_ids),
+            json.dumps({"questions": []}),
+            json.dumps({}),
+            json.dumps({}),
+            status,
+            generation_error,
+            createddate,
+        ),
+    )
+    conn.commit()
+
+    warning = None
+    if not BACKBOARD_API_KEY:
+        warning = "BACKBOARD_API_KEY not set, quiz not generated"
+        _set_quiz_status(cursor, conn, quizid, "failed", "BACKBOARD_API_KEY not set")
+    else:
+        asyncio.create_task(
+            _generate_quiz_content(
+                quizid=quizid,
+                projectid=projectid,
+                userid=userid,
+                topic=topic,
+                quiz_type=quiz_type,
+                num_questions=num_questions,
+                document_ids=document_ids,
+            )
+        )
+
+    response_payload = {"success": True, "quizid": quizid, "status": status, "generated": 0}
+    if warning:
+        response_payload["warning"] = warning
+    return response_payload
+
+
+@app.get("/quizzes/{quizid}")
+async def get_quiz(quizid: str, session: str = Cookie(None)):
     row = _get_card_and_verify_owner(cardid, userid)
     if row is None:
         return {"success": False, "message": "Card not found"}
@@ -1049,6 +1748,40 @@ async def delete_card(cardid: str, session: str = Cookie(None)):
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
+    cursor.execute(
+        """
+        SELECT quizid, projectid, title, topic, quiz_type, num_questions, questions_json, status, generation_error, createddate
+        FROM quizzes
+        WHERE quizid=? AND userid=?
+        """,
+        (quizid, userid),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Quiz not found"}
+
+    quiz = {
+        "quizid": row[0],
+        "projectid": row[1],
+        "title": row[2],
+        "topic": row[3],
+        "quiz_type": row[4],
+        "num_questions": row[5],
+        "status": row[7],
+        "generation_error": row[8],
+        "createddate": row[9],
+    }
+
+    try:
+        questions = json.loads(row[6] or "{}")
+    except json.JSONDecodeError:
+        questions = {"questions": []}
+
+    return {"success": True, "quiz": quiz, "questions": questions}
+
+
+@app.post("/quizzes/{quizid}/generate")
+async def generate_quiz(quizid: str, session: str = Cookie(None)):
     row = _get_card_and_verify_owner(cardid, userid)
     if row is None:
         return {"success": False, "message": "Card not found"}
@@ -1065,6 +1798,51 @@ async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cooki
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
+    cursor.execute(
+        """
+        SELECT quizid, projectid, userid, topic, quiz_type, num_questions, document_ids_json
+        FROM quizzes
+        WHERE quizid=? AND userid=?
+        """,
+        (quizid, userid),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Quiz not found"}
+
+    document_ids = []
+    try:
+        document_ids = json.loads(row[6] or "[]")
+    except json.JSONDecodeError:
+        document_ids = []
+
+    _set_quiz_status(cursor, conn, quizid, "pending", None)
+    cursor.execute(
+        """
+        UPDATE quizzes
+        SET questions_json=?, answer_key_json=?, explanations_json=?
+        WHERE quizid=?
+        """,
+        (json.dumps({"questions": []}), json.dumps({}), json.dumps({}), quizid),
+    )
+    conn.commit()
+
+    asyncio.create_task(
+        _generate_quiz_content(
+            quizid=quizid,
+            projectid=row[1],
+            userid=row[2],
+            topic=row[3],
+            quiz_type=row[4],
+            num_questions=row[5],
+            document_ids=document_ids,
+        )
+    )
+
+    return {"success": True}
+
+@app.post("/quizzes/{quizid}/submit")
+async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cookie(None)):
     # verify ownership via join
     cursor.execute("""
         SELECT c.deckid, c.due_at, c.interval_days, c.ease, c.reps, c.lapses
@@ -1150,6 +1928,93 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
     userid = session
 
     cursor.execute(
+        """
+        SELECT quiz_type, questions_json, answer_key_json, explanations_json
+        FROM quizzes
+        WHERE quizid=? AND userid=?
+        """,
+        (quizid, userid),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Quiz not found"}
+
+    quiz_type = row[0]
+    try:
+        questions_payload = json.loads(row[1] or "{}")
+    except json.JSONDecodeError:
+        questions_payload = {"questions": []}
+    try:
+        answer_key = json.loads(row[2] or "{}")
+    except json.JSONDecodeError:
+        answer_key = {}
+    try:
+        explanations = json.loads(row[3] or "{}")
+    except json.JSONDecodeError:
+        explanations = {}
+
+    questions = questions_payload.get("questions", [])
+    answers = body.answers if isinstance(body.answers, dict) else {}
+
+    feedback = {}
+    score = 0
+
+    for q in questions:
+        if not isinstance(q, dict):
+            continue
+        qid = q.get("id")
+        if qid is None:
+            continue
+        qid = str(qid)
+        expected = answer_key.get(qid)
+        response = answers.get(qid)
+        explanation = explanations.get(qid, "")
+
+        if quiz_type == "mcq":
+            expected_idx = _safe_int(expected, default=None)
+            response_idx = _safe_int(response, default=None)
+            correct = (
+                response_idx is not None and expected_idx is not None and response_idx == expected_idx
+            )
+        else:
+            expected_text = str(expected or "").strip()
+            response_text = str(response or "").strip()
+            ratio = _token_overlap_ratio(expected_text, response_text)
+            threshold = 0.6 if quiz_type == "short" else 0.4
+            correct = ratio >= threshold
+            expected = expected_text
+            response = response_text
+
+        if correct:
+            score += 1
+
+        feedback[qid] = {
+            "correct": bool(correct),
+            "expected": expected,
+            "response": response,
+            "explanation": explanation,
+        }
+
+    attemptid = uuid.uuid4().hex[:8]
+    createddate = datetime.utcnow().isoformat()
+    cursor.execute(
+        """
+        INSERT INTO attempts (attemptid, quizid, userid, answers_json, score, feedback_json, createddate)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            attemptid,
+            quizid,
+            userid,
+            json.dumps(answers),
+            score,
+            json.dumps(feedback),
+            createddate,
+        ),
+    )
+    conn.commit()
+
+    return {"success": True, "score": score, "feedback": feedback}
         "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
     )
     if cursor.fetchone() is None:
