@@ -39,6 +39,10 @@ export default function CoursePage() {
   const [indexResult, setIndexResult] = useState(null);
   const [indexError, setIndexError] = useState("");
 
+  const [recentDecks, setRecentDecks] = useState([]);
+  const [recentDecksLoading, setRecentDecksLoading] = useState(false);
+  const [recentDecksError, setRecentDecksError] = useState("");
+
   // Recent chats (course page)
   const [recentChats, setRecentChats] = useState([]);
   const [recentChatsLoading, setRecentChatsLoading] = useState(false);
@@ -97,6 +101,37 @@ export default function CoursePage() {
     },
     [projectid, navigate, creatingChat]
   );
+
+    const fetchRecentDecks = useCallback(async () => {
+    console.log("[CoursePage] fetchRecentDecks()", { projectid });
+    setRecentDecksLoading(true);
+    setRecentDecksError("");
+    try {
+        // Assumption: you have a list endpoint for decks under a project
+        const res = await fetch(`${API_URL}/projects/${projectid}/decks`, {
+        method: "GET",
+        credentials: "include",
+        });
+        const data = await res.json();
+        console.log("[CoursePage] recent decks response:", data);
+
+        if (!data?.success) {
+        setRecentDecks([]);
+        setRecentDecksError(data?.message || "Failed to load decks");
+        return;
+        }
+
+        const decks = data.decks || [];
+        // Keep top 6 recent decks (tweak as you like)
+        setRecentDecks(decks.slice(0, 6));
+    } catch (e) {
+        console.error("[CoursePage] fetchRecentDecks error:", e);
+        setRecentDecks([]);
+        setRecentDecksError("Failed to load decks (network/server)");
+    } finally {
+        setRecentDecksLoading(false);
+    }
+    }, [projectid]);
 
   const fetchFiles = useCallback(async () => {
     console.log("[CoursePage] fetchFiles()", { projectid });
@@ -230,7 +265,8 @@ export default function CoursePage() {
     fetchFiles();
         fetchQuizzes();
     fetchRecentChats();
-  }, [projectid, fetchProjectsAndCourse, fetchFiles, fetchRecentChats, fetchQuizzes]);
+    fetchRecentDecks();
+  }, [projectid, fetchProjectsAndCourse, fetchFiles, fetchRecentChats, fetchRecentDecks, fetchQuizzes]);
 
   const projectsList = useMemo(() => {
     return projects.map((project) => ({
@@ -413,28 +449,49 @@ export default function CoursePage() {
                       Open
                     </Link>
                   </div>
+                  
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between">
+                        <div className="text-sm opacity-70">Recent decks</div>
+                        <button
+                        className="text-sm underline opacity-70"
+                        onClick={fetchRecentDecks}
+                        disabled={recentDecksLoading}
+                        >
+                        {recentDecksLoading ? "Refreshing…" : "Refresh"}
+                        </button>
+                    </div>
 
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* "Decks preview" placeholders — you can replace with real decks list later */}
-                    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition">
-                      <div className="text-dark font-semibold">Create / Browse decks</div>
-                      <div className="text-xs opacity-60 mt-1">
-                        Study mode + edit mode + spaced repetition
-                      </div>
+                    {recentDecksError ? (
+                        <div className="mt-2 text-sm opacity-80">⚠️ {recentDecksError}</div>
+                    ) : null}
+
+                    {recentDecksLoading ? (
+                        <div className="mt-3 opacity-70">Loading decks…</div>
+                    ) : recentDecks.length === 0 ? (
+                        <div className="mt-3 opacity-70">
+                        No decks yet — create one in Flashcards.
+                        </div>
+                    ) : (
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {recentDecks.map((d) => (
+                            <Link
+                            key={d.deckid}
+                            to={`/project/${projectid}/decks/${d.deckid}`} // ✅ adjust if your deck route differs
+                            className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition"
+                            onClick={() => console.log("[CoursePage] open deck", d.deckid)}
+                            >
+                            <div className="font-semibold text-dark truncate">{d.name}</div>
+                            <div className="text-xs opacity-60 mt-1 truncate">
+                                {d.card_count != null ? `${d.card_count} cards` : "Deck"}{" "}
+                                {d.createddate ? `• ${formatWhen(d.createddate)}` : ""}
+                            </div>
+                            </Link>
+                        ))}
+                        </div>
+                    )}
                     </div>
-                    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition">
-                      <div className="text-dark font-semibold">Due cards</div>
-                      <div className="text-xs opacity-60 mt-1">
-                        Jump straight into reviews
-                      </div>
-                    </div>
-                    <div className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition">
-                      <div className="text-dark font-semibold">Generate deck</div>
-                      <div className="text-xs opacity-60 mt-1">
-                        From indexed documents
-                      </div>
-                    </div>
-                  </div>
+
                 </div>
 
                 {/* Quizzes */}
@@ -451,21 +508,6 @@ export default function CoursePage() {
                     >
                       Coming soon
                     </button>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="rounded-2xl border border-black/10 bg-white/30 p-4 opacity-70">
-                      <div className="text-dark font-semibold">Practice quiz</div>
-                      <div className="text-xs opacity-60 mt-1">Auto-generated from your docs</div>
-                    </div>
-                    <div className="rounded-2xl border border-black/10 bg-white/30 p-4 opacity-70">
-                      <div className="text-dark font-semibold">Exam mode</div>
-                      <div className="text-xs opacity-60 mt-1">Timed + scoring</div>
-                    </div>
-                    <div className="rounded-2xl border border-black/10 bg-white/30 p-4 opacity-70">
-                      <div className="text-dark font-semibold">Weak spots</div>
-                      <div className="text-xs opacity-60 mt-1">Target what you miss</div>
-                    </div>
                   </div>
                 </div>
               </div>

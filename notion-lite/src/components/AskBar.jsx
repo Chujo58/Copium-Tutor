@@ -1,45 +1,81 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export default function AskBar({
-  placeholder = "Ask anything about this course…",
+  placeholder = "Ask a question…",
+  disabled = false,
   onSubmit,
-  disabled,
+  initialValue = "",
+  autoFocus = false,
+  className = "",
 }) {
-  const [value, setValue] = useState("");
+  const [text, setText] = useState(initialValue);
+
+  useEffect(() => {
+    setText(initialValue || "");
+  }, [initialValue]);
+
+  const canSend = useMemo(() => {
+    return !disabled && text.trim().length > 0;
+  }, [disabled, text]);
+
+  const submit = () => {
+    const value = text.trim();
+    console.log("[AskBar] submit()", { value, disabled, canSend });
+
+    if (!onSubmit) {
+      console.warn("[AskBar] onSubmit is missing");
+      return;
+    }
+    if (!canSend) return;
+
+    onSubmit(value);
+    setText("");
+  };
 
   return (
-    <form
-        onSubmit={(e) => {
-        e.preventDefault();
-        const text = value.trim();
-        console.log("[AskBar] submit", { text, disabled });
-        if (!text || disabled) return;
-        try {
-            onSubmit?.(text);
-        } catch (err) {
-            console.error("[AskBar] onSubmit threw", err);
-        }
-        setValue("");
-        }}
-
-        className="w-full"
+    <div
+      className={[
+        // Stronger contrast than before
+        "rounded-3xl border border-rose-plum/40 bg-white/60 shadow-sm",
+        "px-3 py-2",
+        className,
+      ].join(" ")}
     >
-      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 shadow-sm">
+      <div className="flex items-center gap-2">
         <input
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          autoFocus={autoFocus}
           disabled={disabled}
           placeholder={placeholder}
-          className="w-full bg-transparent text-sm text-white placeholder-white/40 outline-none"
+          className={[
+            "flex-1 bg-transparent px-3 py-2 outline-none",
+            "text-dark placeholder:text-dark/40",
+          ].join(" ")}
         />
+
         <button
-          type="submit"
-          disabled={disabled}
-          className="rounded-xl bg-white/10 px-3 py-1.5 text-sm text-white hover:bg-white/15 disabled:opacity-50"
+          type="button"
+          onClick={submit}
+          disabled={!canSend}
+          className={[
+            "shrink-0 rounded-2xl px-4 py-2 font-semibold",
+            "text-white bg-rose-plum hover:opacity-90",
+            "disabled:opacity-40 disabled:cursor-not-allowed",
+          ].join(" ")}
+          style={{ minWidth: 84 }} // smaller than before, but still tappable
         >
-          Ask
+          ASK
         </button>
       </div>
-    </form>
+    </div>
   );
 }
