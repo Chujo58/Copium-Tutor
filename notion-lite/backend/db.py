@@ -72,6 +72,31 @@ def init_db():
     )
     """)
 
+    # chat_sessions: one row per chat "thread" shown in the left sidebar (per course)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+        chatid TEXT PRIMARY KEY,
+        projectid TEXT NOT NULL,
+        userid TEXT NOT NULL,
+        title TEXT NOT NULL,
+        llm_provider TEXT NOT NULL DEFAULT 'openai',
+        model_name TEXT NOT NULL DEFAULT 'gpt-4o',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """)
+
+    # chat_messages: message history for a given chat session
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        msgid TEXT PRIMARY KEY,
+        chatid TEXT NOT NULL,
+        role TEXT NOT NULL,               -- 'user' | 'assistant' | 'system'
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """)
+
     # quizzes: one row per quiz created inside a course (project)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS quizzes (
