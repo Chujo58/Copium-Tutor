@@ -193,6 +193,7 @@ export default function CoursePage() {
 
                             <CourseDocumentUploader
                                 projectName={course.name}
+                                projectID={course.projectid}
                                 onUploaded={async () => {
                                     // refresh list
                                     await fetchFiles();

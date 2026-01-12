@@ -2,7 +2,7 @@ import { useState } from "react";
 import { API_URL } from "../config";
 import { UploadPopup } from "./Popup";
 
-export default function CourseDocumentUploader({ projectName, onUploaded }) {
+export default function CourseDocumentUploader({ projectName, projectID, onUploaded }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [showPopup, setShowPopup] = useState(false);
@@ -53,7 +53,7 @@ export default function CourseDocumentUploader({ projectName, onUploaded }) {
         Upload Documents
       </button>
       {showPopup && (
-        <UploadPopup projects={[{ name: projectName }]} onClose={() => setShowPopup(false)} />
+        <UploadPopup projects={[{ name: projectName, id: projectID }]} onClose={() => setShowPopup(false)} />
       )}
       {/* <input
         type="file"

@@ -100,7 +100,7 @@ export default function SubjectCard({
     );
 }
 
-export function DocumentCard({ docTitle, docType, id }) {
+export function DocumentCard({ docTitle, docType, id, onDeleted }) {
     const icon = docType === "spreadsheet" ? <FileSpreadsheet /> : <FileText />;
     const [backendFile, setBackendFile] = useState(null);
     const [showDocPreview, setDocPreview] = useState(false);
@@ -176,11 +176,8 @@ export function DocumentCard({ docTitle, docType, id }) {
                         })
                             .then((res) => res.json())
                             .then((data) => {
-                                if (data.success) {
-                                    alert("Document deleted");
-                                    window.location.reload();
-                                } else {
-                                    alert(
+                                if (!data.success) {
+                                    console.error(
                                         `Failed to delete document: ${data.message}`
                                     );
                                 }
@@ -189,6 +186,7 @@ export function DocumentCard({ docTitle, docType, id }) {
                                 console.error(err);
                                 alert("Error deleting document");
                             });
+                        onDeleted?.();
                     }}
                 >
                     <CircleX />
