@@ -1,7 +1,10 @@
 import os
 import hashlib
+import logging
 from datetime import datetime
 from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
+
+logger = logging.getLogger("uvicorn.error")
 
 def sha256_file(path: str, chunk_size: int = 1024 * 1024) -> str:
     h = hashlib.sha256()
@@ -13,21 +16,31 @@ def sha256_file(path: str, chunk_size: int = 1024 * 1024) -> str:
             h.update(b)
     return h.hexdigest()
 
-async def index_project_documents_impl(projectid: str, userid: str, cursor, conn, client_factory, get_memory):
+async def index_project_documents_impl(projectid: str, userid: str, cursor, conn, client_factory, get_memory, file_ids=None):
     """
     Returns dict payload for the endpoint.
     - client_factory: function that returns Backboard client
     - get_memory: async function to get (client, assistant_id, thread_id)
+    - file_ids: optional list of fileids to index (defaults to all in project)
     """
     client, assistant_id, thread_id = await get_memory(projectid)
 
     # fileid + filepath
-    cursor.execute("""
-        SELECT f.fileid, f.filepath
-        FROM files f
-        JOIN fileinproj fp ON fp.fileid = f.fileid
-        WHERE fp.projectid = ?
-    """, (projectid,))
+    if file_ids:
+        placeholders = ",".join(["?"] * len(file_ids))
+        cursor.execute(f"""
+            SELECT f.fileid, f.filepath
+            FROM files f
+            JOIN fileinproj fp ON fp.fileid = f.fileid
+            WHERE fp.projectid = ? AND f.fileid IN ({placeholders})
+        """, (projectid, *file_ids))
+    else:
+        cursor.execute("""
+            SELECT f.fileid, f.filepath
+            FROM files f
+            JOIN fileinproj fp ON fp.fileid = f.fileid
+            WHERE fp.projectid = ?
+        """, (projectid,))
     rows = cursor.fetchall()
 
     base_dir = os.path.dirname(__file__)
@@ -40,6 +53,7 @@ async def index_project_documents_impl(projectid: str, userid: str, cursor, conn
         try:
             abs_path = os.path.normpath(os.path.join(base_dir, rel_path))
             if not os.path.exists(abs_path):
+                logger.warning("Index skip: missing file %s (fileid=%s)", abs_path, fileid)
                 continue
 
             content_hash = sha256_file(abs_path)
@@ -72,8 +86,9 @@ async def index_project_documents_impl(projectid: str, userid: str, cursor, conn
             """, (projectid, fileid, content_hash, datetime.utcnow().isoformat()))
             conn.commit()
 
-        except Exception:
+        except Exception as e:
             failed += 1
+            logger.exception("Index failed for fileid=%s path=%s error=%s", fileid, rel_path, e)
 
     return {
         "success": True,
