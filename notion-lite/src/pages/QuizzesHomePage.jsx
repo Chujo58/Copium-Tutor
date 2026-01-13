@@ -279,9 +279,15 @@ export default function QuizzesHomePage() {
       if (data.warning) {
         alert(data.warning);
       }
+      const nextQuizId = data.quizid || data.quiz?.quizid;
+      if (!nextQuizId) {
+        alert("Quiz created but missing quiz id. Please refresh and open it from the list.");
+        await fetchQuizzes();
+        return;
+      }
       setTopic("");
       await fetchQuizzes();
-      navigate(`/project/${projectid}/quizzes/${data.quizid}`);
+      navigate(`/project/${projectid}/quizzes/${nextQuizId}`);
     } catch (e) {
       console.error(e);
       alert("Error creating quiz");

@@ -111,7 +111,7 @@ export default function QuizPage() {
       const data = await res.json();
       if (data.success) {
         setQuiz(data.quiz);
-        setQuestions(data.questions?.questions || []);
+        setQuestions(data.questions || data.questions?.questions || []);
         setAnswers({});
         setResult(null);
       } else {

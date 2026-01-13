@@ -10,6 +10,12 @@ import { DocumentCard } from "../components/Card";
 import AskBar from "../components/AskBar";
 import { ChatAPI } from "../services/chat";
 
+const QUIZ_TYPE_LABELS = {
+  mcq: "QCM (Multiple choice)",
+  short: "Short answer",
+  long: "Long answer",
+};
+
 function formatWhen(iso) {
   try {
     return new Date(iso).toLocaleString();
@@ -501,13 +507,50 @@ export default function CoursePage() {
                       <FileText size={20} className="opacity-70" />
                       Quizzes
                     </div>
-                    <button
-                      className="rounded-xl bg-white/20 px-3 py-1.5 text-sm text-dark border border-black/10 opacity-60 cursor-not-allowed"
-                      title="Coming soon"
-                      disabled
+                    <Link
+                      className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
+                      to={`/project/${projectid}/quizzes`}
                     >
-                      Coming soon
-                    </button>
+                      Open
+                    </Link>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm opacity-70">Recent quizzes</div>
+                      <button
+                        className="text-sm underline opacity-70"
+                        onClick={fetchQuizzes}
+                        disabled={quizzesLoading}
+                      >
+                        {quizzesLoading ? "Refreshing…" : "Refresh"}
+                      </button>
+                    </div>
+
+                    {quizzesLoading ? (
+                      <div className="mt-3 opacity-70">Loading quizzes…</div>
+                    ) : quizzes.length === 0 ? (
+                      <div className="mt-3 opacity-70">
+                        No quizzes yet — create one in Quizzes.
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {quizzes.slice(0, 6).map((q) => (
+                          <Link
+                            key={q.quizid}
+                            to={`/project/${projectid}/quizzes/${q.quizid}`}
+                            className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition"
+                          >
+                            <div className="font-semibold text-dark truncate">{q.title}</div>
+                            <div className="text-xs opacity-60 mt-1 truncate">
+                              {QUIZ_TYPE_LABELS[q.quiz_type] || q.quiz_type}{" "}
+                              {q.num_questions ? `• ${q.num_questions} questions` : ""}{" "}
+                              {q.status ? `• ${quizStatusLabel(q.status)}` : ""}
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -620,4 +663,3 @@ export default function CoursePage() {
     </div>
   );
 }
-
