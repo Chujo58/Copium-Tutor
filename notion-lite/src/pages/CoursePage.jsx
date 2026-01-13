@@ -35,11 +35,11 @@ export default function CoursePage() {
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
 
-    const [files, setFiles] = useState([]);
-    const [filesLoading, setFilesLoading] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [filesLoading, setFilesLoading] = useState(false);
 
-    const [quizzes, setQuizzes] = useState([]);
-    const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [quizzes, setQuizzes] = useState([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
 
   const [indexing, setIndexing] = useState(false);
   const [indexResult, setIndexResult] = useState(null);
@@ -54,7 +54,6 @@ export default function CoursePage() {
   const [recentChatsLoading, setRecentChatsLoading] = useState(false);
   const [recentChatsError, setRecentChatsError] = useState("");
 
-  // --- LOG: component mount + route params ---
   useEffect(() => {
     console.log("[CoursePage] mounted", { projectid, path: location.pathname });
   }, [projectid, location.pathname]);
@@ -62,43 +61,24 @@ export default function CoursePage() {
   const startChatFromQuestion = useCallback(
     async (question) => {
       const text = (question || "").trim();
-
-      console.log("[CoursePage] startChatFromQuestion()", {
-        projectid,
-        text,
-        creatingChat,
-        currentPath: window.location.pathname,
-      });
-
       if (!text) return;
       if (creatingChat) return;
 
       setCreatingChat(true);
       try {
-        console.log("[CoursePage] creating chat session…");
-
+        // IMPORTANT: create placeholder title; backend will auto-title on first message
         const created = await ChatAPI.createChat(projectid, {
-          title: text.slice(0, 48) || "New chat",
+          title: "New chat",
           llm_provider: "openai",
           model_name: "gpt-4o",
         });
 
-        console.log("[CoursePage] createChat response:", created);
-
-        if (!created?.success) {
-          console.error("[CoursePage] createChat failed:", created?.message || created);
-          return;
-        }
+        if (!created?.success) return;
 
         const chatid = created.chat?.chatid;
-        if (!chatid) {
-          console.error("[CoursePage] createChat missing chatid:", created);
-          return;
-        }
+        if (!chatid) return;
 
-        const to = `/project/${projectid}/chat/${chatid}`;
-        console.log("[CoursePage] navigating to chat route", { to, state: { firstMessage: text } });
-        navigate(to, { state: { firstMessage: text } });
+        navigate(`/project/${projectid}/chat/${chatid}`, { state: { firstMessage: text } });
       } catch (e) {
         console.error("[CoursePage] startChatFromQuestion error:", e);
       } finally {
@@ -108,39 +88,34 @@ export default function CoursePage() {
     [projectid, navigate, creatingChat]
   );
 
-    const fetchRecentDecks = useCallback(async () => {
-    console.log("[CoursePage] fetchRecentDecks()", { projectid });
+  const fetchRecentDecks = useCallback(async () => {
     setRecentDecksLoading(true);
     setRecentDecksError("");
     try {
-        // Assumption: you have a list endpoint for decks under a project
-        const res = await fetch(`${API_URL}/projects/${projectid}/decks`, {
+      const res = await fetch(`${API_URL}/projects/${projectid}/decks`, {
         method: "GET",
         credentials: "include",
-        });
-        const data = await res.json();
-        console.log("[CoursePage] recent decks response:", data);
+      });
+      const data = await res.json();
 
-        if (!data?.success) {
+      if (!data?.success) {
         setRecentDecks([]);
         setRecentDecksError(data?.message || "Failed to load decks");
         return;
-        }
+      }
 
-        const decks = data.decks || [];
-        // Keep top 6 recent decks (tweak as you like)
-        setRecentDecks(decks.slice(0, 6));
+      const decks = data.decks || [];
+      setRecentDecks(decks.slice(0, 6));
     } catch (e) {
-        console.error("[CoursePage] fetchRecentDecks error:", e);
-        setRecentDecks([]);
-        setRecentDecksError("Failed to load decks (network/server)");
+      console.error("[CoursePage] fetchRecentDecks error:", e);
+      setRecentDecks([]);
+      setRecentDecksError("Failed to load decks (network/server)");
     } finally {
-        setRecentDecksLoading(false);
+      setRecentDecksLoading(false);
     }
-    }, [projectid]);
+  }, [projectid]);
 
   const fetchFiles = useCallback(async () => {
-    console.log("[CoursePage] fetchFiles()", { projectid });
     setFilesLoading(true);
     try {
       const res = await fetch(`${API_URL}/projects/${projectid}/files`, {
@@ -148,8 +123,6 @@ export default function CoursePage() {
         method: "GET",
       });
       const data = await res.json();
-      console.log("[CoursePage] fetchFiles response:", data);
-
       if (data.success) setFiles(data.files || []);
       else setFiles([]);
     } catch (err) {
@@ -161,7 +134,6 @@ export default function CoursePage() {
   }, [projectid]);
 
   const fetchProjectsAndCourse = useCallback(async () => {
-    console.log("[CoursePage] fetchProjectsAndCourse()", { projectid });
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/projects`, {
@@ -170,7 +142,6 @@ export default function CoursePage() {
       });
       if (!res.ok) throw new Error("Failed to fetch projects");
       const data = await res.json();
-      console.log("[CoursePage] /projects response:", data);
 
       if (data.success) {
         setProjects(data.projects || []);
@@ -190,12 +161,10 @@ export default function CoursePage() {
   }, [projectid]);
 
   const fetchRecentChats = useCallback(async () => {
-    console.log("[CoursePage] fetchRecentChats()", { projectid });
     setRecentChatsLoading(true);
     setRecentChatsError("");
     try {
       const resp = await ChatAPI.listChats(projectid);
-      console.log("[CoursePage] listChats response:", resp);
 
       if (!resp?.success) {
         setRecentChats([]);
@@ -213,27 +182,38 @@ export default function CoursePage() {
     }
   }, [projectid]);
 
-    const fetchQuizzes = useCallback(async () => {
-        setQuizzesLoading(true);
-        try {
-            const res = await fetch(`${API_URL}/projects/${projectid}/quizzes`, {
-                credentials: "include",
-                method: "GET",
-            });
-            const data = await res.json();
-            if (data.success) setQuizzes(data.quizzes || []);
-            else setQuizzes([]);
-        } catch (err) {
-            console.error(err);
-            setQuizzes([]);
-        } finally {
-            setQuizzesLoading(false);
-        }
-    }, [projectid]);
+  const deleteRecentChat = useCallback(
+    async (chatid) => {
+      try {
+        await ChatAPI.deleteChat(chatid);
+        await fetchRecentChats();
+      } catch (e) {
+        console.error("[CoursePage] deleteRecentChat failed:", e);
+      }
+    },
+    [fetchRecentChats]
+  );
+
+  const fetchQuizzes = useCallback(async () => {
+    setQuizzesLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/projects/${projectid}/quizzes`, {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      if (data.success) setQuizzes(data.quizzes || []);
+      else setQuizzes([]);
+    } catch (err) {
+      console.error(err);
+      setQuizzes([]);
+    } finally {
+      setQuizzesLoading(false);
+    }
+  }, [projectid]);
 
   const indexDocuments = useCallback(
     async ({ force = false } = {}) => {
-      console.log("[CoursePage] indexDocuments()", { projectid, force });
       setIndexing(true);
       setIndexError("");
       setIndexResult(null);
@@ -249,7 +229,6 @@ export default function CoursePage() {
         });
 
         const data = await res.json();
-        console.log("[CoursePage] indexDocuments response:", data);
 
         if (!data.success) {
           setIndexError(data.message || "Indexing failed");
@@ -269,7 +248,7 @@ export default function CoursePage() {
   useEffect(() => {
     fetchProjectsAndCourse();
     fetchFiles();
-        fetchQuizzes();
+    fetchQuizzes();
     fetchRecentChats();
     fetchRecentDecks();
   }, [projectid, fetchProjectsAndCourse, fetchFiles, fetchRecentChats, fetchRecentDecks, fetchQuizzes]);
@@ -287,12 +266,12 @@ export default function CoursePage() {
     return idx >= 0 ? base.slice(idx + 1) : base;
   };
 
-    const quizStatusLabel = (status) => {
-        if (!status) return "Ready";
-        if (status === "pending") return "Generating";
-        if (status === "failed") return "Failed";
-        return status;
-    };
+  const quizStatusLabel = (status) => {
+    if (!status) return "Ready";
+    if (status === "pending") return "Generating";
+    if (status === "failed") return "Failed";
+    return status;
+  };
 
   const uploadedCount =
     (indexResult?.uploaded_documents || 0) + (indexResult?.uploaded_split_documents || 0);
@@ -313,14 +292,12 @@ export default function CoursePage() {
             href: `/project/${project.projectid}`,
             description: project.description,
             image: project.image,
-            icon:
-              project.icon in Icons && project.icon !== null ? Icons[project.icon] : Folder,
+            icon: project.icon in Icons && project.icon !== null ? Icons[project.icon] : Folder,
             color: project.color !== null ? project.color : "#754B4D",
           })),
         ]}
       />
 
-      {/* Page */}
       <div className="flex-1 overflow-auto bg-rose-china h-screen">
         {loading ? (
           <div className="p-10">Loading course…</div>
@@ -331,51 +308,34 @@ export default function CoursePage() {
           </div>
         ) : (
           <div className="p-8 md:p-10">
-            {/* Course title + underline (text-width only) */}
+            {/* Title */}
             <div className="inline-block">
-                <div className="text-3xl main-header font-card text-dark">
-                    {course.name}
-                </div>
-                <PlumDivider />
-                </div>
-
-                {/* Description banner (UNDER title, shrink-to-content) */}
-                {course.description ? (
-                <div className="mt-2 block">
-                    <div className="inline-block">
-                    <BlockWithDivider color="border-rose-plum">
-                        <div className="p-1 whitespace-nowrap">
-                        {course.description}
-                        </div>
-                    </BlockWithDivider>
-                    </div>
-                </div>
-                ) : null}
-
-                <div className="mt-2 text-sm opacity-60">
-                projectid: {course.projectid} (debug)
+              <div className="text-3xl main-header font-card text-dark">{course.name}</div>
+              <PlumDivider />
             </div>
 
+            {/* Description */}
+            {course.description ? (
+              <div className="mt-2 block">
+                <div className="inline-block">
+                  <BlockWithDivider color="border-rose-plum">
+                    <div className="p-1 whitespace-nowrap">{course.description}</div>
+                  </BlockWithDivider>
+                </div>
+              </div>
+            ) : null}
 
+            <div className="mt-2 text-sm opacity-60">projectid: {course.projectid} (debug)</div>
 
-            {/* Big Ask Bar (centered, like scribble) */}
+            {/* Ask bar */}
             <div className="mt-8">
               <div className="mx-auto max-w-3xl">
-                <div className="text-center text-lg font-semibold text-dark">
-                  Stuck? Have some copium :)
-                </div>
+                <div className="text-center text-lg font-semibold text-dark">Stuck? Have some copium :)</div>
                 <div className="mt-3">
                   <AskBar
-                    placeholder={
-                      creatingChat
-                        ? "Starting chat…"
-                        : "Ask anything about assignments, concepts, or practice problems…"
-                    }
+                    placeholder={creatingChat ? "Starting chat…" : "Ask anything about assignments, concepts, or practice problems…"}
                     disabled={creatingChat}
-                    onSubmit={(text) => {
-                      console.log("[CoursePage] AskBar onSubmit fired", { text });
-                      startChatFromQuestion(text);
-                    }}
+                    onSubmit={(text) => startChatFromQuestion(text)}
                   />
                 </div>
                 <div className="mt-2 text-center text-xs opacity-60">
@@ -384,7 +344,7 @@ export default function CoursePage() {
               </div>
             </div>
 
-            {/* Recent Chats (course page) */}
+            {/* Recent chats */}
             <div className="mt-8 mx-auto max-w-3xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-dark font-semibold">
@@ -402,9 +362,7 @@ export default function CoursePage() {
                 </button>
               </div>
 
-              {recentChatsError ? (
-                <div className="mt-2 text-sm opacity-80">⚠️ {recentChatsError}</div>
-              ) : null}
+              {recentChatsError ? <div className="mt-2 text-sm opacity-80">⚠️ {recentChatsError}</div> : null}
 
               {recentChatsLoading ? (
                 <div className="mt-3 opacity-70">Loading chats…</div>
@@ -413,23 +371,38 @@ export default function CoursePage() {
               ) : (
                 <div className="mt-3 space-y-2">
                   {recentChats.map((c) => (
-                    <Link
+                    <div
                       key={c.chatid}
-                      to={`/project/${projectid}/chat/${c.chatid}`}
-                      className="block rounded-2xl border border-black/10 bg-white/40 px-4 py-3 hover:bg-white/55 transition"
-                      onClick={() => console.log("[CoursePage] open recent chat", c.chatid)}
+                      className="rounded-2xl border border-black/10 bg-white/40 hover:bg-white/55 transition px-4 py-3 flex items-start justify-between gap-3"
                     >
-                      <div className="font-semibold text-dark truncate">{c.title}</div>
-                      <div className="text-xs opacity-60 mt-1 truncate">
-                        {c.model_name} • {formatWhen(c.updated_at)}
-                      </div>
-                    </Link>
+                      <Link
+                        to={`/project/${projectid}/chat/${c.chatid}`}
+                        className="min-w-0 flex-1"
+                        onClick={() => console.log("[CoursePage] open recent chat", c.chatid)}
+                      >
+                        <div className="font-semibold text-dark truncate">{c.title}</div>
+                        <div className="text-xs opacity-60 mt-1 truncate">
+                          {c.model_name} • {formatWhen(c.updated_at)}
+                        </div>
+                      </Link>
+
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-xl border border-black/10 bg-white/50 px-2 py-1 text-sm hover:bg-white"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteRecentChat(c.chatid);
+                        }}
+                        title="Delete chat"
+                      >
+                        🗑
+                      </button>
+                    </div>
                   ))}
+
                   <div className="pt-1">
-                    <Link
-                      to={`/project/${projectid}/chat/${recentChats[0].chatid}`}
-                      className="text-sm underline opacity-80"
-                    >
+                    <Link to={`/project/${projectid}/chat/${recentChats[0].chatid}`} className="text-sm underline opacity-80">
                       See all (opens chat history)
                     </Link>
                   </div>
@@ -437,9 +410,9 @@ export default function CoursePage() {
               )}
             </div>
 
-            {/* Main content grid (scribble-like): left cards + right documents panel */}
+            {/* Main grid */}
             <div className="mt-10 grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* LEFT: Flashcards + Quizzes */}
+              {/* LEFT */}
               <div className="lg:col-span-8 space-y-6">
                 {/* Flashcards */}
                 <div className="rounded-3xl border border-black/10 bg-white/35 shadow-sm p-6">
@@ -455,49 +428,39 @@ export default function CoursePage() {
                       Open
                     </Link>
                   </div>
-                  
+
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
-                        <div className="text-sm opacity-70">Recent decks</div>
-                        <button
-                        className="text-sm underline opacity-70"
-                        onClick={fetchRecentDecks}
-                        disabled={recentDecksLoading}
-                        >
+                      <div className="text-sm opacity-70">Recent decks</div>
+                      <button className="text-sm underline opacity-70" onClick={fetchRecentDecks} disabled={recentDecksLoading}>
                         {recentDecksLoading ? "Refreshing…" : "Refresh"}
-                        </button>
+                      </button>
                     </div>
 
-                    {recentDecksError ? (
-                        <div className="mt-2 text-sm opacity-80">⚠️ {recentDecksError}</div>
-                    ) : null}
+                    {recentDecksError ? <div className="mt-2 text-sm opacity-80">⚠️ {recentDecksError}</div> : null}
 
                     {recentDecksLoading ? (
-                        <div className="mt-3 opacity-70">Loading decks…</div>
+                      <div className="mt-3 opacity-70">Loading decks…</div>
                     ) : recentDecks.length === 0 ? (
-                        <div className="mt-3 opacity-70">
-                        No decks yet — create one in Flashcards.
-                        </div>
+                      <div className="mt-3 opacity-70">No decks yet — create one in Flashcards.</div>
                     ) : (
-                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {recentDecks.map((d) => (
-                            <Link
+                          <Link
                             key={d.deckid}
-                            to={`/project/${projectid}/flashcards/${d.deckid}`} 
+                            to={`/project/${projectid}/flashcards/${d.deckid}`}
                             className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition"
-                            onClick={() => console.log("[CoursePage] open deck", d.deckid)}
-                            >
+                          >
                             <div className="font-semibold text-dark truncate">{d.name}</div>
                             <div className="text-xs opacity-60 mt-1 truncate">
-                                {d.card_count != null ? `${d.card_count} cards` : "Deck"}{" "}
-                                {d.createddate ? `• ${formatWhen(d.createddate)}` : ""}
+                              {d.card_count != null ? `${d.card_count} cards` : "Deck"}{" "}
+                              {d.createddate ? `• ${formatWhen(d.createddate)}` : ""}
                             </div>
-                            </Link>
+                          </Link>
                         ))}
-                        </div>
+                      </div>
                     )}
-                    </div>
-
+                  </div>
                 </div>
 
                 {/* Quizzes */}
@@ -518,11 +481,7 @@ export default function CoursePage() {
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
                       <div className="text-sm opacity-70">Recent quizzes</div>
-                      <button
-                        className="text-sm underline opacity-70"
-                        onClick={fetchQuizzes}
-                        disabled={quizzesLoading}
-                      >
+                      <button className="text-sm underline opacity-70" onClick={fetchQuizzes} disabled={quizzesLoading}>
                         {quizzesLoading ? "Refreshing…" : "Refresh"}
                       </button>
                     </div>
@@ -530,9 +489,7 @@ export default function CoursePage() {
                     {quizzesLoading ? (
                       <div className="mt-3 opacity-70">Loading quizzes…</div>
                     ) : quizzes.length === 0 ? (
-                      <div className="mt-3 opacity-70">
-                        No quizzes yet — create one in Quizzes.
-                      </div>
+                      <div className="mt-3 opacity-70">No quizzes yet — create one in Quizzes.</div>
                     ) : (
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {quizzes.slice(0, 6).map((q) => (
@@ -555,7 +512,7 @@ export default function CoursePage() {
                 </div>
               </div>
 
-              {/* RIGHT: Documents panel (boxed list like scribble) */}
+              {/* RIGHT: Documents */}
               <div className="lg:col-span-4">
                 <div className="rounded-3xl border border-black/10 bg-white/45 shadow-sm p-6">
                   <div className="flex items-center justify-between">
@@ -568,11 +525,10 @@ export default function CoursePage() {
                       projectName={course.name}
                       projectID={course.projectid}
                       onUploaded={async () => {
-                        console.log("[CoursePage] onUploaded -> refreshing files");
                         await fetchFiles();
                         setIndexResult(null);
                         setIndexError("");
-                        fetchRecentChats(); // harmless, keeps UI fresh
+                        fetchRecentChats();
                       }}
                     />
                   </div>
@@ -590,13 +546,7 @@ export default function CoursePage() {
                       className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40 disabled:opacity-50"
                       onClick={() => indexDocuments({ force: false })}
                       disabled={indexing || files.length === 0 || alreadyIndexed}
-                      title={
-                        files.length === 0
-                          ? "Upload documents first"
-                          : alreadyIndexed
-                          ? "Already indexed"
-                          : ""
-                      }
+                      title={files.length === 0 ? "Upload documents first" : alreadyIndexed ? "Already indexed" : ""}
                     >
                       {alreadyIndexed ? "Indexed ✓" : indexing ? "Indexing…" : "Index"}
                     </button>
@@ -611,20 +561,14 @@ export default function CoursePage() {
                     </button>
                   </div>
 
-                  {indexError ? (
-                    <div className="mt-2 text-sm opacity-80">⚠️ {indexError}</div>
-                  ) : null}
+                  {indexError ? <div className="mt-2 text-sm opacity-80">⚠️ {indexError}</div> : null}
 
                   {indexResult ? (
                     <div className="mt-2 text-xs opacity-70">
                       ✅ uploaded: {indexResult.uploaded_documents || 0}, split:{" "}
                       {indexResult.uploaded_split_documents || 0}
-                      {typeof indexResult.skipped_files === "number"
-                        ? `, skipped: ${indexResult.skipped_files}`
-                        : ""}
-                      {typeof indexResult.failed_files === "number"
-                        ? `, failed: ${indexResult.failed_files}`
-                        : ""}
+                      {typeof indexResult.skipped_files === "number" ? `, skipped: ${indexResult.skipped_files}` : ""}
+                      {typeof indexResult.failed_files === "number" ? `, failed: ${indexResult.failed_files}` : ""}
                     </div>
                   ) : null}
 
@@ -642,7 +586,6 @@ export default function CoursePage() {
                             docType={f.file_type}
                             id={f.fileid}
                             onDeleted={() => {
-                              console.log("[CoursePage] Document deleted -> refresh files");
                               fetchFiles();
                               setIndexResult(null);
                               setIndexError("");
@@ -655,7 +598,7 @@ export default function CoursePage() {
                 </div>
               </div>
             </div>
-            {/* little bottom spacer */}
+
             <div className="h-10" />
           </div>
         )}

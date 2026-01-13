@@ -195,6 +195,42 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
 
     return uid[:length]
 
+def generate_chat_title_from_first_message(text: str) -> str:
+    """
+    Heuristic title generator (no extra LLM call):
+    - strips code blocks/extra whitespace
+    - takes a short, descriptive slice
+    """
+    if not text:
+        return "New chat"
+
+    t = text.strip()
+
+    # Remove huge code blocks to avoid titles like "```"
+    t = re.sub(r"```[\s\S]*?```", "", t).strip()
+
+    # Collapse whitespace
+    t = re.sub(r"\s+", " ", t).strip()
+
+    # Remove leading filler
+    t = re.sub(r"^(please|can you|could you|help me|i need|i want to)\s+", "", t, flags=re.IGNORECASE).strip()
+
+    # Cap length
+    if len(t) > 60:
+        t = t[:60].rsplit(" ", 1)[0] + "…"
+
+    # Titlecase-ish (but not screaming)
+    # Keep acronyms like “AI”, “GPT”, etc.
+    words = t.split(" ")
+    words2 = []
+    for w in words:
+        if w.isupper() and len(w) <= 5:
+            words2.append(w)
+        else:
+            words2.append(w[:1].upper() + w[1:])
+    t = " ".join(words2)
+
+    return t or "New chat"
 
 def get_project_file_paths(projectid: str) -> list[str]:
     cursor.execute(
@@ -2224,7 +2260,11 @@ Style:
 """.strip()
 
 @app.post("/chats/{chatid}/messages")
-async def send_chat_message(chatid: str, body: SendChatMessageRequest, session: str = Cookie(None)):
+async def send_chat_message(
+    chatid: str,
+    body: SendChatMessageRequest,
+    session: str = Cookie(None),
+):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -2234,43 +2274,56 @@ async def send_chat_message(chatid: str, body: SendChatMessageRequest, session: 
         return {"success": False, "message": "Message cannot be empty"}
 
     # Load chat session + project
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT projectid, title, llm_provider, model_name
         FROM chat_sessions
         WHERE chatid=? AND userid=?
-    """, (chatid, userid))
+        """,
+        (chatid, userid),
+    )
     row = cursor.fetchone()
     if row is None:
         return {"success": False, "message": "Chat not found"}
 
     projectid, chat_title, saved_provider, saved_model = row
 
-    # Allow per-message override, otherwise use saved chat model
-    llm_provider = (body.llm_provider or saved_provider or "openai").strip()
-    model_name = (body.model_name or saved_model or "gpt-4o").strip()
-
     # Ensure project ownership
     if not _require_project_owned(projectid, userid):
         return {"success": False, "message": "Project not found"}
 
-    now = datetime.utcnow().isoformat()
+    # Is this the first message in this chat?
+    cursor.execute("SELECT COUNT(*) FROM chat_messages WHERE chatid=?", (chatid,))
+    msg_count = cursor.fetchone()[0] or 0
+    is_first_message = (msg_count == 0)
+
+    # Only auto-title if title still looks like a placeholder
+    should_autotitle = (chat_title or "").strip().lower() in {"", "new chat", "untitled", "chat"}
+
+    # Allow per-message override, otherwise use saved chat model
+    llm_provider = (body.llm_provider or saved_provider or "openai").strip()
+    model_name = (body.model_name or saved_model or "gpt-4o").strip()
 
     # Store user message
+    now = datetime.utcnow().isoformat()
     user_msgid = uuid.uuid4().hex[:10]
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO chat_messages (msgid, chatid, role, content, created_at)
         VALUES (?, ?, 'user', ?, ?)
-    """, (user_msgid, chatid, content, now))
+        """,
+        (user_msgid, chatid, content, now),
+    )
     conn.commit()
 
-    # Backboard call: use the COURSE memory thread (one assistant/thread per project)
+    # Get assistant response (course-level memory: one thread per project)
+    assistant_text = ""
     if not BACKBOARD_API_KEY:
-        # fallback: still keep history
         assistant_text = "BACKBOARD_API_KEY not set, so I can't answer yet."
     else:
         client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
 
-        # Prefix includes chat title so memory has a bit of structure
+        # Keep memory structured by chat title
         prompt = f"[Chat: {chat_title}] {content}"
 
         resp = await client.add_message(
@@ -2279,7 +2332,7 @@ async def send_chat_message(chatid: str, body: SendChatMessageRequest, session: 
             llm_provider=llm_provider,
             model_name=model_name,
             stream=False,
-            memory="Readwrite",  # IMPORTANT: course memory updates here
+            memory="Readwrite",
         )
         assistant_text = getattr(resp, "content", resp)
         if not isinstance(assistant_text, str):
@@ -2288,27 +2341,48 @@ async def send_chat_message(chatid: str, body: SendChatMessageRequest, session: 
     # Store assistant message
     now2 = datetime.utcnow().isoformat()
     assistant_msgid = uuid.uuid4().hex[:10]
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO chat_messages (msgid, chatid, role, content, created_at)
         VALUES (?, ?, 'assistant', ?, ?)
-    """, (assistant_msgid, chatid, assistant_text, now2))
+        """,
+        (assistant_msgid, chatid, assistant_text, now2),
+    )
 
-    # Update chat session metadata (and persist model choice if user changed it)
-    cursor.execute("""
+    # Update chat metadata (and persist model changes)
+    cursor.execute(
+        """
         UPDATE chat_sessions
         SET updated_at=?, llm_provider=?, model_name=?
         WHERE chatid=? AND userid=?
-    """, (now2, llm_provider, model_name, chatid, userid))
+        """,
+        (now2, llm_provider, model_name, chatid, userid),
+    )
+
+    # Auto-title on first message
+    new_title = None
+    if is_first_message and should_autotitle:
+        new_title = generate_chat_title_from_first_message(content)
+        cursor.execute(
+            """
+            UPDATE chat_sessions
+            SET title=?, updated_at=?
+            WHERE chatid=? AND userid=?
+            """,
+            (new_title, now2, chatid, userid),
+        )
+        chat_title = new_title
 
     conn.commit()
 
     return {
         "success": True,
         "chatid": chatid,
+        "chat_title": chat_title,  # NEW: frontend can update header/sidebar immediately
         "llm_provider": llm_provider,
         "model_name": model_name,
         "messages": [
             {"msgid": user_msgid, "role": "user", "content": content, "created_at": now},
             {"msgid": assistant_msgid, "role": "assistant", "content": assistant_text, "created_at": now2},
-        ]
+        ],
     }
