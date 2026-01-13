@@ -12,7 +12,7 @@ const QUIZ_TYPE_LABELS = {
 };
 
 export default function QuizPage() {
-  const { projectId, quizId } = useParams();
+  const { projectid, quizId } = useParams();
 
   const [projects, setProjects] = useState([]);
   const [course, setCourse] = useState(null);
@@ -37,7 +37,7 @@ export default function QuizPage() {
       const data = await res.json();
       if (data.success) {
         setProjects(data.projects || []);
-        const found = (data.projects || []).find((p) => p.projectid === projectId);
+        const found = (data.projects || []).find((p) => p.projectid === projectid);
         setCourse(found ?? null);
       } else {
         setProjects([]);
@@ -50,7 +50,7 @@ export default function QuizPage() {
     } finally {
       setCourseLoading(false);
     }
-  }, [projectId]);
+  }, [projectid]);
 
   const fetchQuiz = useCallback(async () => {
     setLoading(true);
@@ -180,7 +180,7 @@ export default function QuizPage() {
       />
 
       <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-        <Link to={`/project/${projectId}/quizzes`} className="underline">
+        <Link to={`/project/${projectid}/quizzes`} className="underline">
           ← Back to Quizzes
         </Link>
 
@@ -326,7 +326,7 @@ export default function QuizPage() {
                     {submitting ? "Submitting…" : "Submit quiz"}
                   </button>
 
-                  <Link to={`/project/${projectId}/quizzes`} className="underline">
+                  <Link to={`/project/${projectid}/quizzes`} className="underline">
                     Back to quizzes
                   </Link>
                 </div>
