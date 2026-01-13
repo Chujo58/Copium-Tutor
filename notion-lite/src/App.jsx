@@ -27,8 +27,8 @@ export default function App() {
                 <Route path="/project/:projectid/flashcards" element={<FlashcardsHomePage />} />
                 <Route path="/project/:projectid/flashcards/:deckId" element={<DeckPage />} />
                 <Route path="/project/:projectid/chat/:chatid" element={<CourseChatPage />} />
-                <Route path="/project/:projectId/quizzes" element={<QuizzesHomePage />} />
-                <Route path="/project/:projectId/quizzes/:quizId" element={<QuizPage />} />
+                <Route path="/project/:projectid/quizzes" element={<QuizzesHomePage />} />
+                <Route path="/project/:projectid/quizzes/:quizId" element={<QuizPage />} />
             </Routes>
         </Router>
     );

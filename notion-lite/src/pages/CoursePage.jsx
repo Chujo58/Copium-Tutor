@@ -210,7 +210,7 @@ export default function CoursePage() {
     const fetchQuizzes = useCallback(async () => {
         setQuizzesLoading(true);
         try {
-            const res = await fetch(`${API_URL}/projects/${projectId}/quizzes`, {
+            const res = await fetch(`${API_URL}/projects/${projectid}/quizzes`, {
                 credentials: "include",
                 method: "GET",
             });
@@ -223,7 +223,7 @@ export default function CoursePage() {
         } finally {
             setQuizzesLoading(false);
         }
-    }, [projectId]);
+    }, [projectid]);
 
   const indexDocuments = useCallback(
     async ({ force = false } = {}) => {
@@ -347,7 +347,7 @@ export default function CoursePage() {
                 ) : null}
 
                 <div className="mt-2 text-sm opacity-60">
-                projectId: {course.projectid} (debug)
+                projectid: {course.projectid} (debug)
             </div>
 
 
@@ -612,58 +612,6 @@ export default function CoursePage() {
                 </div>
               </div>
             </div>
-
-                        {/* QUIZZES */}
-                        <div className="mt-10">
-                            <h2 className="text-xl font-semibold">Quizzes</h2>
-                            <div className="opacity-70">
-                                Create QCM, short, or long answer quizzes using
-                                your course documents.
-                            </div>
-                            <Link
-                                className="underline"
-                                to={`/project/${projectId}/quizzes`}
-                            >
-                                Open Quizzes
-                            </Link>
-
-                            <div className="mt-3">
-                                {quizzesLoading ? (
-                                    <div className="opacity-70">
-                                        Loading quizzes…
-                                    </div>
-                                ) : quizzes.length === 0 ? (
-                                    <div className="opacity-70">
-                                        No quizzes yet.
-                                    </div>
-                                ) : (
-                                    <ul className="mt-2 space-y-2">
-                                        {quizzes.map((quiz) => (
-                                            <li key={quiz.quizid}>
-                                                <Link
-                                                    className="underline"
-                                                    to={`/project/${projectId}/quizzes/${quiz.quizid}`}
-                                                >
-                                                    {quiz.title}
-                                                </Link>
-                                                <span className="text-sm opacity-70">
-                                                    {" "}
-                                                    · {quiz.quiz_type} ·{" "}
-                                                    {quiz.num_questions} questions
-                                                    {" "}
-                                                    · {quizStatusLabel(quiz.status)}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
             {/* little bottom spacer */}
             <div className="h-10" />
           </div>
@@ -672,3 +620,4 @@ export default function CoursePage() {
     </div>
   );
 }
+
