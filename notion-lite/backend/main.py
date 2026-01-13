@@ -99,12 +99,11 @@ class ReviewCardRequest(BaseModel):
 
 async def get_or_create_backboard_memory(projectid: str):
     # check DB first
-    db_cursor.execute(
+    cursor.execute(
         "SELECT assistant_id, memory_thread_id FROM backboard_projects WHERE projectid=?",
         (projectid,),
     )
-    row = db_cursor.fetchone()
-
+    row = cursor.fetchone()
     client = BackboardClient(api_key=BACKBOARD_API_KEY)
 
     if row and row[0] and row[1]:
@@ -118,12 +117,12 @@ async def get_or_create_backboard_memory(projectid: str):
             try:
                 thread = await client.create_thread(assistant_id)
                 thread_id = str(thread.thread_id)
-                db_cursor.execute(
+                cursor.execute(
                     "UPDATE backboard_projects SET memory_thread_id=? WHERE projectid=?",
                     (thread_id, projectid),
                 )
-                db_cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
-                db_conn.commit()
+                cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
+                conn.commit()
                 return client, assistant_id, thread_id
             except BackboardNotFoundError:
                 logger.warning("Backboard assistant missing for project %s, recreating", projectid)
@@ -141,12 +140,12 @@ async def get_or_create_backboard_memory(projectid: str):
     assistant_id = str(assistant.assistant_id)
     thread_id = str(thread.thread_id)
 
-    db_cursor.execute(
+    cursor.execute(
         "INSERT OR REPLACE INTO backboard_projects (projectid, assistant_id, memory_thread_id) VALUES (?, ?, ?)",
         (projectid, assistant_id, thread_id),
     )
-    db_cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
-    db_conn.commit()
+    cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
+    conn.commit()
 
     return client, assistant_id, thread_id
 
@@ -1537,12 +1536,6 @@ async def delete_deck(deckid: str, session: str = Cookie(None)):
 
 @app.get("/projects/{projectid}/quizzes")
 async def list_quizzes(projectid: str, session: str = Cookie(None)):
-# CARDS
-###############
-
-# create card
-@app.post("/decks/{deckid}/cards")
-async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1574,11 +1567,16 @@ async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(N
         }
         for r in rows
     ]
+
     return {"success": True, "quizzes": quizzes}
 
 
-@app.post("/projects/{projectid}/quizzes")
-async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Cookie(None)):
+@app.post("/decks/{deckid}/cards")
+async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
     if not _require_deck_owned(deckid, userid):
         return {"success": False, "message": "Deck not found"}
 
@@ -1593,9 +1591,37 @@ async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Co
     pos = int(max_pos) + 1
 
     cardid = uuid.uuid4().hex[:8]
+    createddate = datetime.utcnow().isoformat()
+
+    # initial scheduling defaults
+    due_at = datetime.utcnow().isoformat()
+    interval_days = 0.0
+    ease = 2.5
+    reps = 0
+    lapses = 0
+    last_reviewed_at = None
+
     cursor.execute(
-        "INSERT INTO cards (cardid, deckid, front, back, position) VALUES (?, ?, ?, ?, ?)",
-        (cardid, deckid, front, back, pos),
+        """
+        INSERT INTO cards (
+            cardid, deckid, front, back, position,
+            due_at, interval_days, ease, reps, lapses, last_reviewed_at, createddate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            cardid,
+            deckid,
+            front,
+            back,
+            pos,
+            due_at,
+            interval_days,
+            ease,
+            reps,
+            lapses,
+            last_reviewed_at,
+            createddate,
+        ),
     )
     conn.commit()
 
@@ -1604,9 +1630,9 @@ async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Co
         "card": {"cardid": cardid, "deckid": deckid, "front": front, "back": back, "position": pos},
     }
 
-# edit card
-@app.patch("/cards/{cardid}")
-async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cookie(None)):
+
+@app.post("/projects/{projectid}/quizzes")
+async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1616,42 +1642,24 @@ async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cooki
         return {"success": False, "message": "Project not found"}
 
     topic = (body.topic or "").strip()
-    if not topic:
-        return {"success": False, "message": "Topic is required"}
-
     quiz_type = (body.quiz_type or "").strip().lower()
+    num_questions = int(body.num_questions or 0)
+    document_ids = body.document_ids or []
+
+    if not topic:
+        return {"success": False, "message": "topic is required"}
     if quiz_type not in {"mcq", "short", "long"}:
-        return {"success": False, "message": "Invalid quiz type"}
+        return {"success": False, "message": "quiz_type must be one of: mcq, short, long"}
+    if num_questions <= 0 or num_questions > 50:
+        return {"success": False, "message": "num_questions must be between 1 and 50"}
 
-    num_questions = _safe_int(body.num_questions, default=0)
-    if num_questions < 1 or num_questions > 50:
-        return {"success": False, "message": "Invalid number of questions"}
-
-    document_ids = [str(fid) for fid in (body.document_ids or []) if str(fid).strip()]
-    if document_ids:
-        placeholders = ",".join(["?"] * len(document_ids))
-        cursor.execute(
-            f"""
-            SELECT f.fileid
-            FROM files f
-            JOIN fileinproj fp ON fp.fileid = f.fileid
-            JOIN projects p ON p.projectid = fp.projectid
-            WHERE p.projectid=? AND p.userid=? AND f.fileid IN ({placeholders})
-            """,
-            (projectid, userid, *document_ids),
-        )
-        found = {r[0] for r in cursor.fetchall()}
-        if len(found) != len(set(document_ids)):
-            return {"success": False, "message": "Some selected documents were not found"}
-        document_ids = list(found)
-    else:
+    # If no document_ids supplied, default to all documents in the project
+    if not document_ids:
         cursor.execute(
             """
-            SELECT f.fileid
-            FROM files f
-            JOIN fileinproj fp ON fp.fileid = f.fileid
-            JOIN projects p ON p.projectid = fp.projectid
-            WHERE p.projectid=? AND p.userid=?
+            SELECT documentid
+            FROM documents
+            WHERE projectid=? AND userid=?
             """,
             (projectid, userid),
         )
@@ -1663,9 +1671,6 @@ async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cooki
     quizid = uuid.uuid4().hex[:8]
     createddate = datetime.utcnow().isoformat()
     title = f"{topic} ({quiz_type.upper()})"
-
-    status = "pending"
-    generation_error = None
 
     cursor.execute(
         """
@@ -1687,70 +1692,40 @@ async def update_card(cardid: str, body: UpdateCardRequest, session: str = Cooki
             json.dumps({"questions": []}),
             json.dumps({}),
             json.dumps({}),
-            status,
-            generation_error,
+            "pending",
+            None,
             createddate,
         ),
     )
     conn.commit()
 
-    warning = None
-    if not BACKBOARD_API_KEY:
-        warning = "BACKBOARD_API_KEY not set, quiz not generated"
-        _set_quiz_status(cursor, conn, quizid, "failed", "BACKBOARD_API_KEY not set")
-    else:
-        asyncio.create_task(
-            _generate_quiz_content(
-                quizid=quizid,
-                projectid=projectid,
-                userid=userid,
-                topic=topic,
-                quiz_type=quiz_type,
-                num_questions=num_questions,
-                document_ids=document_ids,
-            )
-        )
-
-    response_payload = {"success": True, "quizid": quizid, "status": status, "generated": 0}
-    if warning:
-        response_payload["warning"] = warning
-    return response_payload
+    return {
+        "success": True,
+        "quiz": {
+            "quizid": quizid,
+            "projectid": projectid,
+            "title": title,
+            "topic": topic,
+            "quiz_type": quiz_type,
+            "num_questions": num_questions,
+            "document_ids": document_ids,
+            "status": "pending",
+            "generation_error": None,
+            "createddate": createddate,
+        },
+    }
 
 
 @app.get("/quizzes/{quizid}")
 async def get_quiz(quizid: str, session: str = Cookie(None)):
-    row = _get_card_and_verify_owner(cardid, userid)
-    if row is None:
-        return {"success": False, "message": "Card not found"}
-
-    current_front, current_back = row[2], row[3]
-    new_front = current_front if body.front is None else (body.front or "").strip()
-    new_back = current_back if body.back is None else (body.back or "").strip()
-
-    if not new_front or not new_back:
-        return {"success": False, "message": "front/back cannot be empty"}
-
-    cursor.execute(
-        "UPDATE cards SET front=?, back=? WHERE cardid=?",
-        (new_front, new_back, cardid),
-    )
-    conn.commit()
-
-    return {
-        "success": True,
-        "card": {"cardid": cardid, "deckid": row[1], "front": new_front, "back": new_back},
-    }
-
-# delete card
-@app.delete("/cards/{cardid}")
-async def delete_card(cardid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
     cursor.execute(
         """
-        SELECT quizid, projectid, title, topic, quiz_type, num_questions, questions_json, status, generation_error, createddate
+        SELECT quizid, projectid, title, topic, quiz_type, num_questions,
+               questions_json, status, generation_error, createddate
         FROM quizzes
         WHERE quizid=? AND userid=?
         """,
@@ -1759,6 +1734,11 @@ async def delete_card(cardid: str, session: str = Cookie(None)):
     row = cursor.fetchone()
     if row is None:
         return {"success": False, "message": "Quiz not found"}
+
+    try:
+        questions_payload = json.loads(row[6] or "{}")
+    except json.JSONDecodeError:
+        questions_payload = {"questions": []}
 
     quiz = {
         "quizid": row[0],
@@ -1771,17 +1751,17 @@ async def delete_card(cardid: str, session: str = Cookie(None)):
         "generation_error": row[8],
         "createddate": row[9],
     }
-
-    try:
-        questions = json.loads(row[6] or "{}")
-    except json.JSONDecodeError:
-        questions = {"questions": []}
+    questions = questions_payload.get("questions", [])
 
     return {"success": True, "quiz": quiz, "questions": questions}
 
 
-@app.post("/quizzes/{quizid}/generate")
-async def generate_quiz(quizid: str, session: str = Cookie(None)):
+@app.delete("/cards/{cardid}")
+async def delete_card(cardid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
     row = _get_card_and_verify_owner(cardid, userid)
     if row is None:
         return {"success": False, "message": "Card not found"}
@@ -1791,9 +1771,9 @@ async def generate_quiz(quizid: str, session: str = Cookie(None)):
 
     return {"success": True, "deleted": True, "cardid": cardid}
 
-# review card
-@app.post("/cards/{cardid}/review")
-async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cookie(None)):
+
+@app.post("/quizzes/{quizid}/generate")
+async def generate_quiz(quizid: str, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1810,26 +1790,17 @@ async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cooki
     if row is None:
         return {"success": False, "message": "Quiz not found"}
 
-    document_ids = []
     try:
         document_ids = json.loads(row[6] or "[]")
+        if not isinstance(document_ids, list):
+            document_ids = []
     except json.JSONDecodeError:
         document_ids = []
 
-    _set_quiz_status(cursor, conn, quizid, "pending", None)
-    cursor.execute(
-        """
-        UPDATE quizzes
-        SET questions_json=?, answer_key_json=?, explanations_json=?
-        WHERE quizid=?
-        """,
-        (json.dumps({"questions": []}), json.dumps({}), json.dumps({}), quizid),
-    )
-    conn.commit()
-
+    # kick off async generation
     asyncio.create_task(
         _generate_quiz_content(
-            quizid=quizid,
+            quizid=row[0],
             projectid=row[1],
             userid=row[2],
             topic=row[3],
@@ -1841,22 +1812,28 @@ async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cooki
 
     return {"success": True}
 
-@app.post("/quizzes/{quizid}/submit")
-async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cookie(None)):
-    # verify ownership via join
-    cursor.execute("""
+
+@app.post("/cards/{cardid}/review")
+async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute(
+        """
         SELECT c.deckid, c.due_at, c.interval_days, c.ease, c.reps, c.lapses
         FROM cards c
         JOIN decks d ON d.deckid = c.deckid
         WHERE c.cardid=? AND d.userid=?
-    """, (cardid, userid))
+        """,
+        (cardid, userid),
+    )
     row = cursor.fetchone()
     if row is None:
         return {"success": False, "message": "Card not found"}
 
     deckid, due_at, interval_days, ease, reps, lapses = row
 
-    # defaults
     ease = float(ease) if ease is not None else 2.5
     interval_days = float(interval_days) if interval_days is not None else 0.0
     reps = int(reps) if reps is not None else 0
@@ -1872,57 +1849,44 @@ async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cooki
         lapses += 1
     elif rating == "hard":
         ease = max(1.3, ease - 0.15)
-        if reps == 0:
-            interval_days = 0.5
-        else:
-            interval_days = max(0.5, interval_days * 1.2)
+        interval_days = 0.5 if reps == 0 else max(0.5, interval_days * 1.2)
+        reps += 1
     elif rating == "good":
-        if reps == 0:
-            interval_days = 1.0
-        else:
-            interval_days = max(1.0, interval_days * ease)
+        interval_days = 1.0 if reps == 0 else max(1.0, interval_days * ease)
+        reps += 1
     elif rating == "easy":
-        ease = ease + 0.15
-        if reps == 0:
-            interval_days = 2.0
-        else:
-            interval_days = max(2.0, interval_days * ease * 1.3)
+        ease = min(3.0, ease + 0.15)
+        interval_days = 2.0 if reps == 0 else max(2.0, interval_days * ease * 1.3)
+        reps += 1
 
-    reps += 1
-    due = now + timedelta(days=interval_days)
+    due_at = (now + timedelta(days=interval_days)).isoformat()
+    last_reviewed_at = now.isoformat()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         UPDATE cards
         SET due_at=?, interval_days=?, ease=?, reps=?, lapses=?, last_reviewed_at=?
         WHERE cardid=?
-    """, (
-        due.isoformat(),
-        interval_days,
-        ease,
-        reps,
-        lapses,
-        now.isoformat(),
-        cardid
-    ))
+        """,
+        (due_at, interval_days, ease, reps, lapses, last_reviewed_at, cardid),
+    )
     conn.commit()
 
     return {
         "success": True,
         "cardid": cardid,
         "deckid": deckid,
-        "rating": rating,
-        "due_at": due.isoformat(),
+        "due_at": due_at,
         "interval_days": interval_days,
         "ease": ease,
         "reps": reps,
         "lapses": lapses,
-        "last_reviewed_at": now.isoformat(),
+        "rating": rating,
     }
 
 
-# Index project documents
-@app.post("/projects/{projectid}/index")
-async def index_project_documents(projectid: str, session: str = Cookie(None)):
+@app.post("/quizzes/{quizid}/submit")
+async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cookie(None)):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -1966,6 +1930,7 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         if qid is None:
             continue
         qid = str(qid)
+
         expected = answer_key.get(qid)
         response = answers.get(qid)
         explanation = explanations.get(qid, "")
@@ -1974,7 +1939,9 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
             expected_idx = _safe_int(expected, default=None)
             response_idx = _safe_int(response, default=None)
             correct = (
-                response_idx is not None and expected_idx is not None and response_idx == expected_idx
+                response_idx is not None
+                and expected_idx is not None
+                and response_idx == expected_idx
             )
         else:
             expected_text = str(expected or "").strip()
@@ -2015,8 +1982,15 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
     conn.commit()
 
     return {"success": True, "score": score, "feedback": feedback}
-        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
-    )
+
+
+@app.post("/projects/{projectid}/index")
+async def index_project_documents(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -2028,6 +2002,7 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         userid=userid,
         cursor=cursor,
         conn=conn,
-        client_factory=None,  # optional, you can remove if unused
+        client_factory=None,  # optional
         get_memory=get_or_create_backboard_memory,
     )
+
