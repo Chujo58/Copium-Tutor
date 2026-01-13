@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
@@ -10,6 +10,56 @@ const QUIZ_TYPE_LABELS = {
   short: "Short answer",
   long: "Long answer",
 };
+
+const QUIZ_STATUS_LABELS = {
+  pending: "Generating",
+  ready: "Ready",
+  failed: "Failed",
+};
+
+function Badge({ label, title, tone = "neutral" }) {
+  const toneClass =
+    tone === "strong"
+      ? "border-[#754B4D] text-white bg-[#754B4D]/90"
+      : tone === "warm"
+      ? "border-[#D8A694] text-[#754B4D] bg-[#D8A694]/20"
+      : tone === "danger"
+      ? "border-[#A86A65] text-[#754B4D] bg-[#A86A65]/10"
+      : "border-[#AB8882] text-[#754B4D] bg-white/60";
+
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border ${toneClass}`}
+      title={title}
+    >
+      {label}
+    </span>
+  );
+}
+
+function SoftButton({
+  children,
+  onClick,
+  disabled,
+  title,
+  variant = "ghost",
+  type = "button",
+}) {
+  const base =
+    "px-4 py-2 rounded-xl border transition disabled:opacity-40 disabled:cursor-not-allowed";
+  const cls =
+    variant === "primary"
+      ? "border-[#754B4D]/30 bg-[#754B4D] text-white hover:bg-[#754B4D]/90"
+      : variant === "danger"
+      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-[#754B4D] hover:bg-[#A86A65]/20"
+      : "border-[#AB8882]/50 bg-white/70 text-[#754B4D] hover:bg-white";
+
+  return (
+    <button className={`${base} ${cls}`} onClick={onClick} disabled={disabled} title={title} type={type}>
+      {children}
+    </button>
+  );
+}
 
 export default function QuizPage() {
   const { projectid, quizId } = useParams();
@@ -61,7 +111,7 @@ export default function QuizPage() {
       const data = await res.json();
       if (data.success) {
         setQuiz(data.quiz);
-        setQuestions(data.questions?.questions || []);
+        setQuestions(data.questions || data.questions?.questions || []);
         setAnswers({});
         setResult(null);
       } else {
@@ -160,6 +210,17 @@ export default function QuizPage() {
     return q.choices[parsed] || "—";
   };
 
+  const answeredCount = useMemo(() => {
+    if (!quiz) return 0;
+    return questions.reduce((count, q) => {
+      const value = answers[q.id];
+      if (quiz.quiz_type === "mcq") {
+        return count + (value !== undefined && value !== null ? 1 : 0);
+      }
+      return count + (typeof value === "string" && value.trim().length > 0 ? 1 : 0);
+    }, 0);
+  }, [answers, questions, quiz]);
+
   return (
     <div className="flex">
       <Sidebar
@@ -179,161 +240,229 @@ export default function QuizPage() {
         ]}
       />
 
-      <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-        <Link to={`/project/${projectid}/quizzes`} className="underline">
-          ← Back to Quizzes
-        </Link>
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+        <div className="p-10">
+          <Link
+            to={`/project/${projectid}/quizzes`}
+            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+          >
+            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            Back to Quizzes
+          </Link>
 
-        {courseLoading ? (
-          <div className="mt-6">Loading…</div>
-        ) : !course ? (
-          <div className="mt-6">
-            <div className="text-2xl font-semibold">Course not found</div>
-            <div className="opacity-70">
-              (Either it doesn’t exist, or you’re not logged in.)
-            </div>
-          </div>
-        ) : loading ? (
-          <div className="mt-6 opacity-70">Loading quiz…</div>
-        ) : !quiz ? (
-          <div className="mt-6">Quiz not found.</div>
-        ) : (
-          <>
-            <div className="mt-4">
-              <div className="text-3xl main-header font-sans text-dark">
-                {quiz.title}
-              </div>
-              <div className="opacity-70">{quiz.topic}</div>
-              <div className="mt-2 text-sm opacity-60">
-                {course.name} · {QUIZ_TYPE_LABELS[quiz.quiz_type] || quiz.quiz_type}
+          {courseLoading ? (
+            <div className="mt-8 text-[#754B4D]/70">Loading…</div>
+          ) : !course ? (
+            <div className="mt-8">
+              <div className="text-2xl font-semibold text-[#754B4D]">Course not found</div>
+              <div className="text-[#754B4D]/70">
+                (Either it doesn’t exist, or you’re not logged in.)
               </div>
             </div>
+          ) : loading ? (
+            <div className="mt-8 text-[#754B4D]/70">Loading quiz…</div>
+          ) : !quiz ? (
+            <div className="mt-8 text-[#754B4D]/70">Quiz not found.</div>
+          ) : (
+            <>
+              <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="text-3xl font-semibold text-[#754B4D]">
+                      {quiz.title}
+                    </div>
+                    <div className="mt-1 text-[#754B4D]/70">{quiz.topic}</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Badge label={course.name} title="Course" />
+                      <Badge
+                        label={QUIZ_TYPE_LABELS[quiz.quiz_type] || quiz.quiz_type}
+                        title="Quiz type"
+                        tone="warm"
+                      />
+                      <Badge
+                        label={QUIZ_STATUS_LABELS[quiz.status] || quiz.status || "Ready"}
+                        title="Quiz status"
+                        tone={
+                          quiz.status === "failed"
+                            ? "danger"
+                            : quiz.status === "pending"
+                            ? "warm"
+                            : "strong"
+                        }
+                      />
+                    </div>
+                  </div>
 
-            {!quizReady ? (
-              <div className="mt-6 space-y-3">
-                {quiz?.status === "failed" ? (
-                  <div className="text-red-700">
-                    Generation failed: {quiz.generation_error || "Unknown error"}
-                  </div>
-                ) : (
-                  <div className="opacity-70">
-                    {quiz?.generation_error
-                      ? quiz.generation_error
-                      : "Generating quiz questions… This can take a few minutes."}
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <button
-                    className="border px-3 py-2"
-                    onClick={fetchQuiz}
-                    disabled={regenerating}
-                  >
-                    Refresh
-                  </button>
-                  <button
-                    className="border px-3 py-2"
-                    onClick={regenerateQuiz}
-                    disabled={regenerating}
-                  >
-                    {regenerating ? "Retrying…" : "Retry generation"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mt-6 flex flex-wrap items-center gap-4">
-                  <div className="opacity-70">
-                    {result ? `Score: ${result.score} / ${total}` : `Questions: ${total}`}
-                  </div>
-                  {result ? (
-                    <button className="border px-3 py-2" onClick={resetAttempt}>
-                      Redo quiz
-                    </button>
-                  ) : null}
-                </div>
-
-                <div className="mt-6 space-y-6">
-                  {questions.map((q, idx) => {
-                    const feedback = feedbackFor(q.id);
-                    const isMcq = quiz.quiz_type === "mcq";
-                    return (
-                      <div key={q.id} className="border bg-white rounded p-4">
-                        <div className="font-semibold">
-                          {idx + 1}. {q.question}
+                  <div className="text-right text-sm text-[#754B4D]/70">
+                    {result ? (
+                      <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-[#754B4D]/60">
+                          Latest score
                         </div>
+                        <div className="text-2xl font-semibold text-[#754B4D]">
+                          {result.score} / {total}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-[#754B4D]/60">
+                          Progress
+                        </div>
+                        <div className="text-base font-semibold text-[#754B4D]">
+                          {answeredCount} / {total} answered
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                        {isMcq ? (
-                          <div className="mt-3 space-y-2">
-                            {(q.choices || []).map((choice, cidx) => (
-                              <label key={cidx} className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  name={`q-${q.id}`}
-                                  checked={answers[q.id] === cidx}
-                                  onChange={() => updateAnswer(q.id, cidx)}
-                                  disabled={submitting || !!result}
-                                />
-                                <span>{choice}</span>
-                              </label>
-                            ))}
-                          </div>
-                        ) : (
-                          <textarea
-                            className="mt-3 border p-2 w-full"
-                            rows={quiz.quiz_type === "long" ? 5 : 3}
-                            placeholder="Write your answer here"
-                            value={answers[q.id] || ""}
-                            onChange={(e) => updateAnswer(q.id, e.target.value)}
-                            disabled={submitting || !!result}
-                          />
-                        )}
+              {!quizReady ? (
+                <div className="mt-6 rounded-3xl border border-white/40 bg-white/60 backdrop-blur p-6 shadow-sm space-y-4">
+                  {quiz?.status === "failed" ? (
+                    <div className="text-[#A86A65] font-semibold">
+                      Generation failed: {quiz.generation_error || "Unknown error"}
+                    </div>
+                  ) : (
+                    <div className="text-[#754B4D]/70">
+                      {quiz?.generation_error
+                        ? quiz.generation_error
+                        : "Generating quiz questions… This can take a few minutes."}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <SoftButton onClick={fetchQuiz} disabled={regenerating}>
+                      Refresh
+                    </SoftButton>
+                    <SoftButton
+                      variant="danger"
+                      onClick={regenerateQuiz}
+                      disabled={regenerating}
+                    >
+                      {regenerating ? "Retrying…" : "Retry generation"}
+                    </SoftButton>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <Badge label={`${total} questions`} title="Total questions" />
+                    <Badge label={`${answeredCount} answered`} title="Answered" />
+                    {result ? (
+                      <SoftButton variant="danger" onClick={resetAttempt}>
+                        Redo quiz
+                      </SoftButton>
+                    ) : null}
+                  </div>
 
-                        {feedback ? (
-                          <div className="mt-3 text-sm">
-                            <div className={feedback.correct ? "text-green-700" : "text-red-700"}>
-                              {feedback.correct ? "Correct" : "Incorrect"}
+                  <div className="mt-6 space-y-6">
+                    {questions.map((q, idx) => {
+                      const feedback = feedbackFor(q.id);
+                      const isMcq = quiz.quiz_type === "mcq";
+                      return (
+                        <div
+                          key={q.id}
+                          className="rounded-3xl border border-white/40 bg-white/70 backdrop-blur p-6 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="text-lg font-semibold text-[#754B4D]">
+                              {idx + 1}. {q.question}
                             </div>
-                            <div className="opacity-80">
-                              Expected:{" "}
-                              {isMcq
-                                ? choiceLabel(q, feedback.expected)
-                                : feedback.expected || "—"}
-                            </div>
-                            <div className="opacity-80">
-                              Your answer:{" "}
-                              {isMcq
-                                ? choiceLabel(q, feedback.response)
-                                : feedback.response || "—"}
-                            </div>
-                            {feedback.explanation ? (
-                              <div className="mt-1 opacity-70">
-                                Feedback: {feedback.explanation}
-                              </div>
+                            {feedback ? (
+                              <Badge
+                                label={feedback.correct ? "Correct" : "Incorrect"}
+                                tone={feedback.correct ? "strong" : "danger"}
+                              />
                             ) : null}
                           </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
 
-                <div className="mt-6 flex items-center gap-3">
-                  <button
-                    className="border px-3 py-2"
-                    onClick={submitQuiz}
-                    disabled={submitting || !!result}
-                  >
-                    {submitting ? "Submitting…" : "Submit quiz"}
-                  </button>
+                          {isMcq ? (
+                            <div className="mt-4 space-y-2">
+                              {(q.choices || []).map((choice, cidx) => {
+                                const selected = answers[q.id] === cidx;
+                                return (
+                                  <label
+                                    key={cidx}
+                                    className={`flex items-start gap-3 rounded-xl border px-3 py-2 transition ${
+                                      selected
+                                        ? "border-[#754B4D]/40 bg-[#E0CBB9]/40"
+                                        : "border-[#E0CBB9] bg-white/80 hover:bg-white"
+                                    }`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`q-${q.id}`}
+                                      className="mt-1 accent-[#754B4D]"
+                                      checked={answers[q.id] === cidx}
+                                      onChange={() => updateAnswer(q.id, cidx)}
+                                      disabled={submitting || !!result}
+                                    />
+                                    <span className="text-[#754B4D]">{choice}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <textarea
+                              className="mt-4 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                              rows={quiz.quiz_type === "long" ? 5 : 3}
+                              placeholder="Write your answer here"
+                              value={answers[q.id] || ""}
+                              onChange={(e) => updateAnswer(q.id, e.target.value)}
+                              disabled={submitting || !!result}
+                            />
+                          )}
 
-                  <Link to={`/project/${projectid}/quizzes`} className="underline">
-                    Back to quizzes
-                  </Link>
-                </div>
-              </>
-            )}
-          </>
-        )}
+                          {feedback ? (
+                            <div className="mt-4 rounded-2xl border border-white/60 bg-white/70 p-4 text-sm text-[#754B4D]">
+                              <div className="font-semibold">
+                                {feedback.correct ? "Correct" : "Incorrect"}
+                              </div>
+                              <div className="mt-1 text-[#754B4D]/80">
+                                Expected:{" "}
+                                {isMcq
+                                  ? choiceLabel(q, feedback.expected)
+                                  : feedback.expected || "—"}
+                              </div>
+                              <div className="text-[#754B4D]/80">
+                                Your answer:{" "}
+                                {isMcq
+                                  ? choiceLabel(q, feedback.response)
+                                  : feedback.response || "—"}
+                              </div>
+                              {feedback.explanation ? (
+                                <div className="mt-2 text-[#754B4D]/70">
+                                  Feedback: {feedback.explanation}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-8 flex flex-wrap items-center gap-3">
+                    <SoftButton
+                      variant="primary"
+                      onClick={submitQuiz}
+                      disabled={submitting || !!result}
+                    >
+                      {submitting ? "Submitting…" : "Submit quiz"}
+                    </SoftButton>
+
+                    <Link
+                      to={`/project/${projectid}/quizzes`}
+                      className="text-[#754B4D] underline hover:opacity-80"
+                    >
+                      Back to quizzes
+                    </Link>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
