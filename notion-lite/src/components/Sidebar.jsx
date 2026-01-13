@@ -32,7 +32,7 @@ export function SidebarItem({ href, icon: Icon, name, color, collapsed }) {
     );
 }
 
-export default function Sidebar({ projectsList }) {
+export default function Sidebar({ projectsList, featureLinks }) {
     const [collapsed, setCollapsed] = useState(false);
     const [pinned, setPinned] = useState(true);
     const [openProfilePopout, setOpenProfilePopout] = useState(false);
@@ -120,6 +120,28 @@ export default function Sidebar({ projectsList }) {
                     name="Dashboard"
                     color="#754B4D"
                 />
+                {Array.isArray(featureLinks) && featureLinks.length > 0 ? (
+                    <>
+                        <div className="flex items-center justify-between p-2 mx-2">
+                            {!collapsed && (
+                                <div className="flex flex-col w-full">
+                                    <h2 className="main-header font-card">Features</h2>
+                                    <CopperDivider />
+                                </div>
+                            )}
+                        </div>
+                        {featureLinks.map((item) => (
+                            <SidebarItem
+                                key={item.name || item.href}
+                                href={item.href}
+                                icon={item.icon}
+                                name={item.name}
+                                collapsed={collapsed}
+                                color={item.color}
+                            />
+                        ))}
+                    </>
+                ) : null}
                 {/* Add a list of all the projects */}
                 <div className="flex items-center justify-between p-2 mx-2">
                     {!collapsed && (

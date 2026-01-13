@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 import { CreateProjectPopup } from "../components/Popup";
 import * as Icons from "lucide-react";
-import { Folder } from "lucide-react";
+import { Folder, Sparkles } from "lucide-react";
 import { DocumentCard } from "../components/Card";
 
 export function UserDashboard() {
@@ -78,6 +78,14 @@ export function UserDashboard() {
                         color:
                             project.color !== null ? project.color : "#754B4D",
                     })),
+                ]}
+                featureLinks={[
+                    {
+                        href: "/features",
+                        icon: Sparkles,
+                        name: "Feature guide",
+                        color: "#754B4D",
+                    },
                 ]}
             />
 
