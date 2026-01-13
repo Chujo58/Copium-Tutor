@@ -220,6 +220,8 @@ export default function QuizPage() {
       return count + (typeof value === "string" && value.trim().length > 0 ? 1 : 0);
     }, 0);
   }, [answers, questions, quiz]);
+  const loadingGif = `${API_URL}/public/cat.gif`;
+  const showGeneratingOverlay = !!quiz && !quizReady && quiz?.status !== "failed";
 
   return (
     <div className="flex">
@@ -241,6 +243,23 @@ export default function QuizPage() {
       />
 
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+        {showGeneratingOverlay ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6EFEA]/80 backdrop-blur">
+            <div className="rounded-3xl border border-white/50 bg-white/80 px-8 py-7 shadow-lg text-center">
+              <img
+                src={loadingGif}
+                alt="Generating quiz"
+                className="mx-auto h-44 w-44 object-contain"
+              />
+              <div className="mt-3 text-[#754B4D] font-semibold">
+                Generating quiz…
+              </div>
+              <div className="text-sm text-[#754B4D]/70">
+                Hang tight, this can take a minute.
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div className="p-10">
           <Link
             to={`/project/${projectid}/quizzes`}
