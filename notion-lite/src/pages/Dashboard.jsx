@@ -36,6 +36,30 @@ export function UserDashboard() {
         fetchProjects();
     }, []);
 
+    const deleteProject = async (project) => {
+        if (!project?.projectid) return;
+        const ok = confirm(
+            `Delete "${project.name || "this subject"}"? This cannot be undone.`
+        );
+        if (!ok) return;
+
+        try {
+            const res = await fetch(`${API_URL}/projects/${project.projectid}`, {
+                method: "DELETE",
+                credentials: "include",
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert(data.message || "Failed to delete subject");
+                return;
+            }
+            fetchProjects();
+        } catch (err) {
+            console.error(err);
+            alert("Error deleting subject");
+        }
+    };
+
     return (
         <div className="flex">
             <Sidebar
@@ -80,6 +104,7 @@ export function UserDashboard() {
                         })),
                     ]}
                     onAddSubject={() => setShowAddProject(true)}
+                    onDeleteSubject={deleteProject}
                 />
                 {showAddProject && (
                     <CreateProjectPopup
