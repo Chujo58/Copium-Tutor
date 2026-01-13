@@ -419,7 +419,7 @@ export default function CourseChatPage() {
                   key={c.chatid}
                   to={`/project/${projectid}/chat/${c.chatid}`}
                   className={[
-                    "block rounded-2xl px-3 py-2 mb-2 border transition",
+                    "group block rounded-2xl px-3 py-2 mb-2 border transition",
                     active
                       ? "bg-white/75 border-white/40 shadow-sm"
                       : "bg-white/45 border-transparent hover:bg-white/60",
@@ -431,9 +431,11 @@ export default function CourseChatPage() {
                       <div className="truncate text-xs text-[#754B4D]/60">{c.model_name}</div>
                     </div>
 
+
                     <button
                       type="button"
-                      className="shrink-0 rounded-xl border border-[#AB8882]/40 bg-white/60 p-2 text-[#754B4D] hover:bg-white transition"
+                      className="shrink-0 rounded-xl border border-[#AB8882]/40 bg-white/60 p-2 text-[#754B4D] hover:bg-white transition
+                                opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -443,7 +445,6 @@ export default function CourseChatPage() {
                     >
                       <Trash2 size={16} />
                     </button>
-
                   </div>
                 </Link>
               );

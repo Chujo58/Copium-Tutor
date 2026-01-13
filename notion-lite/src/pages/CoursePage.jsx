@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
-import { Folder, MessageSquare, Layers, FileText, RefreshCw } from "lucide-react";
+import { Folder, MessageSquare, Layers, FileText, RefreshCw, Trash2 } from "lucide-react";
 import { BlockWithDivider, PlumDivider } from "../components/Divider";
 import { DocumentCard } from "../components/Card";
 import AskBar from "../components/AskBar";
@@ -373,7 +373,7 @@ export default function CoursePage() {
                   {recentChats.map((c) => (
                     <div
                       key={c.chatid}
-                      className="rounded-2xl border border-black/10 bg-white/40 hover:bg-white/55 transition px-4 py-3 flex items-start justify-between gap-3"
+                      className="group rounded-2xl border border-black/10 bg-white/40 hover:bg-white/55 transition px-4 py-3 flex items-start justify-between gap-3"
                     >
                       <Link
                         to={`/project/${projectid}/chat/${c.chatid}`}
@@ -388,7 +388,8 @@ export default function CoursePage() {
 
                       <button
                         type="button"
-                        className="shrink-0 rounded-xl border border-black/10 bg-white/50 px-2 py-1 text-sm hover:bg-white"
+                        className="shrink-0 rounded-xl border border-black/10 bg-white/50 p-2 text-[#754B4D] hover:bg-white transition
+                                  opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -396,7 +397,7 @@ export default function CoursePage() {
                         }}
                         title="Delete chat"
                       >
-                        🗑
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   ))}
