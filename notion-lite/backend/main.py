@@ -23,7 +23,7 @@ from backboard.exceptions import BackboardNotFoundError
 from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
 from db import conn, cursor, init_db, DB_PATH
 from backboard_ops import index_project_documents_impl
-from typing import Literal
+from typing import Literal, Optional
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
@@ -96,6 +96,19 @@ class UpdateCardRequest(BaseModel):
 
 class ReviewCardRequest(BaseModel):
     rating: Literal["again", "hard", "good", "easy"]
+
+class CreateChatRequest(BaseModel):
+    title: str | None = None
+    llm_provider: str | None = "openai"
+    model_name: str | None = "gpt-4o"
+
+class SendChatMessageRequest(BaseModel):
+    content: str
+    llm_provider: str | None = None
+    model_name: str | None = None
+
+class RenameChatRequest(BaseModel):
+    title: str
 
 async def get_or_create_backboard_memory(projectid: str):
     # check DB first
@@ -220,6 +233,10 @@ def _get_card_and_verify_owner(cardid: str, userid: str):
         WHERE c.cardid=? AND d.userid=?
     """, (cardid, userid))
     return cursor.fetchone()
+
+def _require_project_owned(projectid: str, userid: str) -> bool:
+    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    return cursor.fetchone() is not None
 
 # Allow frontend
 app.add_middleware(
@@ -2005,4 +2022,271 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         client_factory=None,  # optional
         get_memory=get_or_create_backboard_memory,
     )
+
+################################
+# CHAT SESSIONS (per course)
+################################
+
+# List chats in a project
+@app.get("/projects/{projectid}/chats")
+async def list_chats(projectid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    if not _require_project_owned(projectid, userid):
+        return {"success": False, "message": "Project not found"}
+
+    cursor.execute("""
+        SELECT chatid, title, llm_provider, model_name, created_at, updated_at
+        FROM chat_sessions
+        WHERE projectid=? AND userid=?
+        ORDER BY updated_at DESC
+    """, (projectid, userid))
+
+    rows = cursor.fetchall()
+    chats = [{
+        "chatid": r[0],
+        "title": r[1],
+        "llm_provider": r[2],
+        "model_name": r[3],
+        "created_at": r[4],
+        "updated_at": r[5],
+    } for r in rows]
+
+    return {"success": True, "chats": chats}
+
+# Create new chat in a project
+@app.post("/projects/{projectid}/chats")
+async def create_chat(projectid: str, body: CreateChatRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    if not _require_project_owned(projectid, userid):
+        return {"success": False, "message": "Project not found"}
+
+    chatid = uuid.uuid4().hex[:10]
+    now = datetime.utcnow().isoformat()
+
+    title = (body.title or "").strip() or "New chat"
+    llm_provider = (body.llm_provider or "openai").strip()
+    model_name = (body.model_name or "gpt-4o").strip()
+
+    cursor.execute("""
+        INSERT INTO chat_sessions (chatid, projectid, userid, title, llm_provider, model_name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (chatid, projectid, userid, title, llm_provider, model_name, now, now))
+    conn.commit()
+
+    return {
+        "success": True,
+        "chat": {
+            "chatid": chatid,
+            "projectid": projectid,
+            "title": title,
+            "llm_provider": llm_provider,
+            "model_name": model_name,
+            "created_at": now,
+            "updated_at": now,
+        }
+    }
+
+# Get chat details and messages
+@app.get("/chats/{chatid}")
+async def get_chat(chatid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute("""
+        SELECT chatid, projectid, title, llm_provider, model_name, created_at, updated_at
+        FROM chat_sessions
+        WHERE chatid=? AND userid=?
+    """, (chatid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Chat not found"}
+
+    chat = {
+        "chatid": row[0],
+        "projectid": row[1],
+        "title": row[2],
+        "llm_provider": row[3],
+        "model_name": row[4],
+        "created_at": row[5],
+        "updated_at": row[6],
+    }
+
+    cursor.execute("""
+        SELECT msgid, role, content, created_at
+        FROM chat_messages
+        WHERE chatid=?
+        ORDER BY created_at ASC
+    """, (chatid,))
+    msgs = cursor.fetchall()
+
+    messages = [{
+        "msgid": m[0],
+        "role": m[1],
+        "content": m[2],
+        "created_at": m[3],
+    } for m in msgs]
+
+    return {"success": True, "chat": chat, "messages": messages}
+
+# Rename chat
+@app.patch("/chats/{chatid}")
+async def rename_chat(chatid: str, body: RenameChatRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    title = (body.title or "").strip()
+    if not title:
+        return {"success": False, "message": "Title cannot be empty"}
+
+    cursor.execute("SELECT 1 FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Chat not found"}
+
+    now = datetime.utcnow().isoformat()
+    cursor.execute("""
+        UPDATE chat_sessions
+        SET title=?, updated_at=?
+        WHERE chatid=? AND userid=?
+    """, (title, now, chatid, userid))
+    conn.commit()
+
+    return {"success": True, "chatid": chatid, "title": title, "updated_at": now}
+
+# Delete chat
+@app.delete("/chats/{chatid}")
+async def delete_chat(chatid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute("SELECT 1 FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid))
+    if cursor.fetchone() is None:
+        return {"success": False, "message": "Chat not found"}
+
+    cursor.execute("DELETE FROM chat_messages WHERE chatid=?", (chatid,))
+    cursor.execute("DELETE FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid))
+    conn.commit()
+
+    return {"success": True, "deleted": True, "chatid": chatid}
+
+# -----------------------
+# CHAT MESSAGES
+# -----------------------
+
+CHAT_SYSTEM = """
+You are Copium Tutor: a smart teaching assistant for this course.
+
+Goals:
+- Help the student understand assignments, problems, and concepts.
+- Be rigorous and clear. Show steps.
+- If course documents are relevant, prioritize them.
+- You are allowed to use external knowledge as well.
+- Always be friendly and encouraging.
+- If you are unsure, ask a focused follow-up question.
+- When helpful, give a short answer first, then a deeper explanation. Please don't make it too lengthy.
+
+Style:
+- Use headings and bullet points.
+- Provide small examples when relevant.
+""".strip()
+
+@app.post("/chats/{chatid}/messages")
+async def send_chat_message(chatid: str, body: SendChatMessageRequest, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    content = (body.content or "").strip()
+    if not content:
+        return {"success": False, "message": "Message cannot be empty"}
+
+    # Load chat session + project
+    cursor.execute("""
+        SELECT projectid, title, llm_provider, model_name
+        FROM chat_sessions
+        WHERE chatid=? AND userid=?
+    """, (chatid, userid))
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Chat not found"}
+
+    projectid, chat_title, saved_provider, saved_model = row
+
+    # Allow per-message override, otherwise use saved chat model
+    llm_provider = (body.llm_provider or saved_provider or "openai").strip()
+    model_name = (body.model_name or saved_model or "gpt-4o").strip()
+
+    # Ensure project ownership
+    if not _require_project_owned(projectid, userid):
+        return {"success": False, "message": "Project not found"}
+
+    now = datetime.utcnow().isoformat()
+
+    # Store user message
+    user_msgid = uuid.uuid4().hex[:10]
+    cursor.execute("""
+        INSERT INTO chat_messages (msgid, chatid, role, content, created_at)
+        VALUES (?, ?, 'user', ?, ?)
+    """, (user_msgid, chatid, content, now))
+    conn.commit()
+
+    # Backboard call: use the COURSE memory thread (one assistant/thread per project)
+    if not BACKBOARD_API_KEY:
+        # fallback: still keep history
+        assistant_text = "BACKBOARD_API_KEY not set, so I can't answer yet."
+    else:
+        client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
+
+        # Prefix includes chat title so memory has a bit of structure
+        prompt = f"[Chat: {chat_title}] {content}"
+
+        resp = await client.add_message(
+            thread_id=thread_id,
+            content=CHAT_SYSTEM + "\n\n" + prompt,
+            llm_provider=llm_provider,
+            model_name=model_name,
+            stream=False,
+            memory="Readwrite",  # IMPORTANT: course memory updates here
+        )
+        assistant_text = getattr(resp, "content", resp)
+        if not isinstance(assistant_text, str):
+            assistant_text = str(assistant_text)
+
+    # Store assistant message
+    now2 = datetime.utcnow().isoformat()
+    assistant_msgid = uuid.uuid4().hex[:10]
+    cursor.execute("""
+        INSERT INTO chat_messages (msgid, chatid, role, content, created_at)
+        VALUES (?, ?, 'assistant', ?, ?)
+    """, (assistant_msgid, chatid, assistant_text, now2))
+
+    # Update chat session metadata (and persist model choice if user changed it)
+    cursor.execute("""
+        UPDATE chat_sessions
+        SET updated_at=?, llm_provider=?, model_name=?
+        WHERE chatid=? AND userid=?
+    """, (now2, llm_provider, model_name, chatid, userid))
+
+    conn.commit()
+
+    return {
+        "success": True,
+        "chatid": chatid,
+        "llm_provider": llm_provider,
+        "model_name": model_name,
+        "messages": [
+            {"msgid": user_msgid, "role": "user", "content": content, "created_at": now},
+            {"msgid": assistant_msgid, "role": "assistant", "content": assistant_text, "created_at": now2},
+        ]
+    }
+
+
 
