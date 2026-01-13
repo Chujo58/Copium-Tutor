@@ -12,6 +12,7 @@ from fastapi import (
     Body,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 import datetime as dt
 from pydantic import BaseModel
@@ -19,7 +20,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import asyncio
 from backboard import BackboardClient
-from backboard.exceptions import BackboardNotFoundError
+from backboard.exceptions import BackboardNotFoundError, BackboardServerError
 from pdf_splitter import split_pdf_to_max_size, MAX_BYTES
 from db import conn, cursor, init_db, DB_PATH
 from backboard_ops import index_project_documents_impl
@@ -37,6 +38,10 @@ conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 
 init_db()
+
+PUBLIC_DIR = Path(__file__).resolve().parent / "public"
+PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
 
 
 @dataclass
@@ -2027,14 +2032,21 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
     if not BACKBOARD_API_KEY:
         return {"success": False, "message": "BACKBOARD_API_KEY not set"}
 
-    return await index_project_documents_impl(
-        projectid=projectid,
-        userid=userid,
-        cursor=cursor,
-        conn=conn,
-        client_factory=None,  # optional
-        get_memory=get_or_create_backboard_memory,
-    )
+    try:
+        return await index_project_documents_impl(
+            projectid=projectid,
+            userid=userid,
+            cursor=cursor,
+            conn=conn,
+            client_factory=None,  # optional
+            get_memory=get_or_create_backboard_memory,
+        )
+    except BackboardServerError as e:
+        logger.error("Backboard indexing failed: %s", e)
+        return {
+            "success": False,
+            "message": "Backboard service unavailable. Please try again shortly.",
+        }
 
 ################################
 # CHAT SESSIONS (per course)
