@@ -18,6 +18,60 @@ const QUIZ_STATUS_LABELS = {
   failed: "Failed",
 };
 
+function Badge({ label, title, tone = "neutral" }) {
+  const toneClass =
+    tone === "strong"
+      ? "border-[#754B4D] text-white bg-[#754B4D]/90"
+      : tone === "warm"
+      ? "border-[#D8A694] text-[#754B4D] bg-[#D8A694]/20"
+      : tone === "danger"
+      ? "border-[#A86A65] text-[#754B4D] bg-[#A86A65]/10"
+      : "border-[#AB8882] text-[#754B4D] bg-white/60";
+
+  return (
+    <span
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs border ${toneClass}`}
+      title={title}
+    >
+      {label}
+    </span>
+  );
+}
+
+function SoftButton({
+  children,
+  onClick,
+  disabled,
+  title,
+  variant = "ghost",
+  type = "button",
+}) {
+  const base =
+    "px-4 py-2 rounded-xl border transition disabled:opacity-40 disabled:cursor-not-allowed";
+  const cls =
+    variant === "primary"
+      ? "border-[#754B4D]/30 bg-[#754B4D] text-white hover:bg-[#754B4D]/90"
+      : variant === "danger"
+      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-[#754B4D] hover:bg-[#A86A65]/20"
+      : "border-[#AB8882]/50 bg-white/70 text-[#754B4D] hover:bg-white";
+
+  return (
+    <button className={`${base} ${cls}`} onClick={onClick} disabled={disabled} title={title} type={type}>
+      {children}
+    </button>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div className="rounded-2xl border border-white/40 bg-white/50 backdrop-blur p-5 shadow-sm">
+      <div className="h-5 w-40 bg-[#E0CBB9]/60 rounded" />
+      <div className="mt-3 h-4 w-full bg-[#E0CBB9]/40 rounded" />
+      <div className="mt-2 h-4 w-2/3 bg-[#E0CBB9]/35 rounded" />
+    </div>
+  );
+}
+
 const displayName = (filepath) => {
   const base = filepath.split("/").pop() || filepath;
   const idx = base.indexOf("_");
@@ -44,6 +98,7 @@ export default function QuizzesHomePage() {
   const [selectedFiles, setSelectedFiles] = useState({});
   const [selectionReady, setSelectionReady] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [query, setQuery] = useState("");
 
   const selectionStorageKey = useMemo(
     () => `quiz-file-selection-${projectid}`,
@@ -165,6 +220,15 @@ export default function QuizzesHomePage() {
     [selectedFiles]
   );
 
+  const filteredQuizzes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return quizzes;
+    return quizzes.filter((quiz) => {
+      const hay = `${quiz.title || ""} ${quiz.topic || ""} ${quiz.quizid || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [quizzes, query]);
+
   const toggleFile = (fileid) => {
     setSelectedFiles((prev) => ({ ...prev, [fileid]: !prev[fileid] }));
   };
@@ -215,9 +279,15 @@ export default function QuizzesHomePage() {
       if (data.warning) {
         alert(data.warning);
       }
+      const nextQuizId = data.quizid || data.quiz?.quizid;
+      if (!nextQuizId) {
+        alert("Quiz created but missing quiz id. Please refresh and open it from the list.");
+        await fetchQuizzes();
+        return;
+      }
       setTopic("");
       await fetchQuizzes();
-      navigate(`/project/${projectid}/quizzes/${data.quizid}`);
+      navigate(`/project/${projectid}/quizzes/${nextQuizId}`);
     } catch (e) {
       console.error(e);
       alert("Error creating quiz");
@@ -245,175 +315,298 @@ export default function QuizzesHomePage() {
         ]}
       />
 
-      <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-        <Link to={`/project/${projectid}`} className="underline">
-          ← Back to Course
-        </Link>
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+        <div className="p-10">
+          <Link
+            to={`/project/${projectid}`}
+            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+          >
+            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            Back to Course
+          </Link>
 
-        {courseLoading ? (
-          <div className="mt-6">Loading…</div>
-        ) : !course ? (
-          <div className="mt-6">
-            <div className="text-2xl font-semibold">Course not found</div>
-            <div className="opacity-70">
-              (Either it doesn’t exist, or you’re not logged in.)
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="mt-4">
-              <div className="text-3xl main-header font-sans text-dark">
-                Quizzes
-              </div>
-              <div className="opacity-70">{course.name}</div>
-              <div className="mt-2 text-sm opacity-60">
-                projectid: {projectid}
+          {courseLoading ? (
+            <div className="mt-8 text-[#754B4D]/70">Loading…</div>
+          ) : !course ? (
+            <div className="mt-8">
+              <div className="text-2xl font-semibold text-[#754B4D]">Course not found</div>
+              <div className="text-[#754B4D]/70">
+                (Either it doesn’t exist, or you’re not logged in.)
               </div>
             </div>
-
-            <div className="mt-10">
-              <h2 className="text-xl font-semibold">Create a quiz</h2>
-
-              <div className="mt-3 flex flex-col gap-3 max-w-2xl">
-                <input
-                  className="border p-2"
-                  placeholder="Quiz topic (e.g., Module 2 review)"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
-                  disabled={creating}
-                />
-
-                <div className="flex flex-wrap gap-3">
-                  <label className="flex flex-col text-sm gap-1">
-                    Type
-                    <select
-                      className="border p-2"
-                      value={quizType}
-                      onChange={(e) => setQuizType(e.target.value)}
-                      disabled={creating}
-                    >
-                      {Object.entries(QUIZ_TYPE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="flex flex-col text-sm gap-1">
-                    Number of questions
-                    <input
-                      type="number"
-                      className="border p-2 w-40"
-                      min={1}
-                      max={50}
-                      value={numQuestions}
-                      onChange={(e) => setNumQuestions(e.target.value)}
-                      disabled={creating}
-                    />
-                  </label>
-                </div>
-
-                <div className="border rounded p-3 bg-white/60">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold">Use these documents</div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <button
-                        className="underline opacity-80"
-                        onClick={selectAll}
-                        disabled={creating || files.length === 0}
-                      >
-                        Select all
-                      </button>
-                      <button
-                        className="underline opacity-80"
-                        onClick={clearAll}
-                        disabled={creating || files.length === 0}
-                      >
-                        Clear
-                      </button>
-                      <button
-                        className="underline opacity-80"
-                        onClick={fetchFiles}
-                        disabled={creating || filesLoading}
-                      >
-                        {filesLoading ? "Refreshing…" : "Refresh"}
-                      </button>
+          ) : (
+            <>
+              <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="text-3xl font-semibold text-[#754B4D]">Quizzes</div>
+                    <div className="mt-1 text-[#754B4D]/70">{course.name}</div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Badge label={projectid} title="Project id" />
+                      <Badge
+                        label={`${quizzes.length} quiz${quizzes.length === 1 ? "" : "zes"}`}
+                        title="Total quizzes"
+                        tone="warm"
+                      />
+                      <Badge
+                        label={`${files.length} document${files.length === 1 ? "" : "s"}`}
+                        title="Uploaded documents"
+                      />
                     </div>
                   </div>
 
-                  {course ? (
-                    <CourseDocumentUploader
-                      projectName={course.name}
-                      onUploaded={fetchFiles}
-                    />
-                  ) : null}
-
-                  {filesLoading ? (
-                    <div className="mt-2 opacity-70">Loading files…</div>
-                  ) : files.length === 0 ? (
-                    <div className="mt-2 opacity-70">No documents yet.</div>
-                  ) : (
-                    <ul className="mt-3 space-y-2">
-                      {files.map((f) => (
-                        <li key={f.fileid} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={!!selectedFiles[f.fileid]}
-                            onChange={() => toggleFile(f.fileid)}
-                            disabled={creating}
-                          />
-                          <span>{displayName(f.filepath)}</span>
-                          <span className="text-xs opacity-60">
-                            ({f.file_type || "file"})
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <div className="text-right text-sm text-[#754B4D]/60">
+                    Generate practice quizzes from your course materials.
+                  </div>
                 </div>
-
-                <button
-                  className="border px-3 py-2 w-fit"
-                  onClick={createQuiz}
-                  disabled={creating}
-                >
-                  {creating ? "Creating…" : "Create quiz"}
-                </button>
               </div>
-            </div>
 
-            <div className="mt-10">
-              <h2 className="text-xl font-semibold">Your quizzes</h2>
+              <div className="mt-10 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-[#754B4D]">Create a quiz</h2>
+                    {creating ? <Badge label="Creating…" title="Creating state" /> : null}
+                  </div>
 
-              {loading ? (
-                <div className="mt-2 opacity-70">Loading…</div>
-              ) : quizzes.length === 0 ? (
-                <div className="mt-2 opacity-70">No quizzes yet.</div>
-              ) : (
-                <ul className="mt-3 space-y-2">
-                  {quizzes.map((q) => (
-                    <li key={q.quizid} className="flex items-start justify-between gap-4">
-                      <div>
-                        <Link
-                          className="underline"
-                          to={`/project/${projectid}/quizzes/${q.quizid}`}
+                  <div className="mt-4 grid gap-4">
+                    <input
+                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      placeholder="Quiz topic (e.g., Module 2 review)"
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      disabled={creating}
+                    />
+
+                    <div className="flex flex-wrap gap-3">
+                      <label className="flex flex-col text-sm gap-1 text-[#754B4D]/80">
+                        Type
+                        <select
+                          className="rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                          value={quizType}
+                          onChange={(e) => setQuizType(e.target.value)}
+                          disabled={creating}
                         >
-                          {q.title}
-                        </Link>
-                        <div className="text-sm opacity-70">
-                          {QUIZ_TYPE_LABELS[q.quiz_type] || q.quiz_type} ·{" "}
-                          {q.num_questions} questions ·{" "}
-                          {QUIZ_STATUS_LABELS[q.status] || q.status || "Ready"}
+                          {Object.entries(QUIZ_TYPE_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="flex flex-col text-sm gap-1 text-[#754B4D]/80">
+                        Number of questions
+                        <input
+                          type="number"
+                          className="w-40 rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                          min={1}
+                          max={50}
+                          value={numQuestions}
+                          onChange={(e) => setNumQuestions(e.target.value)}
+                          disabled={creating}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/50 bg-white/60 backdrop-blur p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="font-semibold text-[#754B4D]">Use these documents</div>
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <SoftButton
+                            onClick={selectAll}
+                            disabled={creating || files.length === 0}
+                            title="Select all documents"
+                          >
+                            Select all
+                          </SoftButton>
+                          <SoftButton
+                            onClick={clearAll}
+                            disabled={creating || files.length === 0}
+                            title="Clear selection"
+                          >
+                            Clear
+                          </SoftButton>
+                          <SoftButton
+                            onClick={fetchFiles}
+                            disabled={creating || filesLoading}
+                            title="Refresh documents"
+                          >
+                            {filesLoading ? "Refreshing…" : "Refresh"}
+                          </SoftButton>
                         </div>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </>
-        )}
+
+                      <div className="mt-3 text-sm text-[#754B4D]/70">
+                        Selected {selectedFileIds.length} of {files.length} documents
+                      </div>
+
+                      {course ? (
+                        <div className="mt-4">
+                          <CourseDocumentUploader
+                            projectName={course.name}
+                            onUploaded={fetchFiles}
+                          />
+                        </div>
+                      ) : null}
+
+                      {filesLoading ? (
+                        <div className="mt-4 space-y-2">
+                          <SkeletonRow />
+                          <SkeletonRow />
+                        </div>
+                      ) : files.length === 0 ? (
+                        <div className="mt-3 text-[#754B4D]/70">No documents yet.</div>
+                      ) : (
+                        <ul className="mt-4 space-y-2">
+                          {files.map((f) => (
+                            <li
+                              key={f.fileid}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2"
+                            >
+                              <label className="flex items-center gap-3">
+                                <input
+                                  type="checkbox"
+                                  className="accent-[#754B4D]"
+                                  checked={!!selectedFiles[f.fileid]}
+                                  onChange={() => toggleFile(f.fileid)}
+                                  disabled={creating}
+                                />
+                                <span className="text-[#754B4D]">{displayName(f.filepath)}</span>
+                              </label>
+                              <Badge
+                                label={f.file_type || "file"}
+                                title="File type"
+                                tone="warm"
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <SoftButton
+                        variant="primary"
+                        onClick={createQuiz}
+                        disabled={creating}
+                        title="Create quiz"
+                      >
+                        {creating ? "Creating…" : "Create quiz"}
+                      </SoftButton>
+                      <SoftButton
+                        onClick={() => {
+                          setTopic("");
+                          setQuizType("mcq");
+                          setNumQuestions(10);
+                        }}
+                        disabled={creating}
+                        title="Reset fields"
+                      >
+                        Reset
+                      </SoftButton>
+                    </div>
+
+                    <div className="text-sm text-[#754B4D]/60">
+                      Tip: Use a focused topic and fewer questions for quicker generation.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold text-[#754B4D]">Your quizzes</h2>
+                    <SoftButton onClick={fetchQuizzes} disabled={loading} title="Refresh quizzes">
+                      Refresh
+                    </SoftButton>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2">
+                    <input
+                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      placeholder="Search quizzes (title, topic, id)…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      disabled={loading}
+                    />
+                    <SoftButton onClick={() => setQuery("")} disabled={loading || !query} title="Clear search">
+                      Clear
+                    </SoftButton>
+                  </div>
+
+                  <div className="mt-2 text-sm text-[#754B4D]/60">
+                    Showing <span className="font-semibold">{filteredQuizzes.length}</span> of{" "}
+                    <span className="font-semibold">{quizzes.length}</span>
+                    {query.trim() ? (
+                      <>
+                        {" "}
+                        for <Badge label={query.trim()} title="Search query" />
+                      </>
+                    ) : null}
+                  </div>
+
+                  {loading ? (
+                    <div className="mt-4 space-y-3">
+                      <SkeletonRow />
+                      <SkeletonRow />
+                      <SkeletonRow />
+                    </div>
+                  ) : filteredQuizzes.length === 0 ? (
+                    <div className="mt-4 text-[#754B4D]/70">
+                      {quizzes.length === 0
+                        ? "No quizzes yet. Create one on the left ✨"
+                        : "No quizzes match your search."}
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-3">
+                      {filteredQuizzes.map((q) => (
+                        <div
+                          key={q.quizid}
+                          className="rounded-2xl border border-white/40 bg-white/65 backdrop-blur p-5 shadow-sm hover:bg-white/75 transition"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <Link
+                                className="text-lg font-semibold text-[#754B4D] hover:opacity-80 truncate block"
+                                to={`/project/${projectid}/quizzes/${q.quizid}`}
+                              >
+                                {q.title}
+                              </Link>
+                              <div className="mt-1 text-sm text-[#754B4D]/70 line-clamp-2">
+                                {q.topic}
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <Badge
+                                  label={QUIZ_TYPE_LABELS[q.quiz_type] || q.quiz_type}
+                                  title="Quiz type"
+                                  tone="warm"
+                                />
+                                <Badge
+                                  label={`${q.num_questions} questions`}
+                                  title="Question count"
+                                />
+                                <Badge
+                                  label={QUIZ_STATUS_LABELS[q.status] || q.status || "Ready"}
+                                  title="Status"
+                                  tone={
+                                    q.status === "failed"
+                                      ? "danger"
+                                      : q.status === "pending"
+                                      ? "warm"
+                                      : "strong"
+                                  }
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
