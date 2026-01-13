@@ -83,9 +83,6 @@ class CreateQuizRequest(BaseModel):
 class SubmitQuizRequest(BaseModel):
     answers: dict
 
-async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
-    db_cursor = db_cursor or cursor
-    db_conn = db_conn or conn
 class CreateCardRequest(BaseModel):
     front: str
     back: str
@@ -110,13 +107,15 @@ class SendChatMessageRequest(BaseModel):
 class RenameChatRequest(BaseModel):
     title: str
 
-async def get_or_create_backboard_memory(projectid: str):
+async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
+    db_cursor = db_cursor or cursor
+    db_conn = db_conn or conn
     # check DB first
-    cursor.execute(
+    db_cursor.execute(
         "SELECT assistant_id, memory_thread_id FROM backboard_projects WHERE projectid=?",
         (projectid,),
     )
-    row = cursor.fetchone()
+    row = db_cursor.fetchone()
     client = BackboardClient(api_key=BACKBOARD_API_KEY)
 
     if row and row[0] and row[1]:
@@ -130,12 +129,12 @@ async def get_or_create_backboard_memory(projectid: str):
             try:
                 thread = await client.create_thread(assistant_id)
                 thread_id = str(thread.thread_id)
-                cursor.execute(
+                db_cursor.execute(
                     "UPDATE backboard_projects SET memory_thread_id=? WHERE projectid=?",
                     (thread_id, projectid),
                 )
-                cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
-                conn.commit()
+                db_cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
+                db_conn.commit()
                 return client, assistant_id, thread_id
             except BackboardNotFoundError:
                 logger.warning("Backboard assistant missing for project %s, recreating", projectid)
@@ -153,12 +152,12 @@ async def get_or_create_backboard_memory(projectid: str):
     assistant_id = str(assistant.assistant_id)
     thread_id = str(thread.thread_id)
 
-    cursor.execute(
+    db_cursor.execute(
         "INSERT OR REPLACE INTO backboard_projects (projectid, assistant_id, memory_thread_id) VALUES (?, ?, ?)",
         (projectid, assistant_id, thread_id),
     )
-    cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
-    conn.commit()
+    db_cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
+    db_conn.commit()
 
     return client, assistant_id, thread_id
 
@@ -1065,7 +1064,9 @@ If needed, you may use any indexed course documents to complete the quiz.
 
     except Exception as e:
         logger.error("Quiz generation failed: %s", e)
-        _set_quiz_status(local_cursor, local_conn, quizid, "failed", "Quiz generation failed")
+        err_detail = f"{type(e).__name__}: {e}".strip()
+        message = f"Quiz generation failed ({err_detail})" if err_detail else "Quiz generation failed"
+        _set_quiz_status(local_cursor, local_conn, quizid, "failed", message)
     finally:
         local_conn.close()
 
@@ -1716,6 +1717,18 @@ async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Co
     )
     conn.commit()
 
+    asyncio.create_task(
+        _generate_quiz_content(
+            quizid=quizid,
+            projectid=projectid,
+            userid=userid,
+            topic=topic,
+            quiz_type=quiz_type,
+            num_questions=num_questions,
+            document_ids=document_ids,
+        )
+    )
+
     return {
         "success": True,
         "quiz": {
@@ -2287,6 +2300,3 @@ async def send_chat_message(chatid: str, body: SendChatMessageRequest, session: 
             {"msgid": assistant_msgid, "role": "assistant", "content": assistant_text, "created_at": now2},
         ]
     }
-
-
-
