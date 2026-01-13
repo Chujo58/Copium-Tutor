@@ -477,7 +477,7 @@ export default function CoursePage() {
                         {recentDecks.map((d) => (
                             <Link
                             key={d.deckid}
-                            to={`/project/${projectid}/decks/${d.deckid}`} // ✅ adjust if your deck route differs
+                            to={`/project/${projectid}/flashcards/${d.deckid}`} 
                             className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition"
                             onClick={() => console.log("[CoursePage] open deck", d.deckid)}
                             >
