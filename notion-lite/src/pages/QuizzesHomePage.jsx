@@ -25,7 +25,7 @@ const displayName = (filepath) => {
 };
 
 export default function QuizzesHomePage() {
-  const { projectId } = useParams();
+  const { projectid } = useParams();
   const navigate = useNavigate();
 
   const [projects, setProjects] = useState([]);
@@ -46,8 +46,8 @@ export default function QuizzesHomePage() {
   const [creating, setCreating] = useState(false);
 
   const selectionStorageKey = useMemo(
-    () => `quiz-file-selection-${projectId}`,
-    [projectId]
+    () => `quiz-file-selection-${projectid}`,
+    [projectid]
   );
 
   const fetchProjectsAndCourse = useCallback(async () => {
@@ -60,7 +60,7 @@ export default function QuizzesHomePage() {
       const data = await res.json();
       if (data.success) {
         setProjects(data.projects || []);
-        const found = (data.projects || []).find((p) => p.projectid === projectId);
+        const found = (data.projects || []).find((p) => p.projectid === projectid);
         setCourse(found ?? null);
       } else {
         setProjects([]);
@@ -73,12 +73,12 @@ export default function QuizzesHomePage() {
     } finally {
       setCourseLoading(false);
     }
-  }, [projectId]);
+  }, [projectid]);
 
   const fetchQuizzes = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/projects/${projectId}/quizzes`, {
+      const res = await fetch(`${API_URL}/projects/${projectid}/quizzes`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -89,12 +89,12 @@ export default function QuizzesHomePage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectid]);
 
   const fetchFiles = useCallback(async () => {
     setFilesLoading(true);
     try {
-      const res = await fetch(`${API_URL}/projects/${projectId}/files`, {
+      const res = await fetch(`${API_URL}/projects/${projectid}/files`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -105,7 +105,7 @@ export default function QuizzesHomePage() {
     } finally {
       setFilesLoading(false);
     }
-  }, [projectId]);
+  }, [projectid]);
 
   useEffect(() => {
     fetchProjectsAndCourse();
@@ -129,7 +129,7 @@ export default function QuizzesHomePage() {
   }, [files, selectionReady]);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectid) return;
     try {
       const stored = localStorage.getItem(selectionStorageKey);
       if (stored) {
@@ -143,7 +143,7 @@ export default function QuizzesHomePage() {
     } finally {
       setSelectionReady(true);
     }
-  }, [projectId, selectionStorageKey]);
+  }, [projectid, selectionStorageKey]);
 
   useEffect(() => {
     if (!selectionReady) return;
@@ -196,7 +196,7 @@ export default function QuizzesHomePage() {
     }
     setCreating(true);
     try {
-      const res = await fetch(`${API_URL}/projects/${projectId}/quizzes`, {
+      const res = await fetch(`${API_URL}/projects/${projectid}/quizzes`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -217,7 +217,7 @@ export default function QuizzesHomePage() {
       }
       setTopic("");
       await fetchQuizzes();
-      navigate(`/project/${projectId}/quizzes/${data.quizid}`);
+      navigate(`/project/${projectid}/quizzes/${data.quizid}`);
     } catch (e) {
       console.error(e);
       alert("Error creating quiz");
@@ -246,7 +246,7 @@ export default function QuizzesHomePage() {
       />
 
       <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-        <Link to={`/project/${projectId}`} className="underline">
+        <Link to={`/project/${projectid}`} className="underline">
           ← Back to Course
         </Link>
 
@@ -267,7 +267,7 @@ export default function QuizzesHomePage() {
               </div>
               <div className="opacity-70">{course.name}</div>
               <div className="mt-2 text-sm opacity-60">
-                projectId: {projectId}
+                projectid: {projectid}
               </div>
             </div>
 
@@ -397,7 +397,7 @@ export default function QuizzesHomePage() {
                       <div>
                         <Link
                           className="underline"
-                          to={`/project/${projectId}/quizzes/${q.quizid}`}
+                          to={`/project/${projectid}/quizzes/${q.quizid}`}
                         >
                           {q.title}
                         </Link>

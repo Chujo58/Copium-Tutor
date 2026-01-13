@@ -110,7 +110,6 @@ class SendChatMessageRequest(BaseModel):
 class RenameChatRequest(BaseModel):
     title: str
 
-
 async def get_or_create_backboard_memory(projectid: str):
     # check DB first
     cursor.execute(
@@ -2024,7 +2023,6 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         get_memory=get_or_create_backboard_memory,
     )
 
-
 ################################
 # CHAT SESSIONS (per course)
 ################################
@@ -2061,7 +2059,6 @@ async def list_chats(projectid: str, session: str = Cookie(None)):
 # Create new chat in a project
 @app.post("/projects/{projectid}/chats")
 async def create_chat(projectid: str, body: CreateChatRequest, session: str = Cookie(None)):
-    print("[create_chat] cookies.session =", session, "projectid =", projectid)
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
