@@ -45,10 +45,18 @@ export default function Popup({ title, children, onClose, wide = false }) {
     );
 }
 
-export function UploadPopup({ projects, onClose }) {
+export function UploadPopup({ projects, onClose, onUploaded }) {
     const [uploadedFiles, setUploadedFiles] = React.useState([]);
     const [fileIds, setFileIds] = React.useState([]);
 
+    const notifyUploaded = async () => {
+        if (!onUploaded) return;
+        try {
+            await onUploaded();
+        } catch (err) {
+            console.error("Failed to refresh file list", err);
+        }
+    };
     
 
     const handleDrop = (e) => {
@@ -138,6 +146,7 @@ export function UploadPopup({ projects, onClose }) {
                         }
                         // Store the uploaded file ID
                         setFileIds((prev) => [...prev, uploadedFileId]);
+                        notifyUploaded();
                     });
                 }
             });

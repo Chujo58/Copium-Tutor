@@ -53,7 +53,11 @@ export default function CourseDocumentUploader({ projectName, projectID, onUploa
         Upload Documents
       </button>
       {showPopup && (
-        <UploadPopup projects={[{ name: projectName, id: projectID }]} onClose={() => setShowPopup(false)} />
+        <UploadPopup
+          projects={[{ name: projectName, id: projectID }]}
+          onClose={() => setShowPopup(false)}
+          onUploaded={onUploaded}
+        />
       )}
       {/* <input
         type="file"

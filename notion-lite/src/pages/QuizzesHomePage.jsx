@@ -91,6 +91,9 @@ export default function QuizzesHomePage() {
 
   const [files, setFiles] = useState([]);
   const [filesLoading, setFilesLoading] = useState(true);
+  const [indexing, setIndexing] = useState(false);
+  const [indexResult, setIndexResult] = useState(null);
+  const [indexError, setIndexError] = useState("");
 
   const [topic, setTopic] = useState("");
   const [quizType, setQuizType] = useState("mcq");
@@ -163,6 +166,35 @@ export default function QuizzesHomePage() {
     }
   }, [projectid]);
 
+  const indexDocuments = useCallback(
+    async ({ force = false } = {}) => {
+      setIndexing(true);
+      setIndexError("");
+      setIndexResult(null);
+      try {
+        const url = force
+          ? `${API_URL}/projects/${projectid}/index?force=1`
+          : `${API_URL}/projects/${projectid}/index`;
+        const res = await fetch(url, {
+          method: "POST",
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (!data.success) {
+          setIndexError(data.message || "Indexing failed");
+          return;
+        }
+        setIndexResult(data);
+      } catch (e) {
+        console.error(e);
+        setIndexError("Indexing failed (network/server error)");
+      } finally {
+        setIndexing(false);
+      }
+    },
+    [projectid]
+  );
+
   useEffect(() => {
     fetchProjectsAndCourse();
     fetchQuizzes();
@@ -212,6 +244,16 @@ export default function QuizzesHomePage() {
       console.error("Failed to store quiz file selection", e);
     }
   }, [selectedFiles, selectionReady, selectionStorageKey]);
+
+  const uploadedCount =
+    (indexResult?.uploaded_documents || 0) +
+    (indexResult?.uploaded_split_documents || 0);
+
+  const alreadyIndexed =
+    !!indexResult &&
+    uploadedCount === 0 &&
+    typeof indexResult.skipped_files === "number" &&
+    indexResult.skipped_files > 0;
 
   const selectedFileIds = useMemo(
     () =>
@@ -458,11 +500,59 @@ export default function QuizzesHomePage() {
                         Selected {selectedFileIds.length} of {files.length} documents
                       </div>
 
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                        <SoftButton
+                          onClick={() => indexDocuments({ force: false })}
+                          disabled={indexing || files.length === 0 || alreadyIndexed}
+                          title={
+                            files.length === 0
+                              ? "Upload documents first"
+                              : alreadyIndexed
+                              ? "Already indexed"
+                              : "Index course documents"
+                          }
+                        >
+                          {alreadyIndexed
+                            ? "Indexed ✓"
+                            : indexing
+                            ? "Indexing…"
+                            : "Index documents"}
+                        </SoftButton>
+                        <SoftButton
+                          variant="danger"
+                          onClick={() => indexDocuments({ force: true })}
+                          disabled={indexing || files.length === 0}
+                          title="Re-upload/index documents (use only if you changed files but kept same names)"
+                        >
+                          Force re-index
+                        </SoftButton>
+                        {indexError ? (
+                          <span className="text-[#A86A65]">{indexError}</span>
+                        ) : null}
+                      </div>
+
+                      {indexResult ? (
+                        <div className="mt-2 text-xs text-[#754B4D]/70">
+                          Index result — uploaded: {indexResult.uploaded_documents || 0}, split parts:{" "}
+                          {indexResult.uploaded_split_documents || 0}
+                          {typeof indexResult.skipped_files === "number"
+                            ? `, skipped: ${indexResult.skipped_files}`
+                            : ""}
+                          {typeof indexResult.failed_files === "number"
+                            ? `, failed: ${indexResult.failed_files}`
+                            : ""}
+                        </div>
+                      ) : null}
+
                       {course ? (
                         <div className="mt-4">
                           <CourseDocumentUploader
                             projectName={course.name}
-                            onUploaded={fetchFiles}
+                            onUploaded={async () => {
+                              await fetchFiles();
+                              setIndexResult(null);
+                              setIndexError("");
+                            }}
                           />
                         </div>
                       ) : null}
