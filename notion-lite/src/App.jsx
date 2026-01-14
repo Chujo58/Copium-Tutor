@@ -18,6 +18,7 @@ import { LandingPage } from "./pages/LandingPage";
 import { UserDashboard } from "./pages/Dashboard";
 import CourseChatPage from "./pages/CourseChatPage";
 import FeaturesPage from "./pages/FeaturesPage";
+import BackboardThanksPage from "./pages/BackboardThanksPage";
 
 
 
@@ -31,6 +32,7 @@ export default function App() {
                 <Route path="/quizzes" element={<AllQuizzesPage />} />
                 <Route path="/chats" element={<AllChatsPage />} />
                 <Route path="/features" element={<FeaturesPage />} />
+                <Route path="/backboard" element={<BackboardThanksPage />} />
                 <Route path="/project/:projectid" element={<CoursePage />} />
                 <Route path="/project/:projectid/flashcards" element={<FlashcardsHomePage />} />
                 <Route path="/project/:projectid/flashcards/:deckId" element={<DeckPage />} />

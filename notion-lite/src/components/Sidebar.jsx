@@ -9,6 +9,7 @@ import {
     LayoutDashboard,
     Pin,
     PinOff,
+    HeartHandshake,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -41,6 +42,18 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
     const [pfp, setPfp] = useState("");
 
     const { user, login, logout } = useAuth();
+    const partnerLinks = [
+        {
+            href: "/backboard",
+            icon: HeartHandshake,
+            name: "Backboard.io",
+            color: "#754B4D",
+        },
+    ];
+    const mergedFeatureLinks = [
+        ...(Array.isArray(featureLinks) ? featureLinks : []),
+        ...partnerLinks,
+    ];
 
     async function fetchUserProfile() {
         try {
@@ -120,7 +133,7 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
                     name="Dashboard"
                     color="#754B4D"
                 />
-                {Array.isArray(featureLinks) && featureLinks.length > 0 ? (
+                {mergedFeatureLinks.length > 0 ? (
                     <>
                         <div className="flex items-center justify-between p-2 mx-2">
                             {!collapsed && (
@@ -130,7 +143,7 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
                                 </div>
                             )}
                         </div>
-                        {featureLinks.map((item) => (
+                        {mergedFeatureLinks.map((item) => (
                             <SidebarItem
                                 key={item.name || item.href}
                                 href={item.href}
