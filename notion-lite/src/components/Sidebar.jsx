@@ -10,6 +10,10 @@ import {
     Pin,
     PinOff,
     HeartHandshake,
+    Sparkles,
+    Layers,
+    FileText,
+    MessageSquare,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -42,6 +46,14 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
     const [pfp, setPfp] = useState("");
 
     const { user, login, logout } = useAuth();
+    const defaultFeatureLinks = [
+        {
+            href: "/features",
+            icon: Sparkles,
+            name: "Feature guide",
+            color: "#754B4D",
+        },
+    ];
     const partnerLinks = [
         {
             href: "/backboard",
@@ -50,10 +62,49 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
             color: "#754B4D",
         },
     ];
-    const mergedFeatureLinks = [
-        ...(Array.isArray(featureLinks) ? featureLinks : []),
-        ...partnerLinks,
+    const defaultToolLinks = [
+        {
+            href: "/flashcards",
+            icon: Layers,
+            name: "Flashcards",
+            color: "#754B4D",
+        },
+        {
+            href: "/quizzes",
+            icon: FileText,
+            name: "Quizzes",
+            color: "#754B4D",
+        },
+        {
+            href: "/chats",
+            icon: MessageSquare,
+            name: "Chatbot",
+            color: "#754B4D",
+        },
     ];
+
+    const mergeLinks = (...groups) => {
+        const seen = new Set();
+        const merged = [];
+        groups.flat().forEach((item) => {
+            if (!item) return;
+            const key = item.href || item.name;
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            merged.push(item);
+        });
+        return merged;
+    };
+
+    const mergedFeatureLinks = mergeLinks(
+        defaultFeatureLinks,
+        Array.isArray(featureLinks) ? featureLinks : [],
+        partnerLinks
+    );
+    const mergedToolLinks = mergeLinks(
+        defaultToolLinks,
+        Array.isArray(toolLinks) ? toolLinks : []
+    );
 
     async function fetchUserProfile() {
         try {
@@ -155,7 +206,7 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
                         ))}
                     </>
                 ) : null}
-                {Array.isArray(toolLinks) && toolLinks.length > 0 ? (
+                {mergedToolLinks.length > 0 ? (
                     <>
                         <div className="flex items-center justify-between p-2 mx-2">
                             {!collapsed && (
@@ -165,7 +216,7 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
                                 </div>
                             )}
                         </div>
-                        {toolLinks.map((item) => (
+                        {mergedToolLinks.map((item) => (
                             <SidebarItem
                                 key={item.name || item.href}
                                 href={item.href}
