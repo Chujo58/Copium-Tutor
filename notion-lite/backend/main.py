@@ -727,6 +727,37 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
     ]
     return {"success": True, "decks": decks}
 
+# List all decks for user
+@app.get("/decks")
+async def list_all_decks(session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    userid = session
+    cursor.execute(
+        """
+        SELECT d.deckid, d.projectid, d.name, d.prompt, d.createddate, p.name
+        FROM decks d
+        JOIN projects p ON p.projectid = d.projectid
+        WHERE d.userid=?
+        ORDER BY d.createddate DESC
+        """,
+        (userid,),
+    )
+    rows = cursor.fetchall()
+    decks = [
+        {
+            "deckid": r[0],
+            "projectid": r[1],
+            "name": r[2],
+            "prompt": r[3],
+            "createddate": r[4],
+            "project_name": r[5],
+        }
+        for r in rows
+    ]
+    return {"success": True, "decks": decks}
+
 
 
 # Create a new deck in a project (QUERY ONLY — assumes documents already indexed)
@@ -1629,6 +1660,41 @@ async def list_quizzes(projectid: str, session: str = Cookie(None)):
 
     return {"success": True, "quizzes": quizzes}
 
+@app.get("/quizzes")
+async def list_all_quizzes(session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute(
+        """
+        SELECT q.quizid, q.projectid, q.title, q.topic, q.quiz_type, q.num_questions,
+               q.status, q.generation_error, q.createddate, p.name
+        FROM quizzes q
+        JOIN projects p ON p.projectid = q.projectid
+        WHERE q.userid=?
+        ORDER BY q.createddate DESC
+        """,
+        (userid,),
+    )
+    rows = cursor.fetchall()
+    quizzes = [
+        {
+            "quizid": r[0],
+            "projectid": r[1],
+            "title": r[2],
+            "topic": r[3],
+            "quiz_type": r[4],
+            "num_questions": r[5],
+            "status": r[6],
+            "generation_error": r[7],
+            "createddate": r[8],
+            "project_name": r[9],
+        }
+        for r in rows
+    ]
+    return {"success": True, "quizzes": quizzes}
+
 
 @app.post("/decks/{deckid}/cards")
 async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(None)):
@@ -2087,6 +2153,34 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
 ################################
 # CHAT SESSIONS (per course)
 ################################
+
+# List all chats for user
+@app.get("/chats")
+async def list_all_chats(session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute("""
+        SELECT c.chatid, c.projectid, c.title, c.llm_provider, c.model_name, c.created_at, c.updated_at, p.name
+        FROM chat_sessions c
+        JOIN projects p ON p.projectid = c.projectid
+        WHERE c.userid=?
+        ORDER BY c.updated_at DESC
+    """, (userid,))
+    rows = cursor.fetchall()
+    chats = [{
+        "chatid": r[0],
+        "projectid": r[1],
+        "title": r[2],
+        "llm_provider": r[3],
+        "model_name": r[4],
+        "created_at": r[5],
+        "updated_at": r[6],
+        "project_name": r[7],
+    } for r in rows]
+
+    return {"success": True, "chats": chats}
 
 # List chats in a project
 @app.get("/projects/{projectid}/chats")

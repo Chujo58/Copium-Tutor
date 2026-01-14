@@ -11,6 +11,9 @@ import FlashcardsHomePage from "./pages/FlashcardsHomePage";
 import DeckPage from "./pages/DeckPage";
 import QuizzesHomePage from "./pages/QuizzesHomePage";
 import QuizPage from "./pages/QuizPage";
+import AllFlashcardsPage from "./pages/AllFlashcardsPage";
+import AllQuizzesPage from "./pages/AllQuizzesPage";
+import AllChatsPage from "./pages/AllChatsPage";
 import { LandingPage } from "./pages/LandingPage";
 import { UserDashboard } from "./pages/Dashboard";
 import CourseChatPage from "./pages/CourseChatPage";
@@ -24,6 +27,9 @@ export default function App() {
             <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/dashboard" element={<UserDashboard />} />
+                <Route path="/flashcards" element={<AllFlashcardsPage />} />
+                <Route path="/quizzes" element={<AllQuizzesPage />} />
+                <Route path="/chats" element={<AllChatsPage />} />
                 <Route path="/features" element={<FeaturesPage />} />
                 <Route path="/project/:projectid" element={<CoursePage />} />
                 <Route path="/project/:projectid/flashcards" element={<FlashcardsHomePage />} />

@@ -32,7 +32,7 @@ export function SidebarItem({ href, icon: Icon, name, color, collapsed }) {
     );
 }
 
-export default function Sidebar({ projectsList, featureLinks }) {
+export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
     const [collapsed, setCollapsed] = useState(false);
     const [pinned, setPinned] = useState(true);
     const [openProfilePopout, setOpenProfilePopout] = useState(false);
@@ -131,6 +131,28 @@ export default function Sidebar({ projectsList, featureLinks }) {
                             )}
                         </div>
                         {featureLinks.map((item) => (
+                            <SidebarItem
+                                key={item.name || item.href}
+                                href={item.href}
+                                icon={item.icon}
+                                name={item.name}
+                                collapsed={collapsed}
+                                color={item.color}
+                            />
+                        ))}
+                    </>
+                ) : null}
+                {Array.isArray(toolLinks) && toolLinks.length > 0 ? (
+                    <>
+                        <div className="flex items-center justify-between p-2 mx-2">
+                            {!collapsed && (
+                                <div className="flex flex-col w-full">
+                                    <h2 className="main-header font-card">Study Tools</h2>
+                                    <CopperDivider />
+                                </div>
+                            )}
+                        </div>
+                        {toolLinks.map((item) => (
                             <SidebarItem
                                 key={item.name || item.href}
                                 href={item.href}
