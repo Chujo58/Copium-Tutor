@@ -64,14 +64,14 @@ cd Copium-Tutor
 
 ### Run the frontend
 ```sh
-cd notion-lite/
+cd copium-tutor/
 npm install
 npm run dev
 ```
 
 ### Run the backend
 ```sh
-cd notion-lite/backend
+cd copium-tutor/backend
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
