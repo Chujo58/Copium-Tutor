@@ -576,7 +576,7 @@ export default function QuizzesHomePage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <CustomButton onClick={createQuiz} disabled={creating} label="Create quiz" icon={PencilRuler} title="Create quiz" style="primary-btn" />
+                      <CustomButton onClick={createQuiz} disabled={creating} label="Create quiz" icon={PencilRuler} title="Create quiz" style="primary-btn mr-3" />
                       <CustomButton onClick={() => {
                         setTopic("");
                         setQuizType("mcq");

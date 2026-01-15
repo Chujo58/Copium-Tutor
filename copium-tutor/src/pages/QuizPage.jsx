@@ -287,7 +287,7 @@ export default function QuizPage() {
               <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <div className="text-3xl font-semibold text-dark">
+                    <div className="text-3xl font-semibold text-dark font-card">
                       {quiz.title}
                     </div>
                     <div className="mt-1 text-dark/70">{quiz.topic}</div>
@@ -324,7 +324,7 @@ export default function QuizPage() {
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-dark/60">
+                        <div className="text-xs uppercase tracking-wide text-dark/60 font-card">
                           Progress
                         </div>
                         <div className="text-base font-semibold text-dark">
@@ -384,7 +384,7 @@ export default function QuizPage() {
                           className="rounded-3xl border border-white/40 bg-white/70 backdrop-blur p-6 shadow-sm"
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div className="text-lg font-semibold text-dark">
+                            <div className="text-lg font-semibold text-dark font-card">
                               {idx + 1}. {q.question}
                             </div>
                             {feedback ? (

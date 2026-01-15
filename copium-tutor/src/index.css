@@ -11,7 +11,7 @@
 }
 
 .secondary-btn-big {
-    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-3 text-sm text-dark border border-black/10 hover:bg-dark/25 font-card w-full justify-center;   
+    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-3 text-sm text-dark border border-black/10 hover:bg-dark/25 font-card justify-center;   
 }
 
 .secondary-btn {

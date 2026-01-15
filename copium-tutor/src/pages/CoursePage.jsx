@@ -507,7 +507,7 @@ export default function CoursePage() {
                             to={`/project/${projectid}/quizzes/${q.quizid}`}
                             className="rounded-2xl border border-black/10 bg-white/40 p-4 hover:bg-white/55 transition"
                           >
-                            <div className="font-semibold text-dark truncate">{q.title}</div>
+                            <div className="font-semibold text-dark truncate font-card">{q.title}</div>
                             <div className="text-xs opacity-60 mt-1 truncate">
                               {QUIZ_TYPE_LABELS[q.quiz_type] || q.quiz_type}{" "}
                               {q.num_questions ? `• ${q.num_questions} questions` : ""}{" "}
