@@ -22,7 +22,7 @@ function Badge({ label, title, tone = "neutral" }) {
     tone === "strong"
       ? "border-dark text-white bg-dark/90"
       : tone === "warm"
-      ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
+      ? "border-accent text-dark bg-accent/20"
       : tone === "danger"
       ? "border-primary text-dark bg-primary/10"
       : "border-secondary text-dark bg-white/60";
@@ -423,7 +423,7 @@ export default function QuizPage() {
                             </div>
                           ) : (
                             <textarea
-                              className="mt-4 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                              className="mt-4 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                               rows={quiz.quiz_type === "long" ? 5 : 3}
                               placeholder="Write your answer here"
                               value={answers[q.id] || ""}

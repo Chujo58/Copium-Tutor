@@ -69,7 +69,7 @@ function MarkdownNice({ content }) {
 
 function MessageBubble({ role, content, created_at }) {
   const isUser = role === "user";
-  const shell = isUser ? "bg-[#D8A694]/25 border-white/40" : "bg-white/70 border-white/40";
+  const shell = isUser ? "bg-accent/25 border-white/40" : "bg-white/70 border-white/40";
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -372,7 +372,7 @@ export default function CourseChatPage() {
               <select
                 value={projectid}
                 onChange={(e) => handleSwitchCourse(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                className="mt-1 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-accent/50"
               >
                 {allCourses.map((c) => (
                   <option key={c.projectid} value={c.projectid}>
@@ -392,7 +392,7 @@ export default function CourseChatPage() {
                   setLlmProvider(p);
                   setModelName(m);
                 }}
-                className="mt-1 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                className="mt-1 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-accent/50"
               >
                 {MODEL_OPTIONS.map((opt) => (
                   <option

@@ -23,7 +23,7 @@ function Badge({ label, title, tone = "neutral" }) {
     tone === "strong"
       ? "border-dark text-white bg-dark/90"
       : tone === "warm"
-      ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
+      ? "border-accent text-dark bg-accent/20"
       : tone === "danger"
       ? "border-primary text-dark bg-primary/10"
       : "border-secondary text-dark bg-white/60";
@@ -430,7 +430,7 @@ export default function QuizzesHomePage() {
 
                   <div className="mt-4 grid gap-4">
                     <input
-                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                       placeholder="Quiz topic (e.g., Module 2 review)"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
@@ -441,7 +441,7 @@ export default function QuizzesHomePage() {
                       <label className="flex flex-col text-sm gap-1 text-dark/80">
                         Type
                         <select
-                          className="rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                          className="rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                           value={quizType}
                           onChange={(e) => setQuizType(e.target.value)}
                           disabled={creating}
@@ -458,7 +458,7 @@ export default function QuizzesHomePage() {
                         Number of questions
                         <input
                           type="number"
-                          className="w-40 rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                          className="w-40 rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                           min={1}
                           max={50}
                           value={numQuestions}
@@ -630,7 +630,7 @@ export default function QuizzesHomePage() {
 
                   <div className="mt-4 flex items-center gap-2">
                     <input
-                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                       placeholder="Search quizzes (title, topic, id)…"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
