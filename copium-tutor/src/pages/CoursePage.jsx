@@ -386,7 +386,7 @@ export default function CoursePage() {
 
                       <button
                         type="button"
-                        className="shrink-0 rounded-xl border border-black/10 bg-white/50 p-2 text-[#754B4D] hover:bg-white transition
+                        className="shrink-0 rounded-xl border border-black/10 bg-white/50 p-2 text-dark hover:bg-white transition
                                   opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                         onClick={(e) => {
                           e.preventDefault();

@@ -22,10 +22,10 @@ function Badge({ label, title, tone = "neutral" }) {
     tone === "strong"
       ? "border-[#754B4D] text-white bg-[#754B4D]/90"
       : tone === "warm"
-      ? "border-[#D8A694] text-[#754B4D] bg-[#D8A694]/20"
+      ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "danger"
-      ? "border-[#A86A65] text-[#754B4D] bg-[#A86A65]/10"
-      : "border-[#AB8882] text-[#754B4D] bg-white/60";
+      ? "border-[#A86A65] text-dark bg-[#A86A65]/10"
+      : "border-[#AB8882] text-dark bg-white/60";
 
   return (
     <span
@@ -51,8 +51,8 @@ function SoftButton({
     variant === "primary"
       ? "border-[#754B4D]/30 bg-[#754B4D] text-white hover:bg-[#754B4D]/90"
       : variant === "danger"
-      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-[#754B4D] hover:bg-[#A86A65]/20"
-      : "border-[#AB8882]/50 bg-white/70 text-[#754B4D] hover:bg-white";
+      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-dark hover:bg-[#A86A65]/20"
+      : "border-[#AB8882]/50 bg-white/70 text-dark hover:bg-white";
 
   return (
     <button className={`${base} ${cls}`} onClick={onClick} disabled={disabled} title={title} type={type}>
@@ -251,10 +251,10 @@ export default function QuizPage() {
                 alt="Generating quiz"
                 className="mx-auto h-44 w-44 object-contain"
               />
-              <div className="mt-3 text-[#754B4D] font-semibold">
+              <div className="mt-3 text-dark font-semibold">
                 Generating quiz…
               </div>
-              <div className="text-sm text-[#754B4D]/70">
+              <div className="text-sm text-dark/70">
                 Hang tight, this can take a minute.
               </div>
             </div>
@@ -263,34 +263,34 @@ export default function QuizPage() {
         <div className="p-10">
           <Link
             to={`/project/${projectid}/quizzes`}
-            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+            className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
             <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
             Back to Quizzes
           </Link>
 
           {courseLoading ? (
-            <div className="mt-8 text-[#754B4D]/70">Loading…</div>
+            <div className="mt-8 text-dark/70">Loading…</div>
           ) : !course ? (
             <div className="mt-8">
-              <div className="text-2xl font-semibold text-[#754B4D]">Course not found</div>
-              <div className="text-[#754B4D]/70">
+              <div className="text-2xl font-semibold text-dark">Course not found</div>
+              <div className="text-dark/70">
                 (Either it doesn’t exist, or you’re not logged in.)
               </div>
             </div>
           ) : loading ? (
-            <div className="mt-8 text-[#754B4D]/70">Loading quiz…</div>
+            <div className="mt-8 text-dark/70">Loading quiz…</div>
           ) : !quiz ? (
-            <div className="mt-8 text-[#754B4D]/70">Quiz not found.</div>
+            <div className="mt-8 text-dark/70">Quiz not found.</div>
           ) : (
             <>
               <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <div className="text-3xl font-semibold text-[#754B4D]">
+                    <div className="text-3xl font-semibold text-dark">
                       {quiz.title}
                     </div>
-                    <div className="mt-1 text-[#754B4D]/70">{quiz.topic}</div>
+                    <div className="mt-1 text-dark/70">{quiz.topic}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Badge label={course.name} title="Course" />
                       <Badge
@@ -312,22 +312,22 @@ export default function QuizPage() {
                     </div>
                   </div>
 
-                  <div className="text-right text-sm text-[#754B4D]/70">
+                  <div className="text-right text-sm text-dark/70">
                     {result ? (
                       <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-[#754B4D]/60">
+                        <div className="text-xs uppercase tracking-wide text-dark/60">
                           Latest score
                         </div>
-                        <div className="text-2xl font-semibold text-[#754B4D]">
+                        <div className="text-2xl font-semibold text-dark">
                           {result.score} / {total}
                         </div>
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3">
-                        <div className="text-xs uppercase tracking-wide text-[#754B4D]/60">
+                        <div className="text-xs uppercase tracking-wide text-dark/60">
                           Progress
                         </div>
-                        <div className="text-base font-semibold text-[#754B4D]">
+                        <div className="text-base font-semibold text-dark">
                           {answeredCount} / {total} answered
                         </div>
                       </div>
@@ -343,7 +343,7 @@ export default function QuizPage() {
                       Generation failed: {quiz.generation_error || "Unknown error"}
                     </div>
                   ) : (
-                    <div className="text-[#754B4D]/70">
+                    <div className="text-dark/70">
                       {quiz?.generation_error
                         ? quiz.generation_error
                         : "Generating quiz questions… This can take a few minutes."}
@@ -384,7 +384,7 @@ export default function QuizPage() {
                           className="rounded-3xl border border-white/40 bg-white/70 backdrop-blur p-6 shadow-sm"
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div className="text-lg font-semibold text-[#754B4D]">
+                            <div className="text-lg font-semibold text-dark">
                               {idx + 1}. {q.question}
                             </div>
                             {feedback ? (
@@ -416,7 +416,7 @@ export default function QuizPage() {
                                       onChange={() => updateAnswer(q.id, cidx)}
                                       disabled={submitting || !!result}
                                     />
-                                    <span className="text-[#754B4D]">{choice}</span>
+                                    <span className="text-dark">{choice}</span>
                                   </label>
                                 );
                               })}
@@ -433,24 +433,24 @@ export default function QuizPage() {
                           )}
 
                           {feedback ? (
-                            <div className="mt-4 rounded-2xl border border-white/60 bg-white/70 p-4 text-sm text-[#754B4D]">
+                            <div className="mt-4 rounded-2xl border border-white/60 bg-white/70 p-4 text-sm text-dark">
                               <div className="font-semibold">
                                 {feedback.correct ? "Correct" : "Incorrect"}
                               </div>
-                              <div className="mt-1 text-[#754B4D]/80">
+                              <div className="mt-1 text-dark/80">
                                 Expected:{" "}
                                 {isMcq
                                   ? choiceLabel(q, feedback.expected)
                                   : feedback.expected || "—"}
                               </div>
-                              <div className="text-[#754B4D]/80">
+                              <div className="text-dark/80">
                                 Your answer:{" "}
                                 {isMcq
                                   ? choiceLabel(q, feedback.response)
                                   : feedback.response || "—"}
                               </div>
                               {feedback.explanation ? (
-                                <div className="mt-2 text-[#754B4D]/70">
+                                <div className="mt-2 text-dark/70">
                                   Feedback: {feedback.explanation}
                                 </div>
                               ) : null}
@@ -472,7 +472,7 @@ export default function QuizPage() {
 
                     <Link
                       to={`/project/${projectid}/quizzes`}
-                      className="text-[#754B4D] underline hover:opacity-80"
+                      className="text-dark underline hover:opacity-80"
                     >
                       Back to quizzes
                     </Link>

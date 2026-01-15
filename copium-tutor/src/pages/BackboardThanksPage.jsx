@@ -90,7 +90,7 @@ export default function BackboardThanksPage() {
                 <div className="p-10">
                     <Link
                         to="/dashboard"
-                        className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+                        className="inline-flex items-center gap-2 text-dark hover:opacity-80"
                     >
                         <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">
                             ←
@@ -99,7 +99,7 @@ export default function BackboardThanksPage() {
                     </Link>
 
                     <div className="mt-6 flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/60 text-[#754B4D]">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/60 text-dark">
                             <HeartHandshake size={22} />
                         </div>
                         <div>
@@ -141,10 +141,10 @@ export default function BackboardThanksPage() {
                                 </div>
                             </div>
                             <div className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white/70 p-4">
-                                <div className="text-sm font-semibold text-[#754B4D]">
+                                <div className="text-sm font-semibold text-dark">
                                     Why it powers Copium Tutor
                                 </div>
-                                <ul className="space-y-2 text-sm text-[#754B4D]/80">
+                                <ul className="space-y-2 text-sm text-dark/80">
                                     <li>Indexes once, reuses everywhere for consistent tool.</li>
                                     <li>Keeps document context clear so answers stay grounded.</li>
                                     <li>Reduces latency when generating study content.</li>

@@ -215,15 +215,15 @@ export function UserDashboard() {
                         </div>
 
                         <div className="rounded-2xl border border-black/10 bg-white/70 p-4 hover:-translate-y-1 hover:shadow-md transition">
-                            <div className="text-sm font-card font-semibold text-[#754B4D]">
+                            <div className="text-sm font-card font-semibold text-dark">
                                 Why this matters
                             </div>
-                            <ul className="mt-3 space-y-2 text-sm text-[#754B4D]/80">
+                            <ul className="mt-3 space-y-2 text-sm text-dark/80">
                                 <li>Practice beats cramming. Quizzes show exactly what you miss.</li>
                                 <li>Flashcards keep facts fresh without rereading everything.</li>
                                 <li>Chat explains concepts in your own course context.</li>
                             </ul>
-                            <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#754B4D]/70">
+                            <div className="mt-4 flex flex-wrap gap-2 text-xs text-dark/70">
                                 <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1">
                                     Upload once, study everywhere
                                 </span>

@@ -36,9 +36,9 @@ function MarkdownNice({ content }) {
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
-        h1: ({ children }) => <h1 className="text-lg font-semibold text-[#754B4D] mb-2">{children}</h1>,
-        h2: ({ children }) => <h2 className="text-base font-semibold text-[#754B4D] mt-4 mb-2">{children}</h2>,
-        h3: ({ children }) => <h3 className="text-sm font-semibold text-[#754B4D] mt-3 mb-1">{children}</h3>,
+        h1: ({ children }) => <h1 className="text-lg font-semibold text-dark mb-2">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base font-semibold text-dark mt-4 mb-2">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm font-semibold text-dark mt-3 mb-1">{children}</h3>,
         p: ({ children }) => <p className="text-sm text-[#2b1b1c] leading-relaxed mb-2">{children}</p>,
         ul: ({ children }) => <ul className="list-disc pl-5 text-sm text-[#2b1b1c] space-y-1 mb-2">{children}</ul>,
         ol: ({ children }) => <ol className="list-decimal pl-5 text-sm text-[#2b1b1c] space-y-1 mb-2">{children}</ol>,
@@ -75,8 +75,8 @@ function MessageBubble({ role, content, created_at }) {
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div className={["max-w-[86%] rounded-3xl border backdrop-blur shadow-sm px-5 py-4", shell].join(" ")}>
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs text-[#754B4D]/60">{isUser ? "You" : "Copium Tutor"}</div>
-          {created_at ? <div className="text-[11px] text-[#754B4D]/45">{fmtTime(created_at)}</div> : null}
+          <div className="text-xs text-dark/60">{isUser ? "You" : "Copium Tutor"}</div>
+          {created_at ? <div className="text-[11px] text-dark/45">{fmtTime(created_at)}</div> : null}
         </div>
 
         <div className="mt-2">
@@ -356,10 +356,10 @@ export default function CourseChatPage() {
         <aside className="w-[320px] shrink-0 border-r border-white/40 bg-white/35 backdrop-blur">
           <div className="px-4 py-5">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-[#754B4D]">Chats</div>
+              <div className="text-sm font-semibold text-dark">Chats</div>
               <button
                 onClick={handleNewChat}
-                className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-1.5 text-xs text-[#754B4D] hover:bg-white transition"
+                className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-1.5 text-xs text-dark hover:bg-white transition"
                 type="button"
               >
                 + New
@@ -368,7 +368,7 @@ export default function CourseChatPage() {
 
             {/* Course switch */}
             <div className="mt-4">
-              <label className="text-xs text-[#754B4D]/60">Course</label>
+              <label className="text-xs text-dark/60">Course</label>
               <select
                 value={projectid}
                 onChange={(e) => handleSwitchCourse(e.target.value)}
@@ -384,7 +384,7 @@ export default function CourseChatPage() {
 
             {/* Model */}
             <div className="mt-4">
-              <label className="text-xs text-[#754B4D]/60">Model</label>
+              <label className="text-xs text-dark/60">Model</label>
               <select
                 value={selectedKey}
                 onChange={(e) => {
@@ -403,7 +403,7 @@ export default function CourseChatPage() {
                   </option>
                 ))}
               </select>
-              <div className="mt-2 text-[11px] text-[#754B4D]/60">
+              <div className="mt-2 text-[11px] text-dark/60">
                 Model is saved per chat when you send a message.
               </div>
             </div>
@@ -427,14 +427,14 @@ export default function CourseChatPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="truncate font-semibold text-[#754B4D]">{c.title}</div>
-                      <div className="truncate text-xs text-[#754B4D]/60">{c.model_name}</div>
+                      <div className="truncate font-semibold text-dark">{c.title}</div>
+                      <div className="truncate text-xs text-dark/60">{c.model_name}</div>
                     </div>
 
 
                     <button
                       type="button"
-                      className="shrink-0 rounded-xl border border-[#AB8882]/40 bg-white/60 p-2 text-[#754B4D] hover:bg-white transition
+                      className="shrink-0 rounded-xl border border-[#AB8882]/40 bg-white/60 p-2 text-dark hover:bg-white transition
                                 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       onClick={(e) => {
                         e.preventDefault();
@@ -460,26 +460,26 @@ export default function CourseChatPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-2xl border border-[#E0CBB9] bg-white/70 px-3 py-1.5 text-sm font-semibold text-[#754B4D]">
+                    <div className="rounded-2xl border border-[#E0CBB9] bg-white/70 px-3 py-1.5 text-sm font-semibold text-dark">
                       {courseName || "Course"}
                     </div>
-                    <div className="truncate text-2xl font-semibold text-[#754B4D]">
+                    <div className="truncate text-2xl font-semibold text-dark">
                       {chat?.title || "Chat"}
                     </div>
                   </div>
 
-                  <div className="mt-2 text-sm text-[#754B4D]/70">
+                  <div className="mt-2 text-sm text-dark/70">
                     Course memory is shared across all chats in this course.
                   </div>
 
-                  <div className="mt-2 text-xs text-[#754B4D]/55">
+                  <div className="mt-2 text-xs text-dark/55">
                     debug: projectid={projectid} · chatid={chatid}
                   </div>
                 </div>
 
                 <Link
                   to={`/project/${projectid}`}
-                  className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-2 text-sm text-[#754B4D] hover:bg-white transition"
+                  className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-2 text-sm text-dark hover:bg-white transition"
                 >
                   Back to course
                 </Link>
@@ -494,8 +494,8 @@ export default function CourseChatPage() {
                 <div className="mx-auto max-w-3xl flex flex-col gap-4">
                   {messages.length === 0 ? (
                     <div className="rounded-3xl border border-white/40 bg-white/70 shadow-sm p-6">
-                      <div className="text-sm font-semibold text-[#754B4D]">No messages yet</div>
-                      <div className="mt-2 text-sm text-[#754B4D]/70">
+                      <div className="text-sm font-semibold text-dark">No messages yet</div>
+                      <div className="mt-2 text-sm text-dark/70">
                         Ask about assignments, concepts, practice problems, or request step-by-step reasoning.
                       </div>
                     </div>
@@ -518,7 +518,7 @@ export default function CourseChatPage() {
                     onSubmit={(text) => handleAsk(text)}
                     className="bg-white/90 border border-[#E0CBB9] shadow-sm"
                   />
-                  <div className="mt-2 text-[11px] text-[#754B4D]/60">
+                  <div className="mt-2 text-[11px] text-dark/60">
                     Tip: paste the problem statement + what you tried + where you’re stuck.
                   </div>
                 </div>

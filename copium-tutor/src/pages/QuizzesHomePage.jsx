@@ -23,10 +23,10 @@ function Badge({ label, title, tone = "neutral" }) {
     tone === "strong"
       ? "border-[#754B4D] text-white bg-[#754B4D]/90"
       : tone === "warm"
-      ? "border-[#D8A694] text-[#754B4D] bg-[#D8A694]/20"
+      ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "danger"
-      ? "border-[#A86A65] text-[#754B4D] bg-[#A86A65]/10"
-      : "border-[#AB8882] text-[#754B4D] bg-white/60";
+      ? "border-[#A86A65] text-dark bg-[#A86A65]/10"
+      : "border-[#AB8882] text-dark bg-white/60";
 
   return (
     <span
@@ -52,8 +52,8 @@ function SoftButton({
     variant === "primary"
       ? "border-[#754B4D]/30 bg-[#754B4D] text-white hover:bg-[#754B4D]/90"
       : variant === "danger"
-      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-[#754B4D] hover:bg-[#A86A65]/20"
-      : "border-[#AB8882]/50 bg-white/70 text-[#754B4D] hover:bg-white";
+      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-dark hover:bg-[#A86A65]/20"
+      : "border-[#AB8882]/50 bg-white/70 text-dark hover:bg-white";
 
   return (
     <button className={`${base} ${cls}`} onClick={onClick} disabled={disabled} title={title} type={type}>
@@ -367,10 +367,10 @@ export default function QuizzesHomePage() {
                 alt="Generating quiz"
                 className="mx-auto h-44 w-44 object-contain"
               />
-              <div className="mt-3 text-[#754B4D] font-semibold">
+              <div className="mt-3 text-dark font-semibold">
                 Creating your quiz…
               </div>
-              <div className="text-sm text-[#754B4D]/70">
+              <div className="text-sm text-dark/70">
                 Hang tight, this can take a minute.
               </div>
             </div>
@@ -379,18 +379,18 @@ export default function QuizzesHomePage() {
         <div className="p-10">
           <Link
             to={`/project/${projectid}`}
-            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+            className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
             <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
             Back to Course
           </Link>
 
           {courseLoading ? (
-            <div className="mt-8 text-[#754B4D]/70">Loading…</div>
+            <div className="mt-8 text-dark/70">Loading…</div>
           ) : !course ? (
             <div className="mt-8">
-              <div className="text-2xl font-semibold text-[#754B4D]">Course not found</div>
-              <div className="text-[#754B4D]/70">
+              <div className="text-2xl font-semibold text-dark">Course not found</div>
+              <div className="text-dark/70">
                 (Either it doesn’t exist, or you’re not logged in.)
               </div>
             </div>
@@ -399,8 +399,8 @@ export default function QuizzesHomePage() {
               <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <div className="text-3xl font-semibold text-[#754B4D]">Quizzes</div>
-                    <div className="mt-1 text-[#754B4D]/70">{course.name}</div>
+                    <div className="text-3xl font-semibold text-dark">Quizzes</div>
+                    <div className="mt-1 text-dark/70">{course.name}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Badge label={projectid} title="Project id" />
                       <Badge
@@ -415,7 +415,7 @@ export default function QuizzesHomePage() {
                     </div>
                   </div>
 
-                  <div className="text-right text-sm text-[#754B4D]/60">
+                  <div className="text-right text-sm text-dark/60">
                     Generate practice quizzes from your course materials.
                   </div>
                 </div>
@@ -424,7 +424,7 @@ export default function QuizzesHomePage() {
               <div className="mt-10 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-semibold text-[#754B4D]">Create a quiz</h2>
+                    <h2 className="text-xl font-semibold text-dark">Create a quiz</h2>
                     {creating ? <Badge label="Creating…" title="Creating state" /> : null}
                   </div>
 
@@ -438,7 +438,7 @@ export default function QuizzesHomePage() {
                     />
 
                     <div className="flex flex-wrap gap-3">
-                      <label className="flex flex-col text-sm gap-1 text-[#754B4D]/80">
+                      <label className="flex flex-col text-sm gap-1 text-dark/80">
                         Type
                         <select
                           className="rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
@@ -454,7 +454,7 @@ export default function QuizzesHomePage() {
                         </select>
                       </label>
 
-                      <label className="flex flex-col text-sm gap-1 text-[#754B4D]/80">
+                      <label className="flex flex-col text-sm gap-1 text-dark/80">
                         Number of questions
                         <input
                           type="number"
@@ -470,7 +470,7 @@ export default function QuizzesHomePage() {
 
                     <div className="rounded-2xl border border-white/50 bg-white/60 backdrop-blur p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="font-semibold text-[#754B4D]">Use these documents</div>
+                        <div className="font-semibold text-dark">Use these documents</div>
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <SoftButton
                             onClick={selectAll}
@@ -496,7 +496,7 @@ export default function QuizzesHomePage() {
                         </div>
                       </div>
 
-                      <div className="mt-3 text-sm text-[#754B4D]/70">
+                      <div className="mt-3 text-sm text-dark/70">
                         Selected {selectedFileIds.length} of {files.length} documents
                       </div>
 
@@ -532,7 +532,7 @@ export default function QuizzesHomePage() {
                       </div>
 
                       {indexResult ? (
-                        <div className="mt-2 text-xs text-[#754B4D]/70">
+                        <div className="mt-2 text-xs text-dark/70">
                           Index result — uploaded: {indexResult.uploaded_documents || 0}, split parts:{" "}
                           {indexResult.uploaded_split_documents || 0}
                           {typeof indexResult.skipped_files === "number"
@@ -563,7 +563,7 @@ export default function QuizzesHomePage() {
                           <SkeletonRow />
                         </div>
                       ) : files.length === 0 ? (
-                        <div className="mt-3 text-[#754B4D]/70">No documents yet.</div>
+                        <div className="mt-3 text-dark/70">No documents yet.</div>
                       ) : (
                         <ul className="mt-4 space-y-2">
                           {files.map((f) => (
@@ -579,7 +579,7 @@ export default function QuizzesHomePage() {
                                   onChange={() => toggleFile(f.fileid)}
                                   disabled={creating}
                                 />
-                                <span className="text-[#754B4D]">{displayName(f.filepath)}</span>
+                                <span className="text-dark">{displayName(f.filepath)}</span>
                               </label>
                               <Badge
                                 label={f.file_type || "file"}
@@ -614,7 +614,7 @@ export default function QuizzesHomePage() {
                       </SoftButton>
                     </div>
 
-                    <div className="text-sm text-[#754B4D]/60">
+                    <div className="text-sm text-dark/60">
                       Tip: Use a focused topic and fewer questions for quicker generation.
                     </div>
                   </div>
@@ -622,7 +622,7 @@ export default function QuizzesHomePage() {
 
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-semibold text-[#754B4D]">Your quizzes</h2>
+                    <h2 className="text-xl font-semibold text-dark">Your quizzes</h2>
                     <SoftButton onClick={fetchQuizzes} disabled={loading} title="Refresh quizzes">
                       Refresh
                     </SoftButton>
@@ -641,7 +641,7 @@ export default function QuizzesHomePage() {
                     </SoftButton>
                   </div>
 
-                  <div className="mt-2 text-sm text-[#754B4D]/60">
+                  <div className="mt-2 text-sm text-dark/60">
                     Showing <span className="font-semibold">{filteredQuizzes.length}</span> of{" "}
                     <span className="font-semibold">{quizzes.length}</span>
                     {query.trim() ? (
@@ -659,7 +659,7 @@ export default function QuizzesHomePage() {
                       <SkeletonRow />
                     </div>
                   ) : filteredQuizzes.length === 0 ? (
-                    <div className="mt-4 text-[#754B4D]/70">
+                    <div className="mt-4 text-dark/70">
                       {quizzes.length === 0
                         ? "No quizzes yet. Create one on the left ✨"
                         : "No quizzes match your search."}
@@ -674,12 +674,12 @@ export default function QuizzesHomePage() {
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <Link
-                                className="text-lg font-semibold text-[#754B4D] hover:opacity-80 truncate block"
+                                className="text-lg font-semibold text-dark hover:opacity-80 truncate block"
                                 to={`/project/${projectid}/quizzes/${q.quizid}`}
                               >
                                 {q.title}
                               </Link>
-                              <div className="mt-1 text-sm text-[#754B4D]/70 line-clamp-2">
+                              <div className="mt-1 text-sm text-dark/70 line-clamp-2">
                                 {q.topic}
                               </div>
                               <div className="mt-3 flex flex-wrap items-center gap-2">

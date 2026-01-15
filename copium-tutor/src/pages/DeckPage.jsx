@@ -63,12 +63,12 @@ function cardStatus(card) {
 function Badge({ label, title, tone = "neutral" }) {
   const toneClass =
     tone === "accent"
-      ? "border-[#A86A65] text-[#754B4D] bg-[#E0CBB9]/60"
+      ? "border-[#A86A65] text-dark bg-[#E0CBB9]/60"
       : tone === "warm"
-      ? "border-[#D8A694] text-[#754B4D] bg-[#D8A694]/20"
+      ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "strong"
       ? "border-[#754B4D] text-white bg-[#754B4D]/90"
-      : "border-[#AB8882] text-[#754B4D] bg-white/60";
+      : "border-[#AB8882] text-dark bg-white/60";
 
   return (
     <span
@@ -113,9 +113,9 @@ function RatingButton({ label, hintKey, onClick, disabled, variant }) {
       title={hintKey ? `Hotkey: ${hintKey}` : undefined}
     >
       <div className="flex items-center gap-2">
-        <span className="font-medium text-[#754B4D]">{label}</span>
+        <span className="font-medium text-dark">{label}</span>
         {hintKey ? (
-          <span className="text-xs px-2 py-0.5 rounded-full border border-[#754B4D]/20 bg-white/50 text-[#754B4D]/80">
+          <span className="text-xs px-2 py-0.5 rounded-full border border-[#754B4D]/20 bg-white/50 text-dark/80">
             {hintKey}
           </span>
         ) : null}
@@ -143,12 +143,12 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
     <div className="rounded-2xl border border-white/50 bg-white/70 backdrop-blur p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="font-semibold text-[#754B4D]">Card</div>
+          <div className="font-semibold text-dark">Card</div>
           <Badge label={s.label} title={s.hint} tone={s.tone} />
         </div>
 
         <button
-          className="text-sm underline text-[#754B4D]/80 hover:text-[#754B4D] disabled:opacity-40"
+          className="text-sm underline text-dark/80 hover:text-dark disabled:opacity-40"
           onClick={onDelete}
           disabled={disabled}
           type="button"
@@ -183,7 +183,7 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
         />
       </div>
 
-      <div className="mt-3 text-xs text-[#754B4D]/70 flex flex-wrap gap-x-4 gap-y-1">
+      <div className="mt-3 text-xs text-dark/70 flex flex-wrap gap-x-4 gap-y-1">
         <span>Reps: {card?.reps ?? 0}</span>
         <span>Ease: {card?.ease ?? "—"}</span>
         <span>Interval (days): {card?.interval_days ?? "—"}</span>
@@ -202,7 +202,7 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
           Save
         </button>
 
-        {dirty ? <div className="text-sm text-[#754B4D]/70">Unsaved changes</div> : null}
+        {dirty ? <div className="text-sm text-dark/70">Unsaved changes</div> : null}
       </div>
     </div>
   );
@@ -549,31 +549,31 @@ export default function DeckPage() {
         <div className="p-10">
           <Link
             to={`/project/${projectid}/flashcards`}
-            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+            className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
             <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
             Back to Flashcards
           </Link>
 
           {courseLoading ? (
-            <div className="mt-8 text-[#754B4D]/70">Loading…</div>
+            <div className="mt-8 text-dark/70">Loading…</div>
           ) : !course ? (
             <div className="mt-8">
-              <div className="text-2xl font-semibold text-[#754B4D]">Course not found</div>
-              <div className="text-[#754B4D]/70">(Either it doesn’t exist, or you’re not logged in.)</div>
+              <div className="text-2xl font-semibold text-dark">Course not found</div>
+              <div className="text-dark/70">(Either it doesn’t exist, or you’re not logged in.)</div>
             </div>
           ) : loading ? (
-            <div className="mt-8 text-[#754B4D]/70">Loading deck…</div>
+            <div className="mt-8 text-dark/70">Loading deck…</div>
           ) : !deck ? (
-            <div className="mt-8 text-[#754B4D]">Deck not found.</div>
+            <div className="mt-8 text-dark">Deck not found.</div>
           ) : (
             <>
               <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-3xl font-semibold text-[#754B4D]">{deck.name}</div>
-                    <div className="mt-1 text-[#754B4D]/70">{deck.prompt}</div>
-                    <div className="mt-3 text-sm text-[#754B4D]/60">
+                    <div className="text-3xl font-semibold text-dark">{deck.name}</div>
+                    <div className="mt-1 text-dark/70">{deck.prompt}</div>
+                    <div className="mt-3 text-sm text-dark/60">
                       {course.name} · projectid: {projectid}
                     </div>
                   </div>
@@ -592,14 +592,14 @@ export default function DeckPage() {
               <div className="mt-10">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-[#754B4D]">Cards</h2>
-                    <div className="text-sm text-[#754B4D]/60">
+                    <h2 className="text-xl font-semibold text-dark">Cards</h2>
+                    <div className="text-sm text-dark/60">
                       {cards.length} total · {dueCount} due
                     </div>
                   </div>
 
                   {!editMode ? (
-                    <label className="flex items-center gap-2 text-sm text-[#754B4D]/80 select-none">
+                    <label className="flex items-center gap-2 text-sm text-dark/80 select-none">
                       <input
                         type="checkbox"
                         checked={dueOnly}
@@ -613,7 +613,7 @@ export default function DeckPage() {
                 </div>
 
                 {cards.length === 0 ? (
-                  <div className="mt-4 text-[#754B4D]/70">No cards yet.</div>
+                  <div className="mt-4 text-dark/70">No cards yet.</div>
                 ) : null}
 
                 {!editMode ? (
@@ -621,7 +621,7 @@ export default function DeckPage() {
                     {total > 0 ? (
                       <>
                         <div className="mt-5 flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3 text-[#754B4D]/80">
+                          <div className="flex items-center gap-3 text-dark/80">
                             <div className="text-sm">
                               Card <span className="font-semibold">{index + 1}</span> / {total}
                             </div>
@@ -661,10 +661,10 @@ export default function DeckPage() {
                           tabIndex={0}
                         >
                           <div className="flex items-center justify-between gap-4">
-                            <div className="text-sm font-semibold text-[#754B4D]/80">
+                            <div className="text-sm font-semibold text-dark/80">
                               {flipped ? "Answer" : "Question"}
                             </div>
-                            <div className="text-xs text-[#754B4D]/60">
+                            <div className="text-xs text-dark/60">
                               click to flip · Space/Enter
                             </div>
                           </div>
@@ -707,17 +707,17 @@ export default function DeckPage() {
                             />
                           </div>
                         ) : (
-                          <div className="mt-4 text-sm text-center text-[#754B4D]/60">
+                          <div className="mt-4 text-sm text-center text-dark/60">
                             Flip to rate (Again/Hard/Good/Easy)
                           </div>
                         )}
 
-                        <div className="mt-3 text-xs text-center text-[#754B4D]/55">
+                        <div className="mt-3 text-xs text-center text-dark/55">
                           Hotkeys: ← → to navigate · Space/Enter to flip · 1–4 to rate (after flip)
                         </div>
                       </>
                     ) : (
-                      <div className="mt-6 text-[#754B4D]/70">No cards in study queue.</div>
+                      <div className="mt-6 text-dark/70">No cards in study queue.</div>
                     )}
                   </>
                 ) : (
@@ -725,9 +725,9 @@ export default function DeckPage() {
                     {/* Add card */}
                     <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm max-w-3xl">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="font-semibold text-[#754B4D]">Add a card</div>
+                        <div className="font-semibold text-dark">Add a card</div>
                         {saving ? (
-                          <div className="text-sm text-[#754B4D]/60">Saving…</div>
+                          <div className="text-sm text-dark/60">Saving…</div>
                         ) : null}
                       </div>
 
@@ -756,7 +756,7 @@ export default function DeckPage() {
                           >
                             Add
                           </button>
-                          <div className="text-sm text-[#754B4D]/60">
+                          <div className="text-sm text-dark/60">
                             Tip: status + stats appear after first review.
                           </div>
                         </div>

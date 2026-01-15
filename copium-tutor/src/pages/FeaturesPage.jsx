@@ -7,7 +7,7 @@ import { Folder, Sparkles, Layers, FileText, MessageSquare, CheckCircle2 } from 
 
 function Badge({ label }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-[#E0CBB9] bg-white/70 px-2.5 py-1 text-xs text-[#754B4D]">
+    <span className="inline-flex items-center rounded-full border border-[#E0CBB9] bg-white/70 px-2.5 py-1 text-xs text-dark">
       {label}
     </span>
   );
@@ -21,12 +21,12 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E0CBB9]/60 text-[#754B4D]">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E0CBB9]/60 text-dark">
           <Icon size={20} />
         </div>
         <div>
-          <div className="text-xl font-semibold text-[#754B4D]">{title}</div>
-          <div className="text-sm text-[#754B4D]/70">{description}</div>
+          <div className="text-xl font-semibold text-dark">{title}</div>
+          <div className="text-sm text-dark/70">{description}</div>
         </div>
       </div>
 
@@ -38,7 +38,7 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
         </div>
       ) : null}
 
-      <ul className="mt-4 space-y-2 text-sm text-[#754B4D]/80">
+      <ul className="mt-4 space-y-2 text-sm text-dark/80">
         {steps.map((step) => (
           <li key={step} className="flex items-start gap-2">
             <CheckCircle2 size={16} className="mt-0.5 text-[#A86A65]" />
@@ -148,7 +148,7 @@ export default function FeaturesPage() {
           `}</style>
           <Link
             to="/dashboard"
-            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+            className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
             <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
             Back to Dashboard
@@ -156,18 +156,18 @@ export default function FeaturesPage() {
 
           <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E0CBB9]/60 text-[#754B4D]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E0CBB9]/60 text-dark">
                 <Sparkles size={22} />
               </div>
               <div>
-                <div className="text-3xl font-semibold text-[#754B4D]">Feature Guide</div>
-                <div className="text-sm text-[#754B4D]/70">
+                <div className="text-3xl font-semibold text-dark">Feature Guide</div>
+                <div className="text-sm text-dark/70">
                   Learn the core workflows for flashcards, quizzes, and chat.
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 text-sm text-[#754B4D]/70">
+            <div className="mt-4 text-sm text-dark/70">
               Quick start: create a subject, upload documents, click Index documents, then explore the tools below.
             </div>
           </div>
@@ -215,8 +215,8 @@ export default function FeaturesPage() {
           </div>
 
           <div className="pro-tips mt-8 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
-            <div className="text-lg font-semibold text-[#754B4D]">Pro tips</div>
-            <div className="mt-3 grid gap-3 text-sm text-[#754B4D]/75 md:grid-cols-2">
+            <div className="text-lg font-semibold text-dark">Pro tips</div>
+            <div className="mt-3 grid gap-3 text-sm text-dark/75 md:grid-cols-2">
               <div>Index documents after uploads so quizzes and chat can use them.</div>
               <div>Keep quiz topics focused for faster, higher quality results.</div>
               <div>Use flashcard prompts like “exam 2 key formulas” for targeted decks.</div>
