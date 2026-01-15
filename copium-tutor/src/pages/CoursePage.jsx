@@ -4,11 +4,12 @@ import Sidebar from "../components/Sidebar";
 import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
-import { Folder, MessageSquare, Layers, FileText, RefreshCw, Trash2 } from "lucide-react";
+import { Folder, MessageSquare, Layers, FileText, Trash2 } from "lucide-react";
 import { BlockWithDivider, PlumDivider } from "../components/Divider";
 import { DocumentCard } from "../components/Card";
 import AskBar from "../components/AskBar";
 import { ChatAPI } from "../services/chat";
+import { RefreshButton, OpenButton, IndexButton } from "../components/Button";
 
 const QUIZ_TYPE_LABELS = {
   mcq: "QCM (Multiple choice)",
@@ -330,7 +331,7 @@ export default function CoursePage() {
             {/* Ask bar */}
             <div className="mt-8">
               <div className="mx-auto max-w-3xl">
-                <div className="text-center text-lg font-semibold text-dark">Stuck? Have some copium :)</div>
+                <div className="text-center text-lg font-semibold text-dark font-card">Stuck? Have some copium :)</div>
                 <div className="mt-3">
                   <AskBar
                     placeholder={creatingChat ? "Starting chat…" : "Ask anything about assignments, concepts, or practice problems…"}
@@ -338,7 +339,7 @@ export default function CoursePage() {
                     onSubmit={(text) => startChatFromQuestion(text)}
                   />
                 </div>
-                <div className="mt-2 text-center text-xs opacity-60">
+                <div className="mt-2 text-center text-xs opacity-60 font-card">
                   Tip: paste the problem statement + what you tried + where you’re stuck.
                 </div>
               </div>
@@ -347,19 +348,16 @@ export default function CoursePage() {
             {/* Recent chats */}
             <div className="mt-8 mx-auto max-w-3xl">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-dark font-semibold">
+                <div className="flex items-center gap-2 text-dark font-semibold font-card">
                   <MessageSquare size={18} className="opacity-70" />
                   Recent chats
                 </div>
 
-                <button
-                  className="inline-flex items-center gap-2 rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
+                <RefreshButton
                   onClick={fetchRecentChats}
+                  loading={recentChatsLoading}
                   disabled={recentChatsLoading}
-                >
-                  <RefreshCw size={14} className={recentChatsLoading ? "animate-spin" : ""} />
-                  {recentChatsLoading ? "Refreshing…" : "Refresh"}
-                </button>
+                />                
               </div>
 
               {recentChatsError ? <div className="mt-2 text-sm opacity-80">⚠️ {recentChatsError}</div> : null}
@@ -418,24 +416,29 @@ export default function CoursePage() {
                 {/* Flashcards */}
                 <div className="rounded-3xl border border-black/10 bg-white/35 shadow-sm p-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-dark font-semibold text-xl">
+                    <div className="flex items-center gap-2 text-dark font-semibold text-xl font-card">
                       <Layers size={20} className="opacity-70" />
                       Flashcards
                     </div>
-                    <Link
+                    <OpenButton
+                      onClick={() => navigate(`/project/${projectid}/flashcards`)}
+                    />
+                    {/* <Link
                       className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
                       to={`/project/${projectid}/flashcards`}
                     >
                       Open
-                    </Link>
+                    </Link> */}
                   </div>
 
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
                       <div className="text-sm opacity-70">Recent decks</div>
-                      <button className="text-sm underline opacity-70" onClick={fetchRecentDecks} disabled={recentDecksLoading}>
-                        {recentDecksLoading ? "Refreshing…" : "Refresh"}
-                      </button>
+                      <RefreshButton
+                        onClick={fetchRecentDecks}
+                        loading={recentDecksLoading}
+                        disabled={recentDecksLoading}
+                      />
                     </div>
 
                     {recentDecksError ? <div className="mt-2 text-sm opacity-80">⚠️ {recentDecksError}</div> : null}
@@ -467,24 +470,29 @@ export default function CoursePage() {
                 {/* Quizzes */}
                 <div className="rounded-3xl border border-black/10 bg-white/35 shadow-sm p-6">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-dark font-semibold text-xl">
+                    <div className="flex items-center gap-2 text-dark font-semibold text-xl font-card">
                       <FileText size={20} className="opacity-70" />
                       Quizzes
                     </div>
-                    <Link
+                    <OpenButton
+                      onClick={() => navigate(`/project/${projectid}/quizzes`)}
+                    />
+                    {/* <Link
                       className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
                       to={`/project/${projectid}/quizzes`}
                     >
                       Open
-                    </Link>
+                    </Link> */}
                   </div>
 
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
                       <div className="text-sm opacity-70">Recent quizzes</div>
-                      <button className="text-sm underline opacity-70" onClick={fetchQuizzes} disabled={quizzesLoading}>
-                        {quizzesLoading ? "Refreshing…" : "Refresh"}
-                      </button>
+                      <RefreshButton
+                        onClick={fetchQuizzes}
+                        loading={quizzesLoading}
+                        disabled={quizzesLoading}
+                      />
                     </div>
 
                     {quizzesLoading ? (
@@ -516,7 +524,7 @@ export default function CoursePage() {
               {/* RIGHT: Documents */}
               <div className="lg:col-span-4">
                 <div className="rounded-3xl border border-black/10 bg-white/45 shadow-sm p-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between font-card">
                     <div className="text-dark font-semibold text-xl">Documents</div>
                     <div className="text-xs opacity-60">{files.length} file(s)</div>
                   </div>
@@ -535,22 +543,25 @@ export default function CoursePage() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <button
+                    <RefreshButton onClick={fetchFiles} loading={filesLoading} disabled={filesLoading} />
+                    {/* <button
                       className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40"
                       onClick={fetchFiles}
                       disabled={filesLoading}
                     >
                       {filesLoading ? "Refreshing…" : "Refresh"}
-                    </button>
+                    </button> */}
 
-                    <button
+                    <IndexButton onClick={() => indexDocuments({ force: false })} indexing={indexing} disabled={indexing || files.length === 0 || alreadyIndexed} />
+
+                    {/* <button
                       className="rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40 disabled:opacity-50"
                       onClick={() => indexDocuments({ force: false })}
                       disabled={indexing || files.length === 0 || alreadyIndexed}
                       title={files.length === 0 ? "Upload documents first" : alreadyIndexed ? "Already indexed" : ""}
                     >
                       {alreadyIndexed ? "Indexed ✓" : indexing ? "Indexing…" : "Index"}
-                    </button>
+                    </button> */}
 
                     <button
                       className="rounded-xl bg-white/20 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/30 disabled:opacity-50"

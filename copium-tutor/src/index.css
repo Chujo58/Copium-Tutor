@@ -6,6 +6,14 @@
     @apply font-bold uppercase tracking-widest;
 }
 
+.primary-btn {
+    @apply inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-3 text-sm text-white hover:bg-accent hover:text-black font-card w-full justify-center;
+}
+
+.secondary-btn {
+    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-white/40 font-card;
+}
+
 @layer components {
     form label {
         @apply block font-medium text-rose-dusty;
@@ -22,44 +30,41 @@
     form textarea {
         @apply block w-full border border-rose-dusty/30 rounded-md shadow-sm p-2 focus:outline-none focus:border-rose-dusty focus:ring-2 focus:ring-rose-dusty/40;
     }
-
-
-    
 }
 
 .flashcard {
-  width: 100%;
-  height: 320px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 12px;
-  background: white;
-  cursor: pointer;
-  perspective: 1000px;
-  user-select: none;
+    width: 100%;
+    height: 320px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    perspective: 1000px;
+    user-select: none;
 }
 
 .flashcard-inner {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.5s;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.5s;
 }
 
 .flashcard.is-flipped .flashcard-inner {
-  transform: rotateY(180deg);
+    transform: rotateY(180deg);
 }
 
 .flashcard-face {
-  position: absolute;
-  inset: 0;
-  padding: 22px;
-  backface-visibility: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+    position: absolute;
+    inset: 0;
+    padding: 22px;
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .flashcard-back {
-  transform: rotateY(180deg);
+    transform: rotateY(180deg);
 }

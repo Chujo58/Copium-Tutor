@@ -4,8 +4,8 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                card: ["Zilla Slab", "ui-sans-serif", "system-ui"],
-                sans: ["Lusitana", "Rubik", "ui-sans-serif", "system-ui"],
+                card: ["Chubbo", "Zilla Slab", "ui-sans-serif", "system-ui"],
+                sans: ["Zilla Slab", "Lusitana", "Rubik", "ui-sans-serif", "system-ui"],
                 body: ["Quicksand", "ui-sans-serif", "system-ui"],
             },
             colors: {

@@ -136,9 +136,9 @@ export function DocumentCard({ docTitle, docType, id, onDeleted }) {
         <>
             <div
                 className="
-            m-4 flex items-center justify-between
+            flex items-center justify-between
             rounded-xl bg-accent/30 shadow
-            px-4 py-3
+            px-4 py-4
             transition hover:shadow-md
         "
                 onClick={() => setDocPreview(true)}
@@ -167,7 +167,7 @@ export function DocumentCard({ docTitle, docType, id, onDeleted }) {
 
                 {/* Delete button */}
                 <button
-                    className="ml-4 text-muted hover:text-red-600 transition"
+                    className="ml-4 text-muted text-dark hover:text-red-600 transition"
                     onClick={(e) => {
                         e.stopPropagation();
                         fetch(`${API_URL}/files/${id}`, {

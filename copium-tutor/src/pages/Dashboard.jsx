@@ -118,7 +118,7 @@ export function UserDashboard() {
             />
 
             <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
-                <div className="text-3xl main-header font-sans mb-2 text-dark">
+                <div className="text-3xl main-header font-card mb-2 text-dark">
                     Dashboard
                 </div>
 
@@ -186,7 +186,7 @@ export function UserDashboard() {
 
                     <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                         <div>
-                            <div className="text-2xl font-semibold text-dark">
+                            <div className="text-2xl font-card font-semibold text-dark">
                                 Turn messy notes into confident study sessions.
                             </div>
                             <p className="mt-3 text-sm text-dark/75">
@@ -196,7 +196,7 @@ export function UserDashboard() {
                                 real recall, not just recognition.
                             </p>
 
-                            <div className="mt-4 flex flex-wrap items-center gap-3">
+                            <div className="mt-4 flex flex-wrap items-center gap-3 font-card">
                                 <button
                                     onClick={() => setShowAddProject(true)}
                                     className="inline-flex items-center gap-2 rounded-xl bg-[#754B4D] text-white px-4 py-2 hover:bg-[#754B4D]/90 transition"
@@ -215,7 +215,7 @@ export function UserDashboard() {
                         </div>
 
                         <div className="rounded-2xl border border-black/10 bg-white/70 p-4 hover:-translate-y-1 hover:shadow-md transition">
-                            <div className="text-sm font-semibold text-[#754B4D]">
+                            <div className="text-sm font-card font-semibold text-[#754B4D]">
                                 Why this matters
                             </div>
                             <ul className="mt-3 space-y-2 text-sm text-[#754B4D]/80">

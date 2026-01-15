@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { API_URL } from "../config";
 import { UploadPopup } from "./Popup";
+import { UploadButton } from "./Button";
 
 export default function CourseDocumentUploader({ projectName, projectID, onUploaded }) {
   const [uploading, setUploading] = useState(false);
@@ -49,9 +50,7 @@ export default function CourseDocumentUploader({ projectName, projectID, onUploa
   return (
     <div className="mt-4">
       {/* Add a button to open popup */}
-      <button onClick={() => setShowPopup(true)} className="px-4 py-2 bg-rose-600 text-white rounded hover:bg-rose-700 transition-colors">
-        Upload Documents
-      </button>
+      <UploadButton onClick={() => setShowPopup(true)} />
       {showPopup && (
         <UploadPopup
           projects={[{ name: projectName, id: projectID }]}
