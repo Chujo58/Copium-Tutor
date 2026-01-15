@@ -20,7 +20,7 @@ const QUIZ_STATUS_LABELS = {
 function Badge({ label, title, tone = "neutral" }) {
   const toneClass =
     tone === "strong"
-      ? "border-[#754B4D] text-white bg-dark/90"
+      ? "border-dark text-white bg-dark/90"
       : tone === "warm"
       ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "danger"
@@ -49,7 +49,7 @@ function SoftButton({
     "px-4 py-2 rounded-xl border transition disabled:opacity-40 disabled:cursor-not-allowed";
   const cls =
     variant === "primary"
-      ? "border-[#754B4D]/30 bg-dark text-white hover:bg-dark/90"
+      ? "border-dark/30 bg-dark text-white hover:bg-dark/90"
       : variant === "danger"
       ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-dark hover:bg-[#A86A65]/20"
       : "border-[#AB8882]/50 bg-white/70 text-dark hover:bg-white";
@@ -404,7 +404,7 @@ export default function QuizPage() {
                                     key={cidx}
                                     className={`flex items-start gap-3 rounded-xl border px-3 py-2 transition ${
                                       selected
-                                        ? "border-[#754B4D]/40 bg-[#E0CBB9]/40"
+                                        ? "border-dark/40 bg-[#E0CBB9]/40"
                                         : "border-[#E0CBB9] bg-white/80 hover:bg-white"
                                     }`}
                                   >

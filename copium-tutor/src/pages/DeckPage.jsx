@@ -67,7 +67,7 @@ function Badge({ label, title, tone = "neutral" }) {
       : tone === "warm"
       ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "strong"
-      ? "border-[#754B4D] text-white bg-dark/90"
+      ? "border-dark text-white bg-dark/90"
       : "border-[#AB8882] text-dark bg-white/60";
 
   return (
@@ -115,7 +115,7 @@ function RatingButton({ label, hintKey, onClick, disabled, variant }) {
       <div className="flex items-center gap-2">
         <span className="font-medium text-dark">{label}</span>
         {hintKey ? (
-          <span className="text-xs px-2 py-0.5 rounded-full border border-[#754B4D]/20 bg-white/50 text-dark/80">
+          <span className="text-xs px-2 py-0.5 rounded-full border border-dark/20 bg-white/50 text-dark/80">
             {hintKey}
           </span>
         ) : null}

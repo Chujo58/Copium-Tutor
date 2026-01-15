@@ -56,7 +56,7 @@ function MarkdownNice({ content }) {
             </pre>
           ),
         blockquote: ({ children }) => (
-          <blockquote className="my-2 rounded-2xl border-l-4 border-[#754B4D]/40 bg-white/65 px-4 py-2">
+          <blockquote className="my-2 rounded-2xl border-l-4 border-dark/40 bg-white/65 px-4 py-2">
             <div className="text-sm text-[#2b1b1c]/90">{children}</div>
           </blockquote>
         ),
