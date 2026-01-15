@@ -97,7 +97,7 @@ function SoftButton({ children, onClick, disabled, title }) {
 function RatingButton({ label, hintKey, onClick, disabled, variant }) {
   const cls =
     variant === "again"
-      ? "border-primary/60 bg-[#A86A65]/10 hover:bg-[#A86A65]/20"
+      ? "border-primary/60 bg-primary/10 hover:bg-primary/20"
       : variant === "hard"
       ? "border-[#AB8882]/60 bg-[#AB8882]/10 hover:bg-[#AB8882]/20"
       : variant === "good"
@@ -749,7 +749,7 @@ export default function DeckPage() {
                         />
                         <div className="flex items-center gap-2">
                           <button
-                            className="px-4 py-2 rounded-xl bg-[#A86A65] text-white hover:bg-[#A86A65]/90 transition disabled:opacity-40"
+                            className="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition disabled:opacity-40"
                             onClick={addCard}
                             disabled={saving || !newFront.trim() || !newBack.trim()}
                             type="button"
