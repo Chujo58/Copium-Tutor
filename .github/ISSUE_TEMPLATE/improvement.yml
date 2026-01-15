@@ -1,4 +1,4 @@
- name: 🧹 Improvement
+name: 🧹 Improvement
 description: Suggest a cleanup or refactor
 title: "[Improve]: "
 labels: ["improvement"]
