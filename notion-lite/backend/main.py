@@ -28,6 +28,7 @@ from typing import Literal, Optional
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
+BACKBOARD_TIMEOUT_S = int(os.getenv("BACKBOARD_TIMEOUT_S", "30"))
 
 logger = logging.getLogger("uvicorn.error")
 logger.setLevel(logging.DEBUG)
@@ -112,7 +113,15 @@ class SendChatMessageRequest(BaseModel):
 class RenameChatRequest(BaseModel):
     title: str
 
-async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
+def _quiz_timeout_s(num_questions: int) -> int:
+    try:
+        count = int(num_questions)
+    except (TypeError, ValueError):
+        count = 0
+    count = max(1, count)
+    return min(300, max(BACKBOARD_TIMEOUT_S, 60 + count * 4))
+
+async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None, timeout_s: int | None = None):
     db_cursor = db_cursor or cursor
     db_conn = db_conn or conn
     # check DB first
@@ -121,7 +130,7 @@ async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn
         (projectid,),
     )
     row = db_cursor.fetchone()
-    client = BackboardClient(api_key=BACKBOARD_API_KEY)
+    client = BackboardClient(api_key=BACKBOARD_API_KEY, timeout=timeout_s or BACKBOARD_TIMEOUT_S)
 
     if row and row[0] and row[1]:
         assistant_id = row[0]
@@ -1024,7 +1033,10 @@ async def _generate_quiz_content(
             return
 
         client, assistant_id, thread_id = await get_or_create_backboard_memory(
-            projectid, db_cursor=local_cursor, db_conn=local_conn
+            projectid,
+            db_cursor=local_cursor,
+            db_conn=local_conn,
+            timeout_s=_quiz_timeout_s(num_questions),
         )
 
         try:
