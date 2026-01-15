@@ -199,7 +199,7 @@ export function UserDashboard() {
                             <div className="mt-4 flex flex-wrap items-center gap-3 font-card">
                                 <button
                                     onClick={() => setShowAddProject(true)}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-[#754B4D] text-white px-4 py-2 hover:bg-[#754B4D]/90 transition"
+                                    className="inline-flex items-center gap-2 rounded-xl bg-dark text-white px-4 py-2 hover:bg-dark/90 transition"
                                 >
                                     <PlusCircle size={18} />
                                     Create subject

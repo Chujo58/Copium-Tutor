@@ -133,7 +133,7 @@ export default function BackboardThanksPage() {
                                         href="https://backboard.io"
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-2 rounded-xl bg-[#754B4D] text-white px-4 py-2 hover:bg-[#754B4D]/90 transition"
+                                        className="inline-flex items-center gap-2 rounded-xl bg-dark text-white px-4 py-2 hover:bg-dark/90 transition"
                                     >
                                         Visit Backboard.io
                                         <ArrowUpRight size={16} />

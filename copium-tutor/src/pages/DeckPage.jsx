@@ -67,7 +67,7 @@ function Badge({ label, title, tone = "neutral" }) {
       : tone === "warm"
       ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "strong"
-      ? "border-[#754B4D] text-white bg-[#754B4D]/90"
+      ? "border-[#754B4D] text-white bg-dark/90"
       : "border-[#AB8882] text-dark bg-white/60";
 
   return (
@@ -194,7 +194,7 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
 
       <div className="mt-4 flex items-center gap-2">
         <button
-          className="px-4 py-2 rounded-xl border border-[#AB8882]/60 bg-[#754B4D] text-white hover:bg-[#754B4D]/90 transition disabled:opacity-40"
+          className="px-4 py-2 rounded-xl border border-[#AB8882]/60 bg-dark text-white hover:bg-dark/90 transition disabled:opacity-40"
           onClick={() => onSave(front, back)}
           disabled={!canSave}
           type="button"
@@ -641,7 +641,7 @@ export default function DeckPage() {
                               Shuffle
                             </SoftButton>
                             <button
-                              className="px-4 py-2 rounded-xl bg-[#754B4D] text-white hover:bg-[#754B4D]/90 transition"
+                              className="px-4 py-2 rounded-xl bg-dark text-white hover:bg-dark/90 transition"
                               onClick={flip}
                               type="button"
                               title="Space / Enter"
