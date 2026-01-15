@@ -1,0 +1,22 @@
+ name: 🧹 Improvement
+description: Suggest a cleanup or refactor
+title: "[Improve]: "
+labels: ["improvement"]
+
+body:
+  - type: textarea
+    id: improvement
+    attributes:
+      label: What should be improved?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Size of change
+      options:
+        - Small
+        - Medium
+        - Large / breaking
+

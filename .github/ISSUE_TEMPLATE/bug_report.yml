@@ -1,0 +1,45 @@
+name: 🐛 Bug report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      placeholder: Describe the bug clearly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to...
+        2. Click...
+        3. See error
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: How severe is this?
+      options:
+        - Minor (cosmetic issue)
+        - Moderate (annoying but usable)
+        - Critical (blocks usage)
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (optional)
+      description: OS, browser, version, etc.
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Logs / screenshots (optional)
+
