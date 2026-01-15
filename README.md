@@ -13,6 +13,8 @@
 
 🎥 **Demo Video**
 
+[![Copium-Tutor Demo](https://img.youtube.com/vi/AV8mGGLxwZs/maxresdefault.jpg)](https://www.youtube.com/watch?v=AV8mGGLxwZs)
+
 </div>
   
 ---
