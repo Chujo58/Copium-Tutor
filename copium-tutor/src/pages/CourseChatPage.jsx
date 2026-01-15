@@ -359,7 +359,7 @@ export default function CourseChatPage() {
               <div className="text-sm font-semibold text-dark">Chats</div>
               <button
                 onClick={handleNewChat}
-                className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-1.5 text-xs text-dark hover:bg-white transition"
+                className="rounded-xl border border-secondary/50 bg-white/70 px-3 py-1.5 text-xs text-dark hover:bg-white transition"
                 type="button"
               >
                 + New
@@ -434,7 +434,7 @@ export default function CourseChatPage() {
 
                     <button
                       type="button"
-                      className="shrink-0 rounded-xl border border-[#AB8882]/40 bg-white/60 p-2 text-dark hover:bg-white transition
+                      className="shrink-0 rounded-xl border border-secondary/40 bg-white/60 p-2 text-dark hover:bg-white transition
                                 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                       onClick={(e) => {
                         e.preventDefault();
@@ -479,7 +479,7 @@ export default function CourseChatPage() {
 
                 <Link
                   to={`/project/${projectid}`}
-                  className="rounded-xl border border-[#AB8882]/50 bg-white/70 px-3 py-2 text-sm text-dark hover:bg-white transition"
+                  className="rounded-xl border border-secondary/50 bg-white/70 px-3 py-2 text-sm text-dark hover:bg-white transition"
                 >
                   Back to course
                 </Link>

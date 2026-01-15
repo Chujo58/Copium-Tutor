@@ -25,7 +25,7 @@ function Badge({ label, title, tone = "neutral" }) {
       ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "danger"
       ? "border-primary text-dark bg-primary/10"
-      : "border-[#AB8882] text-dark bg-white/60";
+      : "border-secondary text-dark bg-white/60";
 
   return (
     <span
@@ -52,7 +52,7 @@ function SoftButton({
       ? "border-dark/30 bg-dark text-white hover:bg-dark/90"
       : variant === "danger"
       ? "border-primary/40 bg-primary/10 text-dark hover:bg-primary/20"
-      : "border-[#AB8882]/50 bg-white/70 text-dark hover:bg-white";
+      : "border-secondary/50 bg-white/70 text-dark hover:bg-white";
 
   return (
     <button className={`${base} ${cls}`} onClick={onClick} disabled={disabled} title={title} type={type}>

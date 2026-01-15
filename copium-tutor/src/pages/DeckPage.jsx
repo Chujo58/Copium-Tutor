@@ -68,7 +68,7 @@ function Badge({ label, title, tone = "neutral" }) {
       ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "strong"
       ? "border-dark text-white bg-dark/90"
-      : "border-[#AB8882] text-dark bg-white/60";
+      : "border-secondary text-dark bg-white/60";
 
   return (
     <span
@@ -83,7 +83,7 @@ function Badge({ label, title, tone = "neutral" }) {
 function SoftButton({ children, onClick, disabled, title }) {
   return (
     <button
-      className="px-3 py-2 rounded-lg border border-[#AB8882]/50 bg-white/70 hover:bg-white transition disabled:opacity-40"
+      className="px-3 py-2 rounded-lg border border-secondary/50 bg-white/70 hover:bg-white transition disabled:opacity-40"
       onClick={onClick}
       disabled={disabled}
       title={title}
@@ -99,7 +99,7 @@ function RatingButton({ label, hintKey, onClick, disabled, variant }) {
     variant === "again"
       ? "border-primary/60 bg-primary/10 hover:bg-primary/20"
       : variant === "hard"
-      ? "border-[#AB8882]/60 bg-[#AB8882]/10 hover:bg-[#AB8882]/20"
+      ? "border-secondary/60 bg-secondary/10 hover:bg-secondary/20"
       : variant === "good"
       ? "border-[#D8A694]/60 bg-[#D8A694]/10 hover:bg-[#D8A694]/20"
       : "border-[#E0CBB9]/80 bg-[#E0CBB9]/40 hover:bg-[#E0CBB9]/60";
@@ -194,7 +194,7 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
 
       <div className="mt-4 flex items-center gap-2">
         <button
-          className="px-4 py-2 rounded-xl border border-[#AB8882]/60 bg-dark text-white hover:bg-dark/90 transition disabled:opacity-40"
+          className="px-4 py-2 rounded-xl border border-secondary/60 bg-dark text-white hover:bg-dark/90 transition disabled:opacity-40"
           onClick={() => onSave(front, back)}
           disabled={!canSave}
           type="button"
