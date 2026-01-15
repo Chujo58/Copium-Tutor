@@ -63,7 +63,7 @@ function cardStatus(card) {
 function Badge({ label, title, tone = "neutral" }) {
   const toneClass =
     tone === "accent"
-      ? "border-[#A86A65] text-dark bg-[#E0CBB9]/60"
+      ? "border-primary text-dark bg-[#E0CBB9]/60"
       : tone === "warm"
       ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "strong"
@@ -97,7 +97,7 @@ function SoftButton({ children, onClick, disabled, title }) {
 function RatingButton({ label, hintKey, onClick, disabled, variant }) {
   const cls =
     variant === "again"
-      ? "border-[#A86A65]/60 bg-[#A86A65]/10 hover:bg-[#A86A65]/20"
+      ? "border-primary/60 bg-[#A86A65]/10 hover:bg-[#A86A65]/20"
       : variant === "hard"
       ? "border-[#AB8882]/60 bg-[#AB8882]/10 hover:bg-[#AB8882]/20"
       : variant === "good"

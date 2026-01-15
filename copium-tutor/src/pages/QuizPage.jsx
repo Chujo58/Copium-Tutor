@@ -24,7 +24,7 @@ function Badge({ label, title, tone = "neutral" }) {
       : tone === "warm"
       ? "border-[#D8A694] text-dark bg-[#D8A694]/20"
       : tone === "danger"
-      ? "border-[#A86A65] text-dark bg-[#A86A65]/10"
+      ? "border-primary text-dark bg-[#A86A65]/10"
       : "border-[#AB8882] text-dark bg-white/60";
 
   return (
@@ -51,7 +51,7 @@ function SoftButton({
     variant === "primary"
       ? "border-dark/30 bg-dark text-white hover:bg-dark/90"
       : variant === "danger"
-      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-dark hover:bg-[#A86A65]/20"
+      ? "border-primary/40 bg-[#A86A65]/10 text-dark hover:bg-[#A86A65]/20"
       : "border-[#AB8882]/50 bg-white/70 text-dark hover:bg-white";
 
   return (
@@ -411,7 +411,7 @@ export default function QuizPage() {
                                     <input
                                       type="radio"
                                       name={`q-${q.id}`}
-                                      className="mt-1 accent-[#754B4D]"
+                                      className="mt-1 accent-dark"
                                       checked={answers[q.id] === cidx}
                                       onChange={() => updateAnswer(q.id, cidx)}
                                       disabled={submitting || !!result}
