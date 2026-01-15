@@ -19,10 +19,10 @@ function SoftButton({ children, onClick, disabled, title, variant = "light", typ
     "px-4 py-2 rounded-xl border transition disabled:opacity-40 disabled:cursor-not-allowed";
   const cls =
     variant === "primary"
-      ? "border-[#754B4D]/30 bg-[#754B4D] text-white hover:bg-[#754B4D]/90"
+      ? "border-dark/30 bg-dark text-white hover:bg-dark/90"
       : variant === "danger"
-      ? "border-[#A86A65]/40 bg-[#A86A65]/10 text-[#754B4D] hover:bg-[#A86A65]/20"
-      : "border-[#AB8882]/50 bg-white/70 text-[#754B4D] hover:bg-white";
+      ? "border-primary/40 bg-primary/10 text-dark hover:bg-primary/20"
+      : "border-secondary/50 bg-white/70 text-dark hover:bg-white";
 
   return (
     <button className={`${base} ${cls}`} onClick={onClick} disabled={disabled} title={title} type={type}>
@@ -34,7 +34,7 @@ function SoftButton({ children, onClick, disabled, title, variant = "light", typ
 function Badge({ children, title }) {
   return (
     <span
-      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border border-[#AB8882]/40 bg-white/60 text-[#754B4D]"
+      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs border border-secondary/40 bg-white/60 text-dark"
       title={title}
     >
       {children}
@@ -45,9 +45,9 @@ function Badge({ children, title }) {
 function SkeletonRow() {
   return (
     <div className="rounded-2xl border border-white/40 bg-white/50 backdrop-blur p-5 shadow-sm">
-      <div className="h-5 w-40 bg-[#E0CBB9]/60 rounded" />
-      <div className="mt-3 h-4 w-full bg-[#E0CBB9]/40 rounded" />
-      <div className="mt-2 h-4 w-2/3 bg-[#E0CBB9]/35 rounded" />
+      <div className="h-5 w-40 bg-surface/60 rounded" />
+      <div className="mt-3 h-4 w-full bg-surface/40 rounded" />
+      <div className="mt-2 h-4 w-2/3 bg-surface/35 rounded" />
     </div>
   );
 }
@@ -203,7 +203,7 @@ export default function FlashcardsHomePage() {
                     })),
       ]} />
 
-      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         {creating ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6EFEA]/80 backdrop-blur">
             <div className="rounded-3xl border border-white/50 bg-white/80 px-8 py-7 shadow-lg text-center">
@@ -212,10 +212,10 @@ export default function FlashcardsHomePage() {
                 alt="Generating flashcards"
                 className="mx-auto h-44 w-44 object-contain"
               />
-              <div className="mt-3 text-[#754B4D] font-semibold">
+              <div className="mt-3 text-dark font-semibold">
                 Generating flashcards…
               </div>
-              <div className="text-sm text-[#754B4D]/70">
+              <div className="text-sm text-dark/70">
                 Hang tight, this can take a minute.
               </div>
             </div>
@@ -224,18 +224,18 @@ export default function FlashcardsHomePage() {
         <div className="p-10">
           <Link
             to={`/project/${projectid}`}
-            className="inline-flex items-center gap-2 text-[#754B4D] hover:opacity-80"
+            className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
-            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            <span className="px-2 py-1 rounded-lg border border-surface bg-white/50">←</span>
             Back to Course
           </Link>
 
           {courseLoading ? (
-            <div className="mt-8 text-[#754B4D]/70">Loading…</div>
+            <div className="mt-8 text-dark/70">Loading…</div>
           ) : !course ? (
             <div className="mt-8">
-              <div className="text-2xl font-semibold text-[#754B4D]">Course not found</div>
-              <div className="text-[#754B4D]/70">(Either it doesn’t exist, or you’re not logged in.)</div>
+              <div className="text-2xl font-semibold text-dark">Course not found</div>
+              <div className="text-dark/70">(Either it doesn’t exist, or you’re not logged in.)</div>
             </div>
           ) : (
             <>
@@ -243,15 +243,15 @@ export default function FlashcardsHomePage() {
               <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-3xl font-semibold text-[#754B4D]">Flashcards</div>
-                    <div className="mt-1 text-[#754B4D]/70">{course.name}</div>
+                    <div className="text-3xl font-semibold text-dark font-card">Flashcards</div>
+                    <div className="mt-1 text-dark/70">{course.name}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Badge title="Project identifier">{projectid}</Badge>
                       <Badge title="Number of decks">{deckCount} deck{deckCount === 1 ? "" : "s"}</Badge>
                     </div>
                   </div>
 
-                  <div className="text-right text-sm text-[#754B4D]/60">
+                  <div className="text-right text-sm text-dark/60">
                     Create decks from your uploaded course docs, then review :)
                   </div>
                 </div>
@@ -262,13 +262,13 @@ export default function FlashcardsHomePage() {
                 {/* Create deck */}
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-semibold text-[#754B4D]">Create a deck</h2>
+                    <h2 className="text-xl font-semibold text-dark font-card">Create a deck</h2>
                     {creating ? <Badge title="Creating state">Creating…</Badge> : null}
                   </div>
 
                   <div className="mt-4 grid gap-3">
                     <input
-                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                       placeholder="Deck name (e.g., Midterm)"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -276,7 +276,7 @@ export default function FlashcardsHomePage() {
                     />
 
                     <textarea
-                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                       placeholder='Prompt: "What do you need to study?"'
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
@@ -306,7 +306,7 @@ export default function FlashcardsHomePage() {
                       </SoftButton>
                     </div>
 
-                    <div className="text-sm text-[#754B4D]/60">
+                    <div className="text-sm text-dark/60 font-card">
                       Tip: Keep the prompt specific (chapters, topics, exam focus) for better cards.
                     </div>
                   </div>
@@ -315,7 +315,7 @@ export default function FlashcardsHomePage() {
                 {/* Deck list */}
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-semibold text-[#754B4D]">Your decks</h2>
+                    <h2 className="text-xl font-semibold text-dark font-card">Your decks</h2>
                     <SoftButton onClick={fetchDecks} disabled={loading} title="Refresh deck list">
                       Refresh
                     </SoftButton>
@@ -324,7 +324,7 @@ export default function FlashcardsHomePage() {
                   {/* NEW: Search bar */}
                   <div className="mt-4 flex items-center gap-2">
                     <input
-                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-[#D8A694]/50"
+                      className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                       placeholder="Search decks (name, prompt, id)…"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
@@ -336,7 +336,7 @@ export default function FlashcardsHomePage() {
                   </div>
 
                   {/* Search result meta */}
-                  <div className="mt-2 text-sm text-[#754B4D]/60">
+                  <div className="mt-2 text-sm text-dark/60">
                     Showing <span className="font-semibold">{filteredDecks.length}</span> of{" "}
                     <span className="font-semibold">{deckCount}</span>
                     {query.trim() ? (
@@ -354,7 +354,7 @@ export default function FlashcardsHomePage() {
                       <SkeletonRow />
                     </div>
                   ) : filteredDecks.length === 0 ? (
-                    <div className="mt-4 text-[#754B4D]/70">
+                    <div className="mt-4 text-dark/70">
                       {deckCount === 0 ? "No decks yet. Create one on the left ✨" : "No decks match your search."}
                     </div>
                   ) : (
@@ -368,11 +368,11 @@ export default function FlashcardsHomePage() {
                             <div className="min-w-0">
                               <Link
                                 to={`/project/${projectid}/flashcards/${d.deckid}`}
-                                className="text-lg font-semibold text-[#754B4D] hover:opacity-80 truncate block"
+                                className="text-lg font-semibold text-dark hover:opacity-80 truncate block"
                               >
                                 {d.name}
                               </Link>
-                              <div className="mt-1 text-sm text-[#754B4D]/70 line-clamp-2">
+                              <div className="mt-1 text-sm text-dark/70 line-clamp-2">
                                 {d.prompt}
                               </div>
 
@@ -402,7 +402,7 @@ export default function FlashcardsHomePage() {
                     </div>
                   )}
 
-                  <div className="mt-4 text-xs text-[#754B4D]/55">
+                  <div className="mt-4 text-xs text-dark/55">
                     Deleting a deck deletes all its cards.
                   </div>
                 </div>
