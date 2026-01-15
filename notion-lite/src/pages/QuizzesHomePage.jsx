@@ -102,6 +102,7 @@ export default function QuizzesHomePage() {
   const [selectionReady, setSelectionReady] = useState(false);
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
+  const [deletingQuizId, setDeletingQuizId] = useState(null);
   const loadingGif = `${API_URL}/public/cat.gif`;
 
   const selectionStorageKey = useMemo(
@@ -336,6 +337,31 @@ export default function QuizzesHomePage() {
       alert("Error creating quiz");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const deleteQuiz = async (quizid) => {
+    if (!quizid) return;
+    const quiz = quizzes.find((item) => item.quizid === quizid);
+    const ok = confirm(`Delete "${quiz?.title || "this quiz"}"? This cannot be undone.`);
+    if (!ok) return;
+    setDeletingQuizId(quizid);
+    try {
+      const res = await fetch(`${API_URL}/quizzes/${quizid}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.message || "Failed to delete quiz");
+        return;
+      }
+      await fetchQuizzes();
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting quiz");
+    } finally {
+      setDeletingQuizId(null);
     }
   };
 
@@ -704,6 +730,20 @@ export default function QuizzesHomePage() {
                                   }
                                 />
                               </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <SoftButton
+                                variant="danger"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  deleteQuiz(q.quizid);
+                                }}
+                                disabled={deletingQuizId === q.quizid}
+                                title="Delete quiz"
+                              >
+                                {deletingQuizId === q.quizid ? "Deleting…" : "Delete"}
+                              </SoftButton>
                             </div>
                           </div>
                         </div>

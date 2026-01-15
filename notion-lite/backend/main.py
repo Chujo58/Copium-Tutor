@@ -1904,6 +1904,26 @@ async def get_quiz(quizid: str, session: str = Cookie(None)):
 
     return {"success": True, "quiz": quiz, "questions": questions}
 
+@app.delete("/quizzes/{quizid}")
+async def delete_quiz(quizid: str, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+    userid = session
+
+    cursor.execute(
+        "SELECT projectid FROM quizzes WHERE quizid=? AND userid=?",
+        (quizid, userid),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return {"success": False, "message": "Quiz not found"}
+
+    cursor.execute("DELETE FROM attempts WHERE quizid=? AND userid=?", (quizid, userid))
+    cursor.execute("DELETE FROM quizzes WHERE quizid=? AND userid=?", (quizid, userid))
+    conn.commit()
+
+    return {"success": True, "deleted_quizid": quizid}
+
 
 @app.delete("/cards/{cardid}")
 async def delete_card(cardid: str, session: str = Cookie(None)):
