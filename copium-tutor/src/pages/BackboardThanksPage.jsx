@@ -103,7 +103,7 @@ export default function BackboardThanksPage() {
                             <HeartHandshake size={22} />
                         </div>
                         <div>
-                            <div className="text-3xl font-semibold text-dark">
+                            <div className="text-3xl font-semibold text-dark font-card">
                                 Backboard.io Appreciation
                             </div>
                             <div className="text-sm text-dark/70">
@@ -118,7 +118,7 @@ export default function BackboardThanksPage() {
 
                         <div className="relative grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                             <div>
-                                <div className="text-2xl font-semibold text-dark">
+                                <div className="text-2xl font-semibold text-dark font-card">
                                     Special thanks to Backboard.io
                                 </div>
                                 <p className="mt-3 text-sm text-dark/75">
@@ -133,7 +133,7 @@ export default function BackboardThanksPage() {
                                         href="https://backboard.io"
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-2 rounded-xl bg-dark text-white px-4 py-2 hover:bg-dark/90 transition"
+                                        className="inline-flex items-center gap-2 rounded-xl bg-dark text-white px-4 py-2 hover:bg-dark/90 transition font-card"
                                     >
                                         Visit Backboard.io
                                         <ArrowUpRight size={16} />
@@ -141,7 +141,7 @@ export default function BackboardThanksPage() {
                                 </div>
                             </div>
                             <div className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white/70 p-4">
-                                <div className="text-sm font-semibold text-dark">
+                                <div className="text-sm font-semibold text-dark font-card">
                                     Why it powers Copium Tutor
                                 </div>
                                 <ul className="space-y-2 text-sm text-dark/80">
