@@ -527,7 +527,7 @@ export default function QuizzesHomePage() {
                           Force re-index
                         </SoftButton>
                         {indexError ? (
-                          <span className="text-[#A86A65]">{indexError}</span>
+                          <span className="text-primary">{indexError}</span>
                         ) : null}
                       </div>
 

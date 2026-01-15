@@ -604,7 +604,7 @@ export default function DeckPage() {
                         type="checkbox"
                         checked={dueOnly}
                         onChange={(e) => setDueOnly(e.target.checked)}
-                        className="accent-[#A86A65]"
+                        className="accent-primary"
                       />
                       Due only
                       <Badge label={`${dueCount}`} tone="accent" title="Cards due now" />

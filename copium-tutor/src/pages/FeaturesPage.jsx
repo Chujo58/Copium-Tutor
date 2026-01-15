@@ -41,7 +41,7 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
       <ul className="mt-4 space-y-2 text-sm text-dark/80">
         {steps.map((step) => (
           <li key={step} className="flex items-start gap-2">
-            <CheckCircle2 size={16} className="mt-0.5 text-[#A86A65]" />
+            <CheckCircle2 size={16} className="mt-0.5 text-primary" />
             <span>{step}</span>
           </li>
         ))}

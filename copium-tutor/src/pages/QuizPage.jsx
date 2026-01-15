@@ -339,7 +339,7 @@ export default function QuizPage() {
               {!quizReady ? (
                 <div className="mt-6 rounded-3xl border border-white/40 bg-white/60 backdrop-blur p-6 shadow-sm space-y-4">
                   {quiz?.status === "failed" ? (
-                    <div className="text-[#A86A65] font-semibold">
+                    <div className="text-primary font-semibold">
                       Generation failed: {quiz.generation_error || "Unknown error"}
                     </div>
                   ) : (
