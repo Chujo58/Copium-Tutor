@@ -1,8 +1,8 @@
 import { RefreshCw, ExternalLink, TableOfContents, Upload } from "lucide-react";
 
-export default function CustomButton({ onClick, disabled, label, icon: Icon, loading = null, primary = false }) {
+export default function CustomButton({ onClick, disabled, label, icon: Icon, loading = null, style="secondary-btn", title="" }) {
     return (
-        <button className={primary ? "primary-btn" : "secondary-btn"} onClick={onClick} disabled={disabled}>
+        <button className={style} onClick={onClick} disabled={disabled} title={title}>
             {loading !== null ? (
                 <>
                     <Icon size={14} className={loading ? "animate-spin" : ""} />
@@ -18,26 +18,26 @@ export default function CustomButton({ onClick, disabled, label, icon: Icon, loa
     );
 }
 
-export function RefreshButton({ onClick, loading, disabled }) {
+export function RefreshButton({ onClick, loading, disabled, title="Refresh documents" }) {
     return (
-        <CustomButton onClick={onClick} disabled={disabled} label="Refresh" icon={RefreshCw} loading={loading}  />
+        <CustomButton onClick={onClick} disabled={disabled} label="Refresh" icon={RefreshCw} loading={loading} title={title} />
     )
 }
 
-export function OpenButton({ onClick, disabled }) {
+export function OpenButton({ onClick, disabled, title="Open page" }) {
     return (
-        <CustomButton onClick={onClick} disabled={disabled} label="Open" icon={ExternalLink} />
+        <CustomButton onClick={onClick} disabled={disabled} label="Open" icon={ExternalLink} title={title} />
     )
 }
 
-export function IndexButton({ onClick, indexing, disabled }) {
+export function IndexButton({ onClick, indexing, disabled, title="Index documents" }) {
     return (
-        <CustomButton onClick={onClick} disabled={disabled} label="Index" icon={TableOfContents} loading={indexing} />
+        <CustomButton onClick={onClick} disabled={disabled} label="Index" icon={TableOfContents} loading={indexing} title={title} />
     )
 }
 
-export function UploadButton({ onClick, disabled }) {
+export function UploadButton({ onClick, disabled, title="Upload documents" }) {
     return (
-        <CustomButton onClick={onClick} disabled={disabled} label="Upload" icon={Upload} primary />
+        <CustomButton onClick={onClick} disabled={disabled} label="Upload" icon={Upload} primary title={title} />
     )
 }

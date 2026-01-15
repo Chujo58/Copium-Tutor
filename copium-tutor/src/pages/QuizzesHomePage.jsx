@@ -4,7 +4,8 @@ import Sidebar from "../components/Sidebar";
 import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
-import { Folder } from "lucide-react";
+import { Folder, SquareMinus, SquarePlus, RotateCcw, PencilRuler } from "lucide-react";
+import CustomButton, { RefreshButton } from "../components/Button";
 
 const QUIZ_TYPE_LABELS = {
   mcq: "QCM (Multiple choice)",
@@ -399,7 +400,7 @@ export default function QuizzesHomePage() {
               <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <div className="text-3xl font-semibold text-dark">Quizzes</div>
+                    <div className="text-3xl font-semibold text-dark font-card">Quizzes</div>
                     <div className="mt-1 text-dark/70">{course.name}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Badge label={projectid} title="Project id" />
@@ -424,7 +425,7 @@ export default function QuizzesHomePage() {
               <div className="mt-10 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-semibold text-dark">Create a quiz</h2>
+                    <h2 className="text-xl font-semibold text-dark font-card">Create a quiz</h2>
                     {creating ? <Badge label="Creating…" title="Creating state" /> : null}
                   </div>
 
@@ -438,10 +439,10 @@ export default function QuizzesHomePage() {
                     />
 
                     <div className="flex flex-wrap gap-3">
-                      <label className="flex flex-col text-sm gap-1 text-dark/80">
+                      <label className="flex flex-col text-sm gap-1 text-dark/80 font-card">
                         Type
                         <select
-                          className="rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                          className="rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50 font-sans"
                           value={quizType}
                           onChange={(e) => setQuizType(e.target.value)}
                           disabled={creating}
@@ -454,11 +455,11 @@ export default function QuizzesHomePage() {
                         </select>
                       </label>
 
-                      <label className="flex flex-col text-sm gap-1 text-dark/80">
+                      <label className="flex flex-col text-sm gap-1 text-dark/80 font-card">
                         Number of questions
                         <input
                           type="number"
-                          className="w-40 rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                          className="w-40 rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50 font-sans"
                           min={1}
                           max={50}
                           value={numQuestions}
@@ -470,29 +471,11 @@ export default function QuizzesHomePage() {
 
                     <div className="rounded-2xl border border-white/50 bg-white/60 backdrop-blur p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="font-semibold text-dark">Use these documents</div>
-                        <div className="flex flex-wrap items-center gap-2 text-sm">
-                          <SoftButton
-                            onClick={selectAll}
-                            disabled={creating || files.length === 0}
-                            title="Select all documents"
-                          >
-                            Select all
-                          </SoftButton>
-                          <SoftButton
-                            onClick={clearAll}
-                            disabled={creating || files.length === 0}
-                            title="Clear selection"
-                          >
-                            Clear
-                          </SoftButton>
-                          <SoftButton
-                            onClick={fetchFiles}
-                            disabled={creating || filesLoading}
-                            title="Refresh documents"
-                          >
-                            {filesLoading ? "Refreshing…" : "Refresh"}
-                          </SoftButton>
+                        <div className="font-semibold text-dark font-card">Use these documents</div>
+                        <div className="flex flex-wrap items-center gap-2 text-sm font-sans">
+                          <CustomButton onClick={selectAll} disabled={creating || files.length === 0} label="Select" icon={SquarePlus} title="Select all documents" />
+                          <CustomButton onClick={clearAll} disabled={creating || files.length === 0} label="Clear" icon={SquareMinus} title="Clear selection" />
+                          <RefreshButton onClick={fetchFiles} disabled={creating || filesLoading} />
                         </div>
                       </div>
 
@@ -593,28 +576,15 @@ export default function QuizzesHomePage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <SoftButton
-                        variant="primary"
-                        onClick={createQuiz}
-                        disabled={creating}
-                        title="Create quiz"
-                      >
-                        {creating ? "Creating…" : "Create quiz"}
-                      </SoftButton>
-                      <SoftButton
-                        onClick={() => {
-                          setTopic("");
-                          setQuizType("mcq");
-                          setNumQuestions(10);
-                        }}
-                        disabled={creating}
-                        title="Reset fields"
-                      >
-                        Reset
-                      </SoftButton>
+                      <CustomButton onClick={createQuiz} disabled={creating} label="Create quiz" icon={PencilRuler} title="Create quiz" style="primary-btn" />
+                      <CustomButton onClick={() => {
+                        setTopic("");
+                        setQuizType("mcq");
+                        setNumQuestions(10);
+                      }} disabled={creating} label="Reset" icon={RotateCcw} title="Reset fields" style="secondary-btn-big" />
                     </div>
 
-                    <div className="text-sm text-dark/60">
+                    <div className="text-sm text-dark/60 font-card">
                       Tip: Use a focused topic and fewer questions for quicker generation.
                     </div>
                   </div>
@@ -622,7 +592,7 @@ export default function QuizzesHomePage() {
 
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-xl font-semibold text-dark">Your quizzes</h2>
+                    <h2 className="text-xl font-semibold text-dark font-card">Your quizzes</h2>
                     <SoftButton onClick={fetchQuizzes} disabled={loading} title="Refresh quizzes">
                       Refresh
                     </SoftButton>
@@ -674,7 +644,7 @@ export default function QuizzesHomePage() {
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <Link
-                                className="text-lg font-semibold text-dark hover:opacity-80 truncate block"
+                                className="text-lg font-semibold text-dark hover:opacity-80 truncate block font-card"
                                 to={`/project/${projectid}/quizzes/${q.quizid}`}
                               >
                                 {q.title}
