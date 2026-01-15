@@ -351,7 +351,7 @@ export default function CourseChatPage() {
 
   return (
     <div className="h-screen w-full">
-      <div className="flex h-full bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+      <div className="flex h-full bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         {/* Sidebar */}
         <aside className="w-[320px] shrink-0 border-r border-white/40 bg-white/35 backdrop-blur">
           <div className="px-4 py-5">
@@ -372,7 +372,7 @@ export default function CourseChatPage() {
               <select
                 value={projectid}
                 onChange={(e) => handleSwitchCourse(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-accent/50"
+                className="mt-1 w-full rounded-xl border border-surface bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-accent/50"
               >
                 {allCourses.map((c) => (
                   <option key={c.projectid} value={c.projectid}>
@@ -392,7 +392,7 @@ export default function CourseChatPage() {
                   setLlmProvider(p);
                   setModelName(m);
                 }}
-                className="mt-1 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-accent/50"
+                className="mt-1 w-full rounded-xl border border-surface bg-white/80 px-3 py-2 text-sm text-[#2b1b1c] outline-none focus:ring-2 focus:ring-accent/50"
               >
                 {MODEL_OPTIONS.map((opt) => (
                   <option
@@ -460,7 +460,7 @@ export default function CourseChatPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-2xl border border-[#E0CBB9] bg-white/70 px-3 py-1.5 text-sm font-semibold text-dark">
+                    <div className="rounded-2xl border border-surface bg-white/70 px-3 py-1.5 text-sm font-semibold text-dark">
                       {courseName || "Course"}
                     </div>
                     <div className="truncate text-2xl font-semibold text-dark">
@@ -516,7 +516,7 @@ export default function CourseChatPage() {
                     disabled={busy}
                     placeholder={busy ? "Thinking…" : "Ask a question…"}
                     onSubmit={(text) => handleAsk(text)}
-                    className="bg-white/90 border border-[#E0CBB9] shadow-sm"
+                    className="bg-white/90 border border-surface shadow-sm"
                   />
                   <div className="mt-2 text-[11px] text-dark/60">
                     Tip: paste the problem statement + what you tried + where you’re stuck.

@@ -242,7 +242,7 @@ export default function QuizPage() {
         ]}
       />
 
-      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         {showGeneratingOverlay ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6EFEA]/80 backdrop-blur">
             <div className="rounded-3xl border border-white/50 bg-white/80 px-8 py-7 shadow-lg text-center">
@@ -265,7 +265,7 @@ export default function QuizPage() {
             to={`/project/${projectid}/quizzes`}
             className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
-            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            <span className="px-2 py-1 rounded-lg border border-surface bg-white/50">←</span>
             Back to Quizzes
           </Link>
 
@@ -404,8 +404,8 @@ export default function QuizPage() {
                                     key={cidx}
                                     className={`flex items-start gap-3 rounded-xl border px-3 py-2 transition ${
                                       selected
-                                        ? "border-dark/40 bg-[#E0CBB9]/40"
-                                        : "border-[#E0CBB9] bg-white/80 hover:bg-white"
+                                        ? "border-dark/40 bg-surface/40"
+                                        : "border-surface bg-white/80 hover:bg-white"
                                     }`}
                                   >
                                     <input
@@ -423,7 +423,7 @@ export default function QuizPage() {
                             </div>
                           ) : (
                             <textarea
-                              className="mt-4 w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                              className="mt-4 w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                               rows={quiz.quiz_type === "long" ? 5 : 3}
                               placeholder="Write your answer here"
                               value={answers[q.id] || ""}

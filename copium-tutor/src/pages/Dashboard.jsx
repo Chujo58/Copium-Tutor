@@ -182,7 +182,7 @@ export function UserDashboard() {
 
                 <div className="intro-card mt-6 rounded-3xl border border-black/10 bg-white/65 shadow-sm p-6 relative overflow-hidden">
                     <div className="absolute -top-10 -right-16 h-44 w-44 rounded-full bg-accent/40 blur-2xl" />
-                    <div className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-[#E0CBB9]/45 blur-2xl" />
+                    <div className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-surface/45 blur-2xl" />
 
                     <div className="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                         <div>

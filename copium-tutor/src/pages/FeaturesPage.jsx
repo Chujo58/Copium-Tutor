@@ -7,7 +7,7 @@ import { Folder, Sparkles, Layers, FileText, MessageSquare, CheckCircle2 } from 
 
 function Badge({ label }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-[#E0CBB9] bg-white/70 px-2.5 py-1 text-xs text-dark">
+    <span className="inline-flex items-center rounded-full border border-surface bg-white/70 px-2.5 py-1 text-xs text-dark">
       {label}
     </span>
   );
@@ -21,7 +21,7 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E0CBB9]/60 text-dark">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface/60 text-dark">
           <Icon size={20} />
         </div>
         <div>
@@ -99,7 +99,7 @@ export default function FeaturesPage() {
         featureLinks={featureLinks}
       />
 
-      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         <div className="p-10">
           <style>{`
             .feature-card {
@@ -150,13 +150,13 @@ export default function FeaturesPage() {
             to="/dashboard"
             className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
-            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            <span className="px-2 py-1 rounded-lg border border-surface bg-white/50">←</span>
             Back to Dashboard
           </Link>
 
           <div className="mt-6 rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E0CBB9]/60 text-dark">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface/60 text-dark">
                 <Sparkles size={22} />
               </div>
               <div>

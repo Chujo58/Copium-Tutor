@@ -92,7 +92,7 @@ export default function BackboardThanksPage() {
                         to="/dashboard"
                         className="inline-flex items-center gap-2 text-dark hover:opacity-80"
                     >
-                        <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">
+                        <span className="px-2 py-1 rounded-lg border border-surface bg-white/50">
                             ←
                         </span>
                         Back to Dashboard

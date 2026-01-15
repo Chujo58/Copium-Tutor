@@ -63,7 +63,7 @@ function cardStatus(card) {
 function Badge({ label, title, tone = "neutral" }) {
   const toneClass =
     tone === "accent"
-      ? "border-primary text-dark bg-[#E0CBB9]/60"
+      ? "border-primary text-dark bg-surface/60"
       : tone === "warm"
       ? "border-accent text-dark bg-accent/20"
       : tone === "strong"
@@ -102,7 +102,7 @@ function RatingButton({ label, hintKey, onClick, disabled, variant }) {
       ? "border-secondary/60 bg-secondary/10 hover:bg-secondary/20"
       : variant === "good"
       ? "border-accent/60 bg-accent/10 hover:bg-accent/20"
-      : "border-[#E0CBB9]/80 bg-[#E0CBB9]/40 hover:bg-[#E0CBB9]/60";
+      : "border-surface/80 bg-surface/40 hover:bg-surface/60";
 
   return (
     <button
@@ -160,7 +160,7 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
 
       <div className="mt-4 grid gap-3">
         <input
-          className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+          className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
           value={front}
           onChange={(e) => {
             setFront(e.target.value);
@@ -171,7 +171,7 @@ function EditableCardRow({ card, onSave, onDelete, disabled }) {
         />
 
         <textarea
-          className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+          className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
           rows={3}
           value={back}
           onChange={(e) => {
@@ -545,13 +545,13 @@ export default function DeckPage() {
                     })),
       ]} />
 
-      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         <div className="p-10">
           <Link
             to={`/project/${projectid}/flashcards`}
             className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
-            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            <span className="px-2 py-1 rounded-lg border border-surface bg-white/50">←</span>
             Back to Flashcards
           </Link>
 
@@ -733,14 +733,14 @@ export default function DeckPage() {
 
                       <div className="mt-4 grid gap-3">
                         <input
-                          className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                          className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                           placeholder="Front"
                           value={newFront}
                           onChange={(e) => setNewFront(e.target.value)}
                           disabled={saving}
                         />
                         <textarea
-                          className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                          className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                           placeholder="Back"
                           rows={3}
                           value={newBack}

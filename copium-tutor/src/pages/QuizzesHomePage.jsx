@@ -65,9 +65,9 @@ function SoftButton({
 function SkeletonRow() {
   return (
     <div className="rounded-2xl border border-white/40 bg-white/50 backdrop-blur p-5 shadow-sm">
-      <div className="h-5 w-40 bg-[#E0CBB9]/60 rounded" />
-      <div className="mt-3 h-4 w-full bg-[#E0CBB9]/40 rounded" />
-      <div className="mt-2 h-4 w-2/3 bg-[#E0CBB9]/35 rounded" />
+      <div className="h-5 w-40 bg-surface/60 rounded" />
+      <div className="mt-3 h-4 w-full bg-surface/40 rounded" />
+      <div className="mt-2 h-4 w-2/3 bg-surface/35 rounded" />
     </div>
   );
 }
@@ -358,7 +358,7 @@ export default function QuizzesHomePage() {
         ]}
       />
 
-      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-[#E0CBB9]/35 to-[#F6EFEA]">
+      <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         {creating ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F6EFEA]/80 backdrop-blur">
             <div className="rounded-3xl border border-white/50 bg-white/80 px-8 py-7 shadow-lg text-center">
@@ -381,7 +381,7 @@ export default function QuizzesHomePage() {
             to={`/project/${projectid}`}
             className="inline-flex items-center gap-2 text-dark hover:opacity-80"
           >
-            <span className="px-2 py-1 rounded-lg border border-[#E0CBB9] bg-white/50">←</span>
+            <span className="px-2 py-1 rounded-lg border border-surface bg-white/50">←</span>
             Back to Course
           </Link>
 
@@ -430,7 +430,7 @@ export default function QuizzesHomePage() {
 
                   <div className="mt-4 grid gap-4">
                     <input
-                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                      className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                       placeholder="Quiz topic (e.g., Module 2 review)"
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
@@ -441,7 +441,7 @@ export default function QuizzesHomePage() {
                       <label className="flex flex-col text-sm gap-1 text-dark/80">
                         Type
                         <select
-                          className="rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                          className="rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                           value={quizType}
                           onChange={(e) => setQuizType(e.target.value)}
                           disabled={creating}
@@ -458,7 +458,7 @@ export default function QuizzesHomePage() {
                         Number of questions
                         <input
                           type="number"
-                          className="w-40 rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                          className="w-40 rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                           min={1}
                           max={50}
                           value={numQuestions}
@@ -569,7 +569,7 @@ export default function QuizzesHomePage() {
                           {files.map((f) => (
                             <li
                               key={f.fileid}
-                              className="flex items-center justify-between gap-3 rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2"
+                              className="flex items-center justify-between gap-3 rounded-xl border border-surface bg-white/80 px-3 py-2"
                             >
                               <label className="flex items-center gap-3">
                                 <input
@@ -630,7 +630,7 @@ export default function QuizzesHomePage() {
 
                   <div className="mt-4 flex items-center gap-2">
                     <input
-                      className="w-full rounded-xl border border-[#E0CBB9] bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
+                      className="w-full rounded-xl border border-surface bg-white/80 px-3 py-2 outline-none focus:ring-2 focus:ring-accent/50"
                       placeholder="Search quizzes (title, topic, id)…"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
