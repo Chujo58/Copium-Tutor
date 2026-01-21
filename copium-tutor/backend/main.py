@@ -1,3 +1,4 @@
+# region imports
 import base64, hashlib, re, secrets, time, sqlite3, os, bcrypt, logging, uuid, json
 from pathlib import Path
 from dataclasses import dataclass
@@ -26,6 +27,9 @@ from db import conn, cursor, init_db, DB_PATH
 from backboard_ops import index_project_documents_impl
 from typing import Literal, Optional
 
+# endregion
+
+# region Config & Initialization
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 BACKBOARD_API_KEY = os.getenv("BACKBOARD_API_KEY")
 
@@ -42,8 +46,10 @@ init_db()
 PUBLIC_DIR = Path(__file__).resolve().parent / "public"
 PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
+# endregion
 
 
+# region Data Classes and Models
 @dataclass
 class User:
     userid: str
@@ -79,39 +85,52 @@ class CreateDeckRequest(BaseModel):
     name: str
     prompt: str
 
+
 class CreateQuizRequest(BaseModel):
     topic: str
     quiz_type: str
     num_questions: int
     document_ids: list[str] = []
 
+
 class SubmitQuizRequest(BaseModel):
     answers: dict
+
 
 class CreateCardRequest(BaseModel):
     front: str
     back: str
 
+
 class UpdateCardRequest(BaseModel):
     front: str | None = None
     back: str | None = None
 
+
 class ReviewCardRequest(BaseModel):
     rating: Literal["again", "hard", "good", "easy"]
+
 
 class CreateChatRequest(BaseModel):
     title: str | None = None
     llm_provider: str | None = "openai"
     model_name: str | None = "gpt-4o"
 
+
 class SendChatMessageRequest(BaseModel):
     content: str
     llm_provider: str | None = None
     model_name: str | None = None
 
+
 class RenameChatRequest(BaseModel):
     title: str
 
+
+# endregion
+
+
+# region Helper: Backboard & Memory
 async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn=None):
     db_cursor = db_cursor or cursor
     db_conn = db_conn or conn
@@ -130,7 +149,9 @@ async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn
             await client.get_thread(thread_id)
             return client, assistant_id, thread_id
         except BackboardNotFoundError:
-            logger.warning("Backboard thread missing for project %s, recreating", projectid)
+            logger.warning(
+                "Backboard thread missing for project %s, recreating", projectid
+            )
             try:
                 thread = await client.create_thread(assistant_id)
                 thread_id = str(thread.thread_id)
@@ -138,13 +159,19 @@ async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn
                     "UPDATE backboard_projects SET memory_thread_id=? WHERE projectid=?",
                     (thread_id, projectid),
                 )
-                db_cursor.execute("DELETE FROM indexed_files WHERE projectid=?", (projectid,))
+                db_cursor.execute(
+                    "DELETE FROM indexed_files WHERE projectid=?", (projectid,)
+                )
                 db_conn.commit()
                 return client, assistant_id, thread_id
             except BackboardNotFoundError:
-                logger.warning("Backboard assistant missing for project %s, recreating", projectid)
+                logger.warning(
+                    "Backboard assistant missing for project %s, recreating", projectid
+                )
             except Exception as e:
-                logger.warning("Backboard thread recreate failed for project %s: %s", projectid, e)
+                logger.warning(
+                    "Backboard thread recreate failed for project %s: %s", projectid, e
+                )
 
     # create new assistant + thread for this course
     assistant = await client.create_assistant(
@@ -167,6 +194,10 @@ async def get_or_create_backboard_memory(projectid: str, db_cursor=None, db_conn
     return client, assistant_id, thread_id
 
 
+# endregion
+
+
+# region Helper: UUID & Chat Title
 def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
     """
     Python equivalent of the PHP gen_uuid($len=8). https://stackoverflow.com/questions/307486/short-unique-id-in-php
@@ -195,6 +226,7 @@ def gen_uuid(length: int = 8, salt: str = "yourSaltHere") -> str:
 
     return uid[:length]
 
+
 def generate_chat_title_from_first_message(text: str) -> str:
     """
     Heuristic title generator (no extra LLM call):
@@ -213,7 +245,12 @@ def generate_chat_title_from_first_message(text: str) -> str:
     t = re.sub(r"\s+", " ", t).strip()
 
     # Remove leading filler
-    t = re.sub(r"^(please|can you|could you|help me|i need|i want to)\s+", "", t, flags=re.IGNORECASE).strip()
+    t = re.sub(
+        r"^(please|can you|could you|help me|i need|i want to)\s+",
+        "",
+        t,
+        flags=re.IGNORECASE,
+    ).strip()
 
     # Cap length
     if len(t) > 60:
@@ -232,6 +269,11 @@ def generate_chat_title_from_first_message(text: str) -> str:
 
     return t or "New chat"
 
+
+# endregion
+
+
+# region Helper: File & Ownership
 def get_project_file_paths(projectid: str) -> list[str]:
     cursor.execute(
         """
@@ -259,25 +301,37 @@ def get_project_file_paths(projectid: str) -> list[str]:
 
     return paths
 
+
 def _require_deck_owned(deckid: str, userid: str):
     cursor.execute("SELECT 1 FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
     if cursor.fetchone() is None:
         return False
     return True
 
+
 def _get_card_and_verify_owner(cardid: str, userid: str):
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT c.cardid, c.deckid, c.front, c.back
         FROM cards c
         JOIN decks d ON d.deckid = c.deckid
         WHERE c.cardid=? AND d.userid=?
-    """, (cardid, userid))
+    """,
+        (cardid, userid),
+    )
     return cursor.fetchone()
 
+
 def _require_project_owned(projectid: str, userid: str) -> bool:
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     return cursor.fetchone() is not None
 
+
+# endregion
+
+# region App Settings
 # Allow frontend
 app.add_middleware(
     CORSMiddleware,
@@ -290,13 +344,16 @@ app.add_middleware(
 UPLOAD_DIR = "uploaded_files"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-#==================================================================
-#==================================================================
+# endregion
+
+# ==================================================================
+# ==================================================================
 #                         ENDPOINTS START HERE
-#==================================================================
-#==================================================================
+# ==================================================================
+# ==================================================================
 
 
+# region AUTHENTICATION
 # ME
 @app.get("/me")
 async def get_me(session: str = Cookie(None)):
@@ -396,12 +453,15 @@ async def logout(response: Response):
     return {"success": True, "message": "Logged out successfully"}
 
 
+# endregion
+
 # NOW API BS:
 ###############
 # FILES
 ###############
 
 
+# region Document Upload / Management
 # Document upload:
 @app.post("/upload")
 async def upload_file(
@@ -600,11 +660,14 @@ async def list_files(session: str = Cookie(None)):
     return {"success": True, "files": files}
 
 
+# endregion
+
 ###############
 # PROJECTS / COURSES
 ###############
 
 
+# region Projects
 # List projects using session cookie
 @app.get("/projects")
 async def list_projects(session: str = Cookie(None)):
@@ -695,9 +758,13 @@ async def delete_project(projectid: str, session: str = Cookie(None)):
     return {"success": True, "message": "Project deleted successfully"}
 
 
+# endregion
+
 ###############
 # DECKS
 ###############
+
+# region Decks and Flashcards
 
 
 # List decks in a project
@@ -726,6 +793,7 @@ async def list_decks(projectid: str, session: str = Cookie(None)):
         for r in rows
     ]
     return {"success": True, "decks": decks}
+
 
 # List all decks for user
 @app.get("/decks")
@@ -759,9 +827,9 @@ async def list_all_decks(session: str = Cookie(None)):
     return {"success": True, "decks": decks}
 
 
-
 # Create a new deck in a project (QUERY ONLY — assumes documents already indexed)
 
+# region Generation Prompt Templates
 FLASHCARDS_SYSTEM = """
 You are an expert tutor creating study flashcards.
 
@@ -822,6 +890,8 @@ Rules:
 - For mcq: 4 choices, one correct; answers use 0-based index; choices must be full answer text (not labels like A/B/C/D).
 """.strip()
 
+# endregion
+
 
 def _extract_json_object(raw: str) -> str | None:
     if raw is None:
@@ -832,7 +902,8 @@ def _extract_json_object(raw: str) -> str | None:
     end = raw.rfind("}")
     if start == -1 or end == -1 or end <= start:
         return None
-    return raw[start:end + 1]
+    return raw[start : end + 1]
+
 
 def _fix_unescaped_newlines(json_text: str) -> str:
     fixed = []
@@ -855,6 +926,7 @@ def _fix_unescaped_newlines(json_text: str) -> str:
                 in_string = True
         fixed.append(ch)
     return "".join(fixed)
+
 
 def _extract_questions_array(raw: str) -> list:
     if not isinstance(raw, str):
@@ -883,6 +955,7 @@ def _extract_questions_array(raw: str) -> list:
                         return []
     return []
 
+
 def _parse_quiz_payload(raw_text: str):
     json_text = _extract_json_object(raw_text) or raw_text
     try:
@@ -896,16 +969,19 @@ def _parse_quiz_payload(raw_text: str):
                 return questions_only
             raise
 
+
 def _safe_int(value, default=None):
     try:
         return int(value)
     except (TypeError, ValueError):
         return default
 
+
 def _normalize_tokens(text: str) -> list[str]:
     if not text:
         return []
     return re.findall(r"[a-z0-9]+", text.lower())
+
 
 def _token_overlap_ratio(expected: str, actual: str) -> float:
     expected_tokens = set(_normalize_tokens(expected))
@@ -915,6 +991,7 @@ def _token_overlap_ratio(expected: str, actual: str) -> float:
     matches = sum(1 for token in expected_tokens if token in actual_tokens)
     return matches / len(expected_tokens)
 
+
 def _normalize_document_status(status):
     if status is None:
         return None
@@ -922,6 +999,7 @@ def _normalize_document_status(status):
     if value:
         return str(value).lower()
     return str(status).lower()
+
 
 def _display_filename(filepath: str) -> str:
     if not filepath:
@@ -931,17 +1009,24 @@ def _display_filename(filepath: str) -> str:
         return base.split("_", 1)[1]
     return base
 
-async def _wait_for_thread_ready(client, thread_id: str, timeout_s: int = 900, interval_s: int = 2):
+
+async def _wait_for_thread_ready(
+    client, thread_id: str, timeout_s: int = 900, interval_s: int = 2
+):
     deadline = time.monotonic() + timeout_s
     last_statuses = []
     while True:
         try:
             docs = await client.list_thread_documents(thread_id)
-            last_statuses = [_normalize_document_status(getattr(doc, "status", None)) for doc in docs]
+            last_statuses = [
+                _normalize_document_status(getattr(doc, "status", None)) for doc in docs
+            ]
         except Exception:
             last_statuses = []
 
-        if last_statuses and all(status in {"indexed", "failed"} for status in last_statuses):
+        if last_statuses and all(
+            status in {"indexed", "failed"} for status in last_statuses
+        ):
             return True, last_statuses
 
         if time.monotonic() >= deadline:
@@ -949,12 +1034,16 @@ async def _wait_for_thread_ready(client, thread_id: str, timeout_s: int = 900, i
 
         await asyncio.sleep(interval_s)
 
-def _set_quiz_status(db_cursor, db_conn, quizid: str, status: str, generation_error: str | None = None):
+
+def _set_quiz_status(
+    db_cursor, db_conn, quizid: str, status: str, generation_error: str | None = None
+):
     db_cursor.execute(
         "UPDATE quizzes SET status=?, generation_error=? WHERE quizid=?",
         (status, generation_error, quizid),
     )
     db_conn.commit()
+
 
 def _set_quiz_payload(
     db_cursor,
@@ -983,6 +1072,7 @@ def _set_quiz_payload(
     )
     db_conn.commit()
 
+
 async def _generate_quiz_content(
     quizid: str,
     projectid: str,
@@ -996,11 +1086,15 @@ async def _generate_quiz_content(
     local_cursor = local_conn.cursor()
     try:
         if not BACKBOARD_API_KEY:
-            _set_quiz_status(local_cursor, local_conn, quizid, "failed", "BACKBOARD_API_KEY not set")
+            _set_quiz_status(
+                local_cursor, local_conn, quizid, "failed", "BACKBOARD_API_KEY not set"
+            )
             return
 
         if not document_ids:
-            _set_quiz_status(local_cursor, local_conn, quizid, "failed", "No documents selected.")
+            _set_quiz_status(
+                local_cursor, local_conn, quizid, "failed", "No documents selected."
+            )
             return
 
         placeholders = ",".join(["?"] * len(document_ids))
@@ -1042,7 +1136,9 @@ async def _generate_quiz_content(
             )
             return
 
-        logger.debug("Quiz generation: thread %s has %d documents", thread_id, len(docs))
+        logger.debug(
+            "Quiz generation: thread %s has %d documents", thread_id, len(docs)
+        )
 
         ready, statuses = await _wait_for_thread_ready(client, thread_id)
         if not ready:
@@ -1060,7 +1156,9 @@ async def _generate_quiz_content(
             (*document_ids,),
         )
         file_rows = local_cursor.fetchall()
-        selected_files = [_display_filename(row[1]) for row in file_rows if row and row[1]]
+        selected_files = [
+            _display_filename(row[1]) for row in file_rows if row and row[1]
+        ]
 
         generation_prompt = f"""
 Course: {projectid}
@@ -1097,7 +1195,10 @@ If needed, you may use any indexed course documents to complete the quiz.
             )
 
         if not questions:
-            retry_prompt = generation_prompt + "\n\nReturn the JSON directly. Do not return an empty questions list."
+            retry_prompt = (
+                generation_prompt
+                + "\n\nReturn the JSON directly. Do not return an empty questions list."
+            )
             response = await client.add_message(
                 thread_id=thread_id,
                 content=QUIZ_SYSTEM + "\n\n" + retry_prompt,
@@ -1137,10 +1238,15 @@ If needed, you may use any indexed course documents to complete the quiz.
     except Exception as e:
         logger.error("Quiz generation failed: %s", e)
         err_detail = f"{type(e).__name__}: {e}".strip()
-        message = f"Quiz generation failed ({err_detail})" if err_detail else "Quiz generation failed"
+        message = (
+            f"Quiz generation failed ({err_detail})"
+            if err_detail
+            else "Quiz generation failed"
+        )
         _set_quiz_status(local_cursor, local_conn, quizid, "failed", message)
     finally:
         local_conn.close()
+
 
 def _normalize_choice_list(raw):
     if isinstance(raw, dict):
@@ -1180,6 +1286,7 @@ def _normalize_choice_list(raw):
         return [raw.strip()] if raw.strip() else []
     return []
 
+
 def _mcq_answer_to_index(answer, choices):
     if answer is None or not choices:
         return None
@@ -1203,6 +1310,7 @@ def _mcq_answer_to_index(answer, choices):
             return i
     return None
 
+
 def _answer_from_question(question: dict):
     for key in (
         "answer",
@@ -1218,11 +1326,13 @@ def _answer_from_question(question: dict):
             return question.get(key)
     return None
 
+
 def _explanation_from_question(question: dict):
     for key in ("explanation", "rationale", "reasoning", "feedback"):
         if key in question:
             return question.get(key)
     return None
+
 
 def _normalize_quiz_payload(payload, quiz_type: str, num_questions: int):
     if isinstance(payload, list):
@@ -1237,7 +1347,9 @@ def _normalize_quiz_payload(payload, quiz_type: str, num_questions: int):
             or payload.get("answerKey")
             or {}
         )
-        explanations_in = payload.get("explanations") or payload.get("explanation") or {}
+        explanations_in = (
+            payload.get("explanations") or payload.get("explanation") or {}
+        )
         nested = payload.get("quiz") or payload.get("data") or {}
         if not questions_in and isinstance(nested, dict):
             questions_in = nested.get("questions") or nested.get("items") or []
@@ -1249,7 +1361,9 @@ def _normalize_quiz_payload(payload, quiz_type: str, num_questions: int):
                 or {}
             )
         if not explanations_in and isinstance(nested, dict):
-            explanations_in = nested.get("explanations") or nested.get("explanation") or {}
+            explanations_in = (
+                nested.get("explanations") or nested.get("explanation") or {}
+            )
     else:
         questions_in = []
         answers_in = {}
@@ -1317,12 +1431,14 @@ def _normalize_quiz_payload(payload, quiz_type: str, num_questions: int):
             answer_text = answers_map.get(qid)
             if answer_text is None:
                 answer_text = _answer_from_question(source_map.get(qid, {}))
-            answer_key[qid] = (str(answer_text).strip() if answer_text is not None else "")
+            answer_key[qid] = (
+                str(answer_text).strip() if answer_text is not None else ""
+            )
 
         explanation = explanations_map.get(qid)
         if explanation is None:
             explanation = _explanation_from_question(source_map.get(qid, {}))
-        explanations[qid] = (str(explanation).strip() if explanation is not None else "")
+        explanations[qid] = str(explanation).strip() if explanation is not None else ""
 
     return questions, answer_key, explanations
 
@@ -1341,7 +1457,9 @@ def _safe_json_load(raw: str):
 
 
 @app.post("/projects/{projectid}/decks")
-async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Cookie(None)):
+async def create_deck(
+    projectid: str, body: CreateDeckRequest, session: str = Cookie(None)
+):
 
     print("\n" + "=" * 80)
     print(f"[CREATE_DECK] projectid={projectid}")
@@ -1354,7 +1472,9 @@ async def create_deck(projectid: str, body: CreateDeckRequest, session: str = Co
     userid = session
     print(f"[AUTH] ✅ userid={userid}")
 
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         print("[PROJECT] ❌ Project not found or not owned by user")
         return {"success": False, "message": "Project not found"}
@@ -1434,7 +1554,9 @@ Indexed file names (for context; retrieval uses the indexed docs automatically):
         retry = await client.add_message(
             thread_id=thread_id,
             content="Return ONLY valid JSON. No markdown. No commentary.\n\n"
-                    + FLASHCARDS_SYSTEM + "\n\n" + user_prompt,
+            + FLASHCARDS_SYSTEM
+            + "\n\n"
+            + user_prompt,
             llm_provider="openai",
             model_name="gpt-4o",
             stream=False,
@@ -1486,15 +1608,19 @@ Indexed file names (for context; retrieval uses the indexed docs automatically):
         if external and not note:
             note = "General knowledge (not found in course docs)."
 
-        cleaned.append({"front": front, "back": back, "external": external, "note": note})
+        cleaned.append(
+            {"front": front, "back": back, "external": external, "note": note}
+        )
 
     while len(cleaned) < 10:
-        cleaned.append({
-            "front": f"Key idea #{len(cleaned)+1}",
-            "back": "Write a concise explanation and one example from your notes.",
-            "external": True,
-            "note": "General study template (not found in course docs).",
-        })
+        cleaned.append(
+            {
+                "front": f"Key idea #{len(cleaned)+1}",
+                "back": "Write a concise explanation and one example from your notes.",
+                "external": True,
+                "note": "General study template (not found in course docs).",
+            }
+        )
         confidence = min(confidence, 25)
         warning = warning or "Some cards were padded with general study templates."
 
@@ -1565,7 +1691,8 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
     }
 
     # Cards + scheduling fields
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT
             cardid,
             front,
@@ -1580,26 +1707,31 @@ async def get_deck(deckid: str, session: str = Cookie(None)):
         FROM cards
         WHERE deckid=?
         ORDER BY pos ASC, rowid ASC
-    """, (deckid,))
+    """,
+        (deckid,),
+    )
 
     rows = cursor.fetchall()
 
     cards = []
     for r in rows:
-        cards.append({
-            "cardid": r[0],
-            "front": r[1],
-            "back": r[2],
-            "position": r[3],
-            "due_at": r[4],
-            "interval_days": r[5],
-            "ease": r[6],
-            "reps": r[7],
-            "lapses": r[8],
-            "last_reviewed_at": r[9],
-        })
+        cards.append(
+            {
+                "cardid": r[0],
+                "front": r[1],
+                "back": r[2],
+                "position": r[3],
+                "due_at": r[4],
+                "interval_days": r[5],
+                "ease": r[6],
+                "reps": r[7],
+                "lapses": r[8],
+                "last_reviewed_at": r[9],
+            }
+        )
 
     return {"success": True, "deck": deck, "cards": cards}
+
 
 @app.delete("/decks/{deckid}")
 async def delete_deck(deckid: str, session: str = Cookie(None)):
@@ -1608,7 +1740,9 @@ async def delete_deck(deckid: str, session: str = Cookie(None)):
     userid = session
 
     # Verify deck belongs to this user
-    cursor.execute("SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid))
+    cursor.execute(
+        "SELECT projectid FROM decks WHERE deckid=? AND userid=?", (deckid, userid)
+    )
     row = cursor.fetchone()
     if row is None:
         return {"success": False, "message": "Deck not found"}
@@ -1620,9 +1754,15 @@ async def delete_deck(deckid: str, session: str = Cookie(None)):
 
     return {"success": True, "deleted_deckid": deckid}
 
+
+# endregion
+
 ###############
 # QUIZZES
 ###############
+
+# region Quizzes
+
 
 @app.get("/projects/{projectid}/quizzes")
 async def list_quizzes(projectid: str, session: str = Cookie(None)):
@@ -1630,7 +1770,9 @@ async def list_quizzes(projectid: str, session: str = Cookie(None)):
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -1659,6 +1801,7 @@ async def list_quizzes(projectid: str, session: str = Cookie(None)):
     ]
 
     return {"success": True, "quizzes": quizzes}
+
 
 @app.get("/quizzes")
 async def list_all_quizzes(session: str = Cookie(None)):
@@ -1711,7 +1854,9 @@ async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(N
         return {"success": False, "message": "front and back are required"}
 
     # position = max(position)+1 (fallback if null)
-    cursor.execute("SELECT COALESCE(MAX(position), 0) FROM cards WHERE deckid=?", (deckid,))
+    cursor.execute(
+        "SELECT COALESCE(MAX(position), 0) FROM cards WHERE deckid=?", (deckid,)
+    )
     max_pos = cursor.fetchone()[0] or 0
     pos = int(max_pos) + 1
 
@@ -1752,17 +1897,27 @@ async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(N
 
     return {
         "success": True,
-        "card": {"cardid": cardid, "deckid": deckid, "front": front, "back": back, "position": pos},
+        "card": {
+            "cardid": cardid,
+            "deckid": deckid,
+            "front": front,
+            "back": back,
+            "position": pos,
+        },
     }
 
 
 @app.post("/projects/{projectid}/quizzes")
-async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Cookie(None)):
+async def create_quiz(
+    projectid: str, body: CreateQuizRequest, session: str = Cookie(None)
+):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -1774,7 +1929,10 @@ async def create_quiz(projectid: str, body: CreateQuizRequest, session: str = Co
     if not topic:
         return {"success": False, "message": "topic is required"}
     if quiz_type not in {"mcq", "short", "long"}:
-        return {"success": False, "message": "quiz_type must be one of: mcq, short, long"}
+        return {
+            "success": False,
+            "message": "quiz_type must be one of: mcq, short, long",
+        }
     if num_questions <= 0 or num_questions > 50:
         return {"success": False, "message": "num_questions must be between 1 and 50"}
 
@@ -1951,7 +2109,9 @@ async def generate_quiz(quizid: str, session: str = Cookie(None)):
 
 
 @app.post("/cards/{cardid}/review")
-async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cookie(None)):
+async def review_card(
+    cardid: str, body: ReviewCardRequest, session: str = Cookie(None)
+):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -2023,7 +2183,9 @@ async def review_card(cardid: str, body: ReviewCardRequest, session: str = Cooki
 
 
 @app.post("/quizzes/{quizid}/submit")
-async def submit_quiz(quizid: str, body: SubmitQuizRequest, session: str = Cookie(None)):
+async def submit_quiz(
+    quizid: str, body: SubmitQuizRequest, session: str = Cookie(None)
+):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -2127,7 +2289,9 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    cursor.execute("SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid))
+    cursor.execute(
+        "SELECT 1 FROM projects WHERE projectid=? AND userid=?", (projectid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Project not found"}
 
@@ -2150,9 +2314,13 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
             "message": "Backboard service unavailable. Please try again shortly.",
         }
 
+
+# endregion
+
 ################################
 # CHAT SESSIONS (per course)
 ################################
+
 
 # List all chats for user
 @app.get("/chats")
@@ -2161,26 +2329,33 @@ async def list_all_chats(session: str = Cookie(None)):
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT c.chatid, c.projectid, c.title, c.llm_provider, c.model_name, c.created_at, c.updated_at, p.name
         FROM chat_sessions c
         JOIN projects p ON p.projectid = c.projectid
         WHERE c.userid=?
         ORDER BY c.updated_at DESC
-    """, (userid,))
+    """,
+        (userid,),
+    )
     rows = cursor.fetchall()
-    chats = [{
-        "chatid": r[0],
-        "projectid": r[1],
-        "title": r[2],
-        "llm_provider": r[3],
-        "model_name": r[4],
-        "created_at": r[5],
-        "updated_at": r[6],
-        "project_name": r[7],
-    } for r in rows]
+    chats = [
+        {
+            "chatid": r[0],
+            "projectid": r[1],
+            "title": r[2],
+            "llm_provider": r[3],
+            "model_name": r[4],
+            "created_at": r[5],
+            "updated_at": r[6],
+            "project_name": r[7],
+        }
+        for r in rows
+    ]
 
     return {"success": True, "chats": chats}
+
 
 # List chats in a project
 @app.get("/projects/{projectid}/chats")
@@ -2192,28 +2367,37 @@ async def list_chats(projectid: str, session: str = Cookie(None)):
     if not _require_project_owned(projectid, userid):
         return {"success": False, "message": "Project not found"}
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT chatid, title, llm_provider, model_name, created_at, updated_at
         FROM chat_sessions
         WHERE projectid=? AND userid=?
         ORDER BY updated_at DESC
-    """, (projectid, userid))
+    """,
+        (projectid, userid),
+    )
 
     rows = cursor.fetchall()
-    chats = [{
-        "chatid": r[0],
-        "title": r[1],
-        "llm_provider": r[2],
-        "model_name": r[3],
-        "created_at": r[4],
-        "updated_at": r[5],
-    } for r in rows]
+    chats = [
+        {
+            "chatid": r[0],
+            "title": r[1],
+            "llm_provider": r[2],
+            "model_name": r[3],
+            "created_at": r[4],
+            "updated_at": r[5],
+        }
+        for r in rows
+    ]
 
     return {"success": True, "chats": chats}
 
+
 # Create new chat in a project
 @app.post("/projects/{projectid}/chats")
-async def create_chat(projectid: str, body: CreateChatRequest, session: str = Cookie(None)):
+async def create_chat(
+    projectid: str, body: CreateChatRequest, session: str = Cookie(None)
+):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -2228,10 +2412,13 @@ async def create_chat(projectid: str, body: CreateChatRequest, session: str = Co
     llm_provider = (body.llm_provider or "openai").strip()
     model_name = (body.model_name or "gpt-4o").strip()
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO chat_sessions (chatid, projectid, userid, title, llm_provider, model_name, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (chatid, projectid, userid, title, llm_provider, model_name, now, now))
+    """,
+        (chatid, projectid, userid, title, llm_provider, model_name, now, now),
+    )
     conn.commit()
 
     return {
@@ -2244,8 +2431,9 @@ async def create_chat(projectid: str, body: CreateChatRequest, session: str = Co
             "model_name": model_name,
             "created_at": now,
             "updated_at": now,
-        }
+        },
     }
+
 
 # Get chat details and messages
 @app.get("/chats/{chatid}")
@@ -2254,11 +2442,14 @@ async def get_chat(chatid: str, session: str = Cookie(None)):
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT chatid, projectid, title, llm_provider, model_name, created_at, updated_at
         FROM chat_sessions
         WHERE chatid=? AND userid=?
-    """, (chatid, userid))
+    """,
+        (chatid, userid),
+    )
     row = cursor.fetchone()
     if row is None:
         return {"success": False, "message": "Chat not found"}
@@ -2273,26 +2464,35 @@ async def get_chat(chatid: str, session: str = Cookie(None)):
         "updated_at": row[6],
     }
 
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT msgid, role, content, created_at
         FROM chat_messages
         WHERE chatid=?
         ORDER BY created_at ASC
-    """, (chatid,))
+    """,
+        (chatid,),
+    )
     msgs = cursor.fetchall()
 
-    messages = [{
-        "msgid": m[0],
-        "role": m[1],
-        "content": m[2],
-        "created_at": m[3],
-    } for m in msgs]
+    messages = [
+        {
+            "msgid": m[0],
+            "role": m[1],
+            "content": m[2],
+            "created_at": m[3],
+        }
+        for m in msgs
+    ]
 
     return {"success": True, "chat": chat, "messages": messages}
 
+
 # Rename chat
 @app.patch("/chats/{chatid}")
-async def rename_chat(chatid: str, body: RenameChatRequest, session: str = Cookie(None)):
+async def rename_chat(
+    chatid: str, body: RenameChatRequest, session: str = Cookie(None)
+):
     if session is None:
         return {"success": False, "message": "Unauthorized"}
     userid = session
@@ -2301,19 +2501,25 @@ async def rename_chat(chatid: str, body: RenameChatRequest, session: str = Cooki
     if not title:
         return {"success": False, "message": "Title cannot be empty"}
 
-    cursor.execute("SELECT 1 FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid))
+    cursor.execute(
+        "SELECT 1 FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Chat not found"}
 
     now = datetime.utcnow().isoformat()
-    cursor.execute("""
+    cursor.execute(
+        """
         UPDATE chat_sessions
         SET title=?, updated_at=?
         WHERE chatid=? AND userid=?
-    """, (title, now, chatid, userid))
+    """,
+        (title, now, chatid, userid),
+    )
     conn.commit()
 
     return {"success": True, "chatid": chatid, "title": title, "updated_at": now}
+
 
 # Delete chat
 @app.delete("/chats/{chatid}")
@@ -2322,15 +2528,20 @@ async def delete_chat(chatid: str, session: str = Cookie(None)):
         return {"success": False, "message": "Unauthorized"}
     userid = session
 
-    cursor.execute("SELECT 1 FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid))
+    cursor.execute(
+        "SELECT 1 FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid)
+    )
     if cursor.fetchone() is None:
         return {"success": False, "message": "Chat not found"}
 
     cursor.execute("DELETE FROM chat_messages WHERE chatid=?", (chatid,))
-    cursor.execute("DELETE FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid))
+    cursor.execute(
+        "DELETE FROM chat_sessions WHERE chatid=? AND userid=?", (chatid, userid)
+    )
     conn.commit()
 
     return {"success": True, "deleted": True, "chatid": chatid}
+
 
 # -----------------------
 # CHAT MESSAGES
@@ -2352,6 +2563,7 @@ Style:
 - Use headings and bullet points.
 - Provide small examples when relevant.
 """.strip()
+
 
 @app.post("/chats/{chatid}/messages")
 async def send_chat_message(
@@ -2389,10 +2601,15 @@ async def send_chat_message(
     # Is this the first message in this chat?
     cursor.execute("SELECT COUNT(*) FROM chat_messages WHERE chatid=?", (chatid,))
     msg_count = cursor.fetchone()[0] or 0
-    is_first_message = (msg_count == 0)
+    is_first_message = msg_count == 0
 
     # Only auto-title if title still looks like a placeholder
-    should_autotitle = (chat_title or "").strip().lower() in {"", "new chat", "untitled", "chat"}
+    should_autotitle = (chat_title or "").strip().lower() in {
+        "",
+        "new chat",
+        "untitled",
+        "chat",
+    }
 
     # Allow per-message override, otherwise use saved chat model
     llm_provider = (body.llm_provider or saved_provider or "openai").strip()
@@ -2415,7 +2632,9 @@ async def send_chat_message(
     if not BACKBOARD_API_KEY:
         assistant_text = "BACKBOARD_API_KEY not set, so I can't answer yet."
     else:
-        client, assistant_id, thread_id = await get_or_create_backboard_memory(projectid)
+        client, assistant_id, thread_id = await get_or_create_backboard_memory(
+            projectid
+        )
 
         # Keep memory structured by chat title
         prompt = f"[Chat: {chat_title}] {content}"
@@ -2476,7 +2695,17 @@ async def send_chat_message(
         "llm_provider": llm_provider,
         "model_name": model_name,
         "messages": [
-            {"msgid": user_msgid, "role": "user", "content": content, "created_at": now},
-            {"msgid": assistant_msgid, "role": "assistant", "content": assistant_text, "created_at": now2},
+            {
+                "msgid": user_msgid,
+                "role": "user",
+                "content": content,
+                "created_at": now,
+            },
+            {
+                "msgid": assistant_msgid,
+                "role": "assistant",
+                "content": assistant_text,
+                "created_at": now2,
+            },
         ],
     }
