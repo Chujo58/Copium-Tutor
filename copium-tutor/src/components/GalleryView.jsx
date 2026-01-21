@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import SubjectCard from "./Card";
 import { Link } from "react-router-dom";
 
@@ -35,7 +36,7 @@ export default function GalleryView({ subjects, onAddSubject, onDeleteSubject })
                     {onDeleteSubject ? (
                         <button
                             type="button"
-                            className="absolute top-3 right-3 rounded-full bg-white/80 px-2.5 py-1 text-xs text-dark shadow hover:bg-white"
+                            className="absolute top-3 right-3 rounded-full bg-white/80 p-2.5 text-xs text-dark shadow hover:bg-red-600 hover:text-white transition"
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -43,7 +44,7 @@ export default function GalleryView({ subjects, onAddSubject, onDeleteSubject })
                             }}
                             title="Delete subject"
                         >
-                            Delete
+                            <Trash2 size={14} />
                         </button>
                     ) : null}
                 </div>
