@@ -739,6 +739,15 @@ async def edit_project(projectid: str, data: dict, session: str = Cookie(None)):
     if not cursor.fetchone():
         return {"success": False, "message": "Project not found or unauthorized"}
 
+    # Double check for name conflicts for any projects other than this one
+    new_name = data.get("name")
+    cursor.execute(
+        "SELECT projectid FROM projects WHERE userid=? AND name=? AND projectid<>?",
+        (userid, new_name, projectid),
+    )
+    if cursor.fetchone():
+        return {"success": False, "message": "Project with this name already exists"}
+
     # Get the information from the data dictionary:
     name = data.get("name")
     description = data.get("description", "")
