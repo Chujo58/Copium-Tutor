@@ -36,6 +36,13 @@
     }
 }
 
+.sidebaritem-inner {
+    display: none;
+}
+.sidebaritem-outer:hover .sidebaritem-inner {
+    display: block;
+}
+
 .flashcard {
     width: 100%;
     height: 320px;

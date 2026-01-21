@@ -27,7 +27,7 @@ function SidebarItem({
     // });
     return (
         <div
-            className={`flex items-center hover:bg-dark/30 ${
+            className={`flex items-center transition ease-in-out hover:bg-dark/30 sidebaritem-outer ${
                 collapsed
                     ? "justify-center p-2 rounded-3xl hover:text-rose-copper"
                     : "w-60 rounded ml-2 mr-2 p-2"
@@ -44,7 +44,7 @@ function SidebarItem({
             </Link>
             {!collapsed && isProject && (
                 <button
-                    className=" text-dark"
+                    className="text-dark sidebaritem-inner"
                     onClick={(event) => {
                         event.preventDefault();
                         if (typeof onClickFunction === "function") {
@@ -52,7 +52,7 @@ function SidebarItem({
                         }
                     }}
                 >
-                    <Icons.Settings />
+                    <Icons.MoreHorizontal />
                 </button>
             )}
         </div>
