@@ -47,15 +47,18 @@ export function UserDashboard() {
     const deleteProject = async (project) => {
         if (!project?.projectid) return;
         const ok = confirm(
-            `Delete "${project.name || "this subject"}"? This cannot be undone.`
+            `Delete "${project.name || "this subject"}"? This cannot be undone.`,
         );
         if (!ok) return;
 
         try {
-            const res = await fetch(`${API_URL}/projects/${project.projectid}`, {
-                method: "DELETE",
-                credentials: "include",
-            });
+            const res = await fetch(
+                `${API_URL}/projects/${project.projectid}`,
+                {
+                    method: "DELETE",
+                    credentials: "include",
+                },
+            );
             const data = await res.json();
             if (!data.success) {
                 alert(data.message || "Failed to delete subject");
@@ -70,53 +73,7 @@ export function UserDashboard() {
 
     return (
         <div className="flex">
-            <Sidebar
-                projectsList={[
-                    // Get the rest of the projects from the backend
-                    ...projects.map((project) => ({
-                        projectid: project.projectid,
-                        name: project.name,
-                        href: `/project/${project.projectid}`,
-                        description: project.description,
-                        image: project.image,
-                        icon:
-                            project.icon in Icons && project.icon !== null
-                                ? Icons[project.icon]
-                                : Folder,
-                        color:
-                            project.color !== null ? project.color : "#754B4D",
-                    })),
-                ]}
-                featureLinks={[
-                    {
-                        href: "/features",
-                        icon: Sparkles,
-                        name: "Feature guide",
-                        color: "#754B4D",
-                    },
-                ]}
-                toolLinks={[
-                    {
-                        href: "/flashcards",
-                        icon: Layers,
-                        name: "Flashcards",
-                        color: "#754B4D",
-                    },
-                    {
-                        href: "/quizzes",
-                        icon: FileText,
-                        name: "Quizzes",
-                        color: "#754B4D",
-                    },
-                    {
-                        href: "/chats",
-                        icon: MessageSquare,
-                        name: "Chatbot",
-                        color: "#754B4D",
-                    },
-                ]}
-            />
-
+            <Sidebar projects={projects} />
             <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
                 <div className="text-3xl main-header font-card mb-2 text-dark">
                     Dashboard
@@ -190,10 +147,12 @@ export function UserDashboard() {
                                 Turn messy notes into confident study sessions.
                             </div>
                             <p className="mt-3 text-sm text-dark/75">
-                                Copium Tutor helps you compress long PDFs into flashcards, quizzes,
-                                and a memory-aware chatbot. In real life, that means less time rereading
-                                and more time practicing, so you walk into exams and interviews with
-                                real recall, not just recognition.
+                                Copium Tutor helps you compress long PDFs into
+                                flashcards, quizzes, and a memory-aware chatbot.
+                                In real life, that means less time rereading and
+                                more time practicing, so you walk into exams and
+                                interviews with real recall, not just
+                                recognition.
                             </p>
 
                             <div className="mt-4 flex flex-wrap items-center gap-3 font-card">
@@ -219,9 +178,18 @@ export function UserDashboard() {
                                 Why this matters
                             </div>
                             <ul className="mt-3 space-y-2 text-sm text-dark/80">
-                                <li>Practice beats cramming. Quizzes show exactly what you miss.</li>
-                                <li>Flashcards keep facts fresh without rereading everything.</li>
-                                <li>Chat explains concepts in your own course context.</li>
+                                <li>
+                                    Practice beats cramming. Quizzes show
+                                    exactly what you miss.
+                                </li>
+                                <li>
+                                    Flashcards keep facts fresh without
+                                    rereading everything.
+                                </li>
+                                <li>
+                                    Chat explains concepts in your own course
+                                    context.
+                                </li>
                             </ul>
                             <div className="mt-4 flex flex-wrap gap-2 text-xs text-dark/70">
                                 <span className="rounded-full border border-black/10 bg-white/70 px-3 py-1">

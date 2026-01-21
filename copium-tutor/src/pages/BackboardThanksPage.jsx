@@ -40,51 +40,7 @@ export default function BackboardThanksPage() {
 
     return (
         <div className="flex">
-            <Sidebar
-                projectsList={[
-                    ...projects.map((project) => ({
-                        projectid: project.projectid,
-                        name: project.name,
-                        href: `/project/${project.projectid}`,
-                        description: project.description,
-                        image: project.image,
-                        icon:
-                            project.icon in Icons && project.icon !== null
-                                ? Icons[project.icon]
-                                : Folder,
-                        color:
-                            project.color !== null ? project.color : "#754B4D",
-                    })),
-                ]}
-                featureLinks={[
-                    {
-                        href: "/features",
-                        icon: Sparkles,
-                        name: "Feature guide",
-                        color: "#754B4D",
-                    },
-                ]}
-                toolLinks={[
-                    {
-                        href: "/flashcards",
-                        icon: Layers,
-                        name: "Flashcards",
-                        color: "#754B4D",
-                    },
-                    {
-                        href: "/quizzes",
-                        icon: FileText,
-                        name: "Quizzes",
-                        color: "#754B4D",
-                    },
-                    {
-                        href: "/chats",
-                        icon: MessageSquare,
-                        name: "Chatbot",
-                        color: "#754B4D",
-                    },
-                ]}
-            />
+            <Sidebar projects={projects}/>
 
             <div className="flex-1 h-screen overflow-auto bg-rose-china">
                 <div className="p-10">

@@ -53,10 +53,6 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
 export default function FeaturesPage() {
   const [projects, setProjects] = useState([]);
 
-  const featureLinks = [
-    { href: "/features", icon: Sparkles, name: "Feature guide", color: "#754B4D" },
-  ];
-
   useEffect(() => {
     const fetchProjects = async () => {
       try {
@@ -81,23 +77,7 @@ export default function FeaturesPage() {
 
   return (
     <div className="flex">
-      <Sidebar
-        projectsList={[
-          ...projects.map((project) => ({
-            projectid: project.projectid,
-            name: project.name,
-            href: `/project/${project.projectid}`,
-            description: project.description,
-            image: project.image,
-            icon:
-              project.icon in Icons && project.icon !== null
-                ? Icons[project.icon]
-                : Folder,
-            color: project.color !== null ? project.color : "#754B4D",
-          })),
-        ]}
-        featureLinks={featureLinks}
-      />
+     <Sidebar projects={projects}/>
 
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         <div className="p-10">

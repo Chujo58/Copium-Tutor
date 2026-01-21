@@ -64,22 +64,7 @@ export default function AllChatsPage() {
 
   return (
     <div className="flex">
-      <Sidebar
-        projectsList={[
-          ...projects.map((project) => ({
-            projectid: project.projectid,
-            name: project.name,
-            href: `/project/${project.projectid}`,
-            description: project.description,
-            image: project.image,
-            icon:
-              project.icon in Icons && project.icon !== null
-                ? Icons[project.icon]
-                : Folder,
-            color: project.color !== null ? project.color : "#754B4D",
-          })),
-        ]}
-      />
+      <Sidebar projects={projects}/>
 
       <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
         <div className="text-3xl main-header font-sans text-dark">
