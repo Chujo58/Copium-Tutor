@@ -19,6 +19,7 @@ import { UserDashboard } from "./pages/Dashboard";
 import CourseChatPage from "./pages/CourseChatPage";
 import FeaturesPage from "./pages/FeaturesPage";
 import BackboardThanksPage from "./pages/BackboardThanksPage";
+import ContextMenu from "./components/ContextMenu";
 
 
 
@@ -40,6 +41,7 @@ export default function App() {
                 <Route path="/project/:projectid/quizzes" element={<QuizzesHomePage />} />
                 <Route path="/project/:projectid/quizzes/:quizId" element={<QuizPage />} />
             </Routes>
+            <ContextMenu />
         </Router>
     );
 }
