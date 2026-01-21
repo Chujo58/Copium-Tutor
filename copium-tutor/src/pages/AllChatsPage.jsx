@@ -17,38 +17,37 @@ export default function AllChatsPage() {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${API_URL}/projects`, {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      setProjects(data.success ? data.projects || [] : []);
+    } catch (e) {
+      console.error(e);
+      setProjects([]);
+    }
+  };
+
+  const fetchChats = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/chats`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      setChats(data.success ? data.chats || [] : []);
+    } catch (e) {
+      console.error(e);
+      setChats([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch(`${API_URL}/projects`, {
-          credentials: "include",
-          method: "GET",
-        });
-        const data = await res.json();
-        setProjects(data.success ? data.projects || [] : []);
-      } catch (e) {
-        console.error(e);
-        setProjects([]);
-      }
-    };
-
-    const fetchChats = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/chats`, {
-          credentials: "include",
-        });
-        const data = await res.json();
-        setChats(data.success ? data.chats || [] : []);
-      } catch (e) {
-        console.error(e);
-        setChats([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProjects();
     fetchChats();
   }, []);
@@ -64,7 +63,7 @@ export default function AllChatsPage() {
 
   return (
     <div className="flex">
-      <Sidebar projects={projects}/>
+      <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjects }} />
 
       <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
         <div className="text-3xl main-header font-sans text-dark">

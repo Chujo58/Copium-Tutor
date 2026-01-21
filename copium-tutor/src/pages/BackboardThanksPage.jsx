@@ -40,7 +40,7 @@ export default function BackboardThanksPage() {
 
     return (
         <div className="flex">
-            <Sidebar projects={projects}/>
+            <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjects }} />
 
             <div className="flex-1 h-screen overflow-auto bg-rose-china">
                 <div className="p-10">

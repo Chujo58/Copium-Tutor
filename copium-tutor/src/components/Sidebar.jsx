@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../config";
+import { Link } from "react-router-dom";
 
 import { CopperDivider } from "./Divider";
 import * as Icons from "lucide-react";
@@ -16,6 +17,14 @@ function SidebarItem({
     onClickFunction = null,
 }) {
     const IconToUse = Icons[icon];
+    // console.log("Rendering SidebarItem:", {
+    //     href,
+    //     icon,
+    //     name,
+    //     color,
+    //     collapsed,
+    //     isProject,
+    // });
     return (
         <div
             className={`flex items-center hover:bg-dark/30 ${
@@ -24,7 +33,7 @@ function SidebarItem({
                     : "w-60 rounded ml-2 mr-2 p-2"
             }`}
         >
-            <a href={href} className="flex">
+            <Link to={href} className="flex mr-auto">
                 {icon && (
                     <IconToUse
                         className={`${!collapsed ? "mr-2" : ""}`}
@@ -32,10 +41,10 @@ function SidebarItem({
                     />
                 )}
                 {!collapsed && <span>{name}</span>}
-            </a>
+            </Link>
             {!collapsed && isProject && (
                 <button
-                    className="ml-auto text-dark"
+                    className=" text-dark"
                     onClick={(event) => {
                         event.preventDefault();
                         if (typeof onClickFunction === "function") {
@@ -52,6 +61,7 @@ function SidebarItem({
 
 export default function Sidebar({
     projectPopupStatus = { open: false, project: null, openFunction: null, closeFunction: null },
+    projects: projectsProp = null,
 }) {
     const [collapsed, setCollapsed] = useState(false);
     const [pinned, setPinned] = useState(true);
@@ -60,9 +70,16 @@ export default function Sidebar({
     const [lastName, setLastName] = useState("");
     const [pfp, setPfp] = useState("");
 
-    const [projects, setProjects] = useState(null);
-    const openEditPopup = projectPopupStatus.open;
-    const projectPopup = projectPopupStatus.project;
+    const [projects, setProjects] = useState(projectsProp || null);
+    const [localOpenEditPopup, setLocalOpenEditPopup] = useState(false);
+    const [localProjectInPopup, setLocalProjectInPopup] = useState(null);
+
+    const openEditPopup =
+        typeof projectPopupStatus.open === "boolean"
+            ? projectPopupStatus.open
+            : localOpenEditPopup;
+    const projectPopup =
+        projectPopupStatus.project ?? localProjectInPopup;
 
     const { user, login, logout } = useAuth();
 
@@ -100,7 +117,11 @@ export default function Sidebar({
 
     useEffect(() => {
         fetchUserProfile();
-        fetchUserProjects();
+        if (Array.isArray(projectsProp) && projectsProp.length > 0) {
+            setProjects(projectsProp);
+        } else {
+            fetchUserProjects();
+        }
 
         try {
             const stored = localStorage.getItem("sidebarPinned");
@@ -112,7 +133,7 @@ export default function Sidebar({
         } catch (err) {
             // ignore localStorage errors
         }
-    }, []);
+    }, [projectsProp]);
 
     const defaultColor = "#754B4D";
 
@@ -122,15 +143,23 @@ export default function Sidebar({
                 <EditProjectPopup
                     project={projectPopup}
                     onClose={() => {
-                        if (projectPopupStatus.closeFunction)
+                        if (projectPopupStatus.closeFunction) {
                             projectPopupStatus.closeFunction();
+                        } else {
+                            setLocalOpenEditPopup(false);
+                            setLocalProjectInPopup(null);
+                        }
                         // refresh the projects list after popup closes
                         fetchUserProjects();
                     }}
                     onEdited={() => {
                         // let the page know an edit happened so it can refresh
-                        if (projectPopupStatus.onEdited)
+                        if (projectPopupStatus.onEdited) {
                             projectPopupStatus.onEdited();
+                        }
+                        // close local popup if in local mode
+                        setLocalOpenEditPopup(false);
+                        setLocalProjectInPopup(null);
                         // also refresh locally
                         fetchUserProjects();
                     }}
@@ -257,16 +286,20 @@ export default function Sidebar({
                         ? projects.map((item) => (
                               <SidebarItem
                                   key={item.projectid || item.name}
-                                  href={item.href}
+                                  href={`/project/${item.projectid}`}
                                   icon={item.icon}
                                   name={item.name}
                                   collapsed={collapsed}
                                   color={item.color}
                                   isProject={true}
-                                  onClickFunction={() =>
-                                      projectPopupStatus.openFunction &&
-                                      projectPopupStatus.openFunction(item)
-                                  }
+                                              onClickFunction={() => {
+                                                  if (projectPopupStatus.openFunction) {
+                                                      projectPopupStatus.openFunction(item);
+                                                  } else {
+                                                      setLocalProjectInPopup(item);
+                                                      setLocalOpenEditPopup(true);
+                                                  }
+                                              }}
                               />
                           ))
                         : ""}

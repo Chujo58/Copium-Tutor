@@ -52,32 +52,31 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
 
 export default function FeaturesPage() {
   const [projects, setProjects] = useState([]);
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch(`${API_URL}/projects`, {
-          credentials: "include",
-          method: "GET",
-        });
-        const data = await res.json();
-        if (data.success) {
-          setProjects(data.projects || []);
-        } else {
-          setProjects([]);
-        }
-      } catch (err) {
-        console.error(err);
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${API_URL}/projects`, {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProjects(data.projects || []);
+      } else {
         setProjects([]);
       }
-    };
+    } catch (err) {
+      console.error(err);
+      setProjects([]);
+    }
+  };
 
+  useEffect(() => {
     fetchProjects();
   }, []);
 
   return (
     <div className="flex">
-     <Sidebar projects={projects}/>
+    <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjects }} />
 
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         <div className="p-10">

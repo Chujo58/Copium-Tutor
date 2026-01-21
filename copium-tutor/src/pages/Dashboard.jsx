@@ -73,7 +73,7 @@ export function UserDashboard() {
 
     return (
         <div className="flex">
-            <Sidebar projects={projects} />
+            <Sidebar projectPopupStatus={{ onEdited: fetchProjects }} />
             <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
                 <div className="text-3xl main-header font-card mb-2 text-dark">
                     Dashboard
