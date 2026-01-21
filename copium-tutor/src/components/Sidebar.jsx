@@ -2,36 +2,20 @@ import { useEffect, useState } from "react";
 import { API_URL } from "../config";
 
 import { CopperDivider } from "./Divider";
-
-import {
-    LayoutDashboard,
-    Pin,
-    PinOff,
-    HeartHandshake,
-    Sparkles,
-    Layers,
-    FileText,
-    MessageSquare,
-} from "lucide-react";
 import * as Icons from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { EditProjectPopup } from "./Popup";
 
-export function SidebarItem({
+function SidebarItem({
     href,
-    icon: Icon,
+    icon,
     name,
     color,
     collapsed,
     isProject = false,
-    openPopup = null,
+    onClickFunction = null,
 }) {
-    const handleClick = (e) => {
-        if (isProject && openPopup) {
-            e.preventDefault();
-            openPopup();
-        }
-    }
+    const IconToUse = Icons[icon];
     return (
         <div
             className={`flex items-center hover:bg-dark/30 ${
@@ -41,8 +25,8 @@ export function SidebarItem({
             }`}
         >
             <a href={href} className="flex">
-                {Icon && (
-                    <Icon
+                {icon && (
+                    <IconToUse
                         className={`${!collapsed ? "mr-2" : ""}`}
                         color={color}
                     />
@@ -52,7 +36,12 @@ export function SidebarItem({
             {!collapsed && isProject && (
                 <button
                     className="ml-auto text-dark"
-                    onClick={(event) => handleClick(event)}
+                    onClick={(event) => {
+                        event.preventDefault();
+                        if (typeof onClickFunction === "function") {
+                            onClickFunction();
+                        }
+                    }}
                 >
                     <Icons.Settings />
                 </button>
@@ -61,77 +50,23 @@ export function SidebarItem({
     );
 }
 
-export function HelperSidebar({ projectsList, featureLinks, toolLinks }) {
+export default function Sidebar({
+    projectPopupStatus = { open: false, project: null, openFunction: null, closeFunction: null },
+}) {
     const [collapsed, setCollapsed] = useState(false);
     const [pinned, setPinned] = useState(true);
     const [openProfilePopout, setOpenProfilePopout] = useState(false);
-    const [openEditProjectPopup, setOpenEditProjectPopup] = useState(false);
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [pfp, setPfp] = useState("");
-    const [projectInPopup, setProjectInPopup] = useState(null);
+
+    const [projects, setProjects] = useState(null);
+    const openEditPopup = projectPopupStatus.open;
+    const projectPopup = projectPopupStatus.project;
 
     const { user, login, logout } = useAuth();
-    const defaultFeatureLinks = [
-        {
-            href: "/features",
-            icon: Sparkles,
-            name: "Feature guide",
-            color: "#754B4D",
-        },
-    ];
-    const partnerLinks = [
-        {
-            href: "/backboard",
-            icon: HeartHandshake,
-            name: "Backboard.io",
-            color: "#754B4D",
-        },
-    ];
-    const defaultToolLinks = [
-        {
-            href: "/flashcards",
-            icon: Layers,
-            name: "Flashcards",
-            color: "#754B4D",
-        },
-        {
-            href: "/quizzes",
-            icon: FileText,
-            name: "Quizzes",
-            color: "#754B4D",
-        },
-        {
-            href: "/chats",
-            icon: MessageSquare,
-            name: "Chatbot",
-            color: "#754B4D",
-        },
-    ];
 
-    const mergeLinks = (...groups) => {
-        const seen = new Set();
-        const merged = [];
-        groups.flat().forEach((item) => {
-            if (!item) return;
-            const key = item.href || item.name;
-            if (!key || seen.has(key)) return;
-            seen.add(key);
-            merged.push(item);
-        });
-        return merged;
-    };
-
-    const mergedFeatureLinks = mergeLinks(
-        defaultFeatureLinks,
-        Array.isArray(featureLinks) ? featureLinks : [],
-        partnerLinks,
-    );
-    const mergedToolLinks = mergeLinks(
-        defaultToolLinks,
-        Array.isArray(toolLinks) ? toolLinks : [],
-    );
-
+    // Get the user information
     async function fetchUserProfile() {
         try {
             const response = await fetch(`${API_URL}/me`, {
@@ -148,8 +83,24 @@ export function HelperSidebar({ projectsList, featureLinks, toolLinks }) {
         }
     }
 
+    // Get the user's projects 
+    async function fetchUserProjects(){
+        try {
+            const response = await fetch(`${API_URL}/projects`, {
+                credentials: "include"
+            });
+            const data = await response.json();
+            if (data.success) {
+                setProjects(data.projects);
+            }
+        } catch (error) {
+            console.error("Error fetching user projects:", error);
+        }
+    }
+
     useEffect(() => {
         fetchUserProfile();
+        fetchUserProjects();
 
         try {
             const stored = localStorage.getItem("sidebarPinned");
@@ -163,12 +114,26 @@ export function HelperSidebar({ projectsList, featureLinks, toolLinks }) {
         }
     }, []);
 
+    const defaultColor = "#754B4D";
+
     return (
         <div id="sidebar">
-            {openEditProjectPopup && (
+            {openEditPopup && (
                 <EditProjectPopup
-                    project={projectInPopup}
-                    onClose={() => {setOpenEditProjectPopup(false); setProjectInPopup(null); window.location.reload();}}
+                    project={projectPopup}
+                    onClose={() => {
+                        if (projectPopupStatus.closeFunction)
+                            projectPopupStatus.closeFunction();
+                        // refresh the projects list after popup closes
+                        fetchUserProjects();
+                    }}
+                    onEdited={() => {
+                        // let the page know an edit happened so it can refresh
+                        if (projectPopupStatus.onEdited)
+                            projectPopupStatus.onEdited();
+                        // also refresh locally
+                        fetchUserProjects();
+                    }}
                 />
             )}
             <div
@@ -209,68 +174,75 @@ export function HelperSidebar({ projectsList, featureLinks, toolLinks }) {
                             }}
                             className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
                         >
-                            {pinned ? <PinOff /> : <Pin />}
+                            {pinned ? <Icons.PinOff /> : <Icons.Pin />}
                         </button>
                         {/* Divider */}
                         {collapsed && <CopperDivider margins="mt-2" />}
                     </div>
+                    {/* Dashboard */}
                     <SidebarItem
                         key="dashboard"
                         href="/dashboard"
                         collapsed={collapsed}
-                        icon={LayoutDashboard}
+                        icon={"LayoutDashboard"}
                         name="Dashboard"
-                        color="#754B4D"
+                        color={defaultColor}
                     />
-                    {mergedFeatureLinks.length > 0 ? (
-                        <>
-                            <div className="flex items-center justify-between p-2 mx-2">
-                                {!collapsed && (
-                                    <div className="flex flex-col w-full">
-                                        <h2 className="main-header font-card">
-                                            Features
-                                        </h2>
-                                        <CopperDivider />
-                                    </div>
-                                )}
+                    {/* Feature Links */}
+                    <div className="flex items-center justify-between p-2 mx-2">
+                        {!collapsed && (
+                            <div className="flex flex-col w-full">
+                                <h2 className="main-header font-card">
+                                    Features
+                                </h2>
+                                <CopperDivider />
                             </div>
-                            {mergedFeatureLinks.map((item) => (
-                                <SidebarItem
-                                    key={item.name || item.href}
-                                    href={item.href}
-                                    icon={item.icon}
-                                    name={item.name}
-                                    collapsed={collapsed}
-                                    color={item.color}
-                                />
-                            ))}
-                        </>
-                    ) : null}
-                    {mergedToolLinks.length > 0 ? (
-                        <>
-                            <div className="flex items-center justify-between p-2 mx-2">
-                                {!collapsed && (
-                                    <div className="flex flex-col w-full">
-                                        <h2 className="main-header font-card">
-                                            Study Tools
-                                        </h2>
-                                        <CopperDivider />
-                                    </div>
-                                )}
+                        )}
+                    </div>
+                    <SidebarItem
+                        key="features"
+                        href="/features"
+                        collapsed={collapsed}
+                        icon={"Sparkles"}
+                        name="Feature guide"
+                        color={defaultColor}
+                    />
+                    {/* Tool Links */}
+                    <div className="flex items-center justify-between p-2 mx-2">
+                        {!collapsed && (
+                            <div className="flex flex-col w-full">
+                                <h2 className="main-header font-card">
+                                    Study Tools
+                                </h2>
+                                <CopperDivider />
                             </div>
-                            {mergedToolLinks.map((item) => (
-                                <SidebarItem
-                                    key={item.name || item.href}
-                                    href={item.href}
-                                    icon={item.icon}
-                                    name={item.name}
-                                    collapsed={collapsed}
-                                    color={item.color}
-                                />
-                            ))}
-                        </>
-                    ) : null}
-                    {/* Add a list of all the projects */}
+                        )}
+                    </div>
+                    <SidebarItem
+                        key="flashcards"
+                        href="/flashcards"
+                        collapsed={collapsed}
+                        icon={"Layers"}
+                        name="Flashcards"
+                        color={defaultColor}
+                    />
+                    <SidebarItem
+                        key="quizzes"
+                        href="/quizzes"
+                        collapsed={collapsed}
+                        icon={"FileText"}
+                        name="Quizzes"
+                        color={defaultColor}
+                    />
+                    <SidebarItem
+                        key="chats"
+                        href="/chats"
+                        collapsed={collapsed}
+                        icon={"MessageSquare"}
+                        name="Chatbot"
+                        color={defaultColor}
+                    />
+                    {/* Projects */}
                     <div className="flex items-center justify-between p-2 mx-2">
                         {!collapsed && (
                             <div className="flex flex-col w-full">
@@ -281,21 +253,20 @@ export function HelperSidebar({ projectsList, featureLinks, toolLinks }) {
                             </div>
                         )}
                     </div>
-                    {Array.isArray(projectsList) && projectsList.length > 0
-                        ? projectsList.map((item) => (
+                    {Array.isArray(projects) && projects.length > 0
+                        ? projects.map((item) => (
                               <SidebarItem
-                                  //   key={item.name}
+                                  key={item.projectid || item.name}
                                   href={item.href}
                                   icon={item.icon}
                                   name={item.name}
                                   collapsed={collapsed}
                                   color={item.color}
                                   isProject={true}
-                                  openPopup={() => {
-                                    console.log("Opening popup for project:", item);
-                                      setProjectInPopup(item);
-                                      setOpenEditProjectPopup(true);
-                                  }}
+                                  onClickFunction={() =>
+                                      projectPopupStatus.openFunction &&
+                                      projectPopupStatus.openFunction(item)
+                                  }
                               />
                           ))
                         : ""}
@@ -356,26 +327,5 @@ export function HelperSidebar({ projectsList, featureLinks, toolLinks }) {
                 </nav>
             </div>
         </div>
-    );
-}
-
-export default function Sidebar({ projects }) {
-    return (
-        <HelperSidebar
-            projectsList={[
-                ...projects.map((project) => ({
-                    projectid: project.projectid,
-                    name: project.name,
-                    href: `/project/${project.projectid}`,
-                    description: project.description,
-                    image: project.image,
-                    icon:
-                        project.icon in Icons && project.icon !== null
-                            ? Icons[project.icon]
-                            : Folder,
-                    color: project.color !== null ? project.color : "#754B4D",
-                })),
-            ]}
-        />
     );
 }

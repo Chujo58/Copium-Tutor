@@ -285,14 +285,23 @@ export function CreateProjectPopup({ onClose }) {
 }
 
 export function EditProjectPopup({ project, onClose, onEdited }) {
-    const [projectName, setProjectName] = React.useState(project.name);
-    const [description, setDescription] = React.useState(project.description);
-    const [imageUrl, setImageUrl] = React.useState(project.image);
-    const [color, setColor] = React.useState(project.color);
-    const [icon, setIcon] = React.useState(project.icon.render.name);
+    const [projectName, setProjectName] = React.useState(project?.name || "");
+    const [description, setDescription] = React.useState(project?.description || "");
+    const [imageUrl, setImageUrl] = React.useState(project?.image || "");
+    const [color, setColor] = React.useState(project?.color || "#754B4D");
+    const [icon, setIcon] = React.useState(project?.icon || "Smile");
     const [showIconPicker, setShowIconPicker] = React.useState(false);
     const SelectedIcon = Icons[icon];
     const [error, setError] = React.useState("");
+
+    // Keep internal form state in sync when `project` prop changes
+    React.useEffect(() => {
+        setProjectName(project?.name || "");
+        setDescription(project?.description || "");
+        setImageUrl(project?.image || "");
+        setColor(project?.color || "#754B4D");
+        setIcon(project?.icon || "Smile");
+    }, [project]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
