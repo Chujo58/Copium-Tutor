@@ -1481,7 +1481,7 @@ async def create_deck(
     print("[PROJECT] ✅ Ownership verified")
 
     deckid = uuid.uuid4().hex[:8]
-    createddate = datetime.utcnow().isoformat()
+    createddate = datetime.now(dt.UTC).isoformat()
 
     cursor.execute(
         "INSERT INTO decks (deckid, projectid, userid, name, prompt, createddate) VALUES (?, ?, ?, ?, ?, ?)",
@@ -1861,10 +1861,10 @@ async def add_card(deckid: str, body: CreateCardRequest, session: str = Cookie(N
     pos = int(max_pos) + 1
 
     cardid = uuid.uuid4().hex[:8]
-    createddate = datetime.utcnow().isoformat()
+    createddate = datetime.now(dt.UTC).isoformat()
 
     # initial scheduling defaults
-    due_at = datetime.utcnow().isoformat()
+    due_at = datetime.now(dt.UTC).isoformat()
     interval_days = 0.0
     ease = 2.5
     reps = 0
@@ -1952,7 +1952,7 @@ async def create_quiz(
         return {"success": False, "message": "No documents available for this course"}
 
     quizid = uuid.uuid4().hex[:8]
-    createddate = datetime.utcnow().isoformat()
+    createddate = datetime.now(dt.UTC).isoformat()
     title = f"{topic} ({quiz_type.upper()})"
 
     cursor.execute(
@@ -2137,7 +2137,7 @@ async def review_card(
     lapses = int(lapses) if lapses is not None else 0
 
     rating = body.rating
-    now = datetime.utcnow()
+    now = datetime.now(dt.UTC)
 
     # Simple Anki-ish rules
     if rating == "again":
@@ -2262,7 +2262,7 @@ async def submit_quiz(
         }
 
     attemptid = uuid.uuid4().hex[:8]
-    createddate = datetime.utcnow().isoformat()
+    createddate = datetime.now(dt.UTC).isoformat()
     cursor.execute(
         """
         INSERT INTO attempts (attemptid, quizid, userid, answers_json, score, feedback_json, createddate)
@@ -2406,7 +2406,7 @@ async def create_chat(
         return {"success": False, "message": "Project not found"}
 
     chatid = uuid.uuid4().hex[:10]
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(dt.UTC).isoformat()
 
     title = (body.title or "").strip() or "New chat"
     llm_provider = (body.llm_provider or "openai").strip()
@@ -2507,7 +2507,7 @@ async def rename_chat(
     if cursor.fetchone() is None:
         return {"success": False, "message": "Chat not found"}
 
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(dt.UTC).isoformat()
     cursor.execute(
         """
         UPDATE chat_sessions
@@ -2616,7 +2616,7 @@ async def send_chat_message(
     model_name = (body.model_name or saved_model or "gpt-4o").strip()
 
     # Store user message
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(dt.UTC).isoformat()
     user_msgid = uuid.uuid4().hex[:10]
     cursor.execute(
         """
@@ -2652,7 +2652,7 @@ async def send_chat_message(
             assistant_text = str(assistant_text)
 
     # Store assistant message
-    now2 = datetime.utcnow().isoformat()
+    now2 = datetime.now(dt.UTC).isoformat()
     assistant_msgid = uuid.uuid4().hex[:10]
     cursor.execute(
         """
