@@ -275,13 +275,6 @@ export default function CoursePage() {
         fetchQuizzes,
     ]);
 
-    const projectsList = useMemo(() => {
-        return projects.map((project) => ({
-            name: project.name,
-            href: `/project/${project.projectid}`,
-        }));
-    }, [projects]);
-
     const displayName = (filepath) => {
         const base = filepath.split("/").pop() || filepath;
         const idx = base.indexOf("_");
