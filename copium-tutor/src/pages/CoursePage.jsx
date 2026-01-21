@@ -356,7 +356,6 @@ export default function CoursePage() {
                             <button
                                 className="text-dark ml-3"
                                 onClick={() => {
-                                    console.log(course);
                                     setProjectInPopup(course);
                                     setOpenEditProjectPopup(true);
                                 }}
