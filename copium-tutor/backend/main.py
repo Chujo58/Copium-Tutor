@@ -346,15 +346,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # endregion
 
-# ==================================================================
-# ==================================================================
-#                         ENDPOINTS START HERE
-# ==================================================================
-# ==================================================================
 
-
-# region AUTHENTICATION
-# ME
+# region Authentication
 @app.get("/me")
 async def get_me(session: str = Cookie(None)):
     if session is None:
@@ -380,7 +373,6 @@ async def get_me(session: str = Cookie(None)):
     return {"success": True, "user": sanitized_user}
 
 
-# Login
 @app.post("/login")
 async def login(data: dict, response: Response):
     email = data.get("email")
@@ -410,7 +402,6 @@ async def login(data: dict, response: Response):
     return {"success": True, "user": sanitized_user, "message": "Login successful"}
 
 
-# Sign Up
 @app.post("/signup")
 async def signup(data: dict, response: Response):
     email = data.get("email")
@@ -446,7 +437,6 @@ async def signup(data: dict, response: Response):
     return {"success": True, "user": sanitized_user, "message": "Sign up successful"}
 
 
-# Logout
 @app.post("/logout")
 async def logout(response: Response):
     response.delete_cookie(key="session")
@@ -2321,6 +2311,8 @@ async def index_project_documents(projectid: str, session: str = Cookie(None)):
 # CHAT SESSIONS (per course)
 ################################
 
+# region Chat Sessions
+
 
 # List all chats for user
 @app.get("/chats")
@@ -2709,3 +2701,6 @@ async def send_chat_message(
             },
         ],
     }
+
+
+# endregion
