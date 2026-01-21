@@ -4,6 +4,7 @@ import GalleryView from "../components/GalleryView";
 import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 import { CreateProjectPopup } from "../components/Popup";
+import ConfirmDialog from "../components/ConfirmDialog";
 import * as Icons from "lucide-react";
 import {
     Folder,
@@ -19,6 +20,8 @@ export function UserDashboard() {
     // Query the projects from the backend (localhost:8000/projects) and display them in a gallery view
     const [projects, setProjects] = useState([]);
     const [showAddProject, setShowAddProject] = useState(false);
+    const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+    const [projectToDelete, setProjectToDelete] = useState(null);
 
     const fetchProjects = async () => {
         await fetch(`${API_URL}/projects`, {
@@ -44,13 +47,14 @@ export function UserDashboard() {
         fetchProjects();
     }, []);
 
-    const deleteProject = async (project) => {
+    const requestDeleteProject = (project) => {
         if (!project?.projectid) return;
-        const ok = confirm(
-            `Delete "${project.name || "this subject"}"? This cannot be undone.`
-        );
-        if (!ok) return;
+        setProjectToDelete(project);
+        setShowConfirmDelete(true);
+    };
 
+    const performDeleteProject = async (project) => {
+        if (!project?.projectid) return;
         try {
             const res = await fetch(`${API_URL}/projects/${project.projectid}`, {
                 method: "DELETE",
@@ -66,6 +70,17 @@ export function UserDashboard() {
             console.error(err);
             alert("Error deleting subject");
         }
+    };
+
+    const handleConfirmDelete = async () => {
+        await performDeleteProject(projectToDelete);
+        setShowConfirmDelete(false);
+        setProjectToDelete(null);
+    };
+
+    const handleCancelDelete = () => {
+        setShowConfirmDelete(false);
+        setProjectToDelete(null);
     };
 
     return (
@@ -166,7 +181,7 @@ export function UserDashboard() {
                         })),
                     ]}
                     onAddSubject={() => setShowAddProject(true)}
-                    onDeleteSubject={deleteProject}
+                    onDeleteSubject={requestDeleteProject}
                 />
 
                 <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-dark/70">
@@ -240,6 +255,15 @@ export function UserDashboard() {
                         }}
                     />
                 )}
+                <ConfirmDialog
+                    open={showConfirmDelete}
+                    title="Delete subject"
+                    message={`Delete "${projectToDelete?.name || "this subject"}"? This cannot be undone.`}
+                    confirmLabel="Delete"
+                    cancelLabel="Cancel"
+                    onConfirm={handleConfirmDelete}
+                    onCancel={handleCancelDelete}
+                />
                 {/* <DriveStyleUploader /> */}
             </div>
         </div>
