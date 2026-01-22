@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { API_URL } from "../config";
 import { Link } from "react-router-dom";
 
-import { CopperDivider } from "./Divider";
+import Divider from "./Divider";
 import * as Icons from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { EditProjectPopup } from "./Popup";
+import { getContrastTextColor, darkenHex } from "./Card";
 
 function SidebarItem({
     href,
@@ -15,21 +16,14 @@ function SidebarItem({
     collapsed,
     isProject = false,
     onClickFunction = null,
+    darkenOnHover = true,
 }) {
     const IconToUse = Icons[icon];
-    // console.log("Rendering SidebarItem:", {
-    //     href,
-    //     icon,
-    //     name,
-    //     color,
-    //     collapsed,
-    //     isProject,
-    // });
     return (
         <div
-            className={`flex items-center transition ease-in-out hover:bg-dark/30 sidebaritem-outer ${
+            className={`flex items-center transition ease-in-out ${darkenOnHover ? "hover:bg-black/10" : "hover:bg-white/10"} sidebaritem-outer ${
                 collapsed
-                    ? "justify-center p-2 rounded-3xl hover:text-rose-copper"
+                    ? `justify-center p-2 rounded-3xl`
                     : "w-60 rounded ml-2 mr-2 p-2"
             }`}
         >
@@ -44,7 +38,7 @@ function SidebarItem({
             </Link>
             {!collapsed && isProject && (
                 <button
-                    className="text-dark sidebaritem-inner"
+                    className="sidebaritem-inner"
                     onClick={(event) => {
                         event.preventDefault();
                         if (typeof onClickFunction === "function") {
@@ -60,8 +54,15 @@ function SidebarItem({
 }
 
 export default function Sidebar({
-    projectPopupStatus = { open: false, project: null, openFunction: null, closeFunction: null },
+    projectPopupStatus = {
+        open: false,
+        project: null,
+        openFunction: null,
+        closeFunction: null,
+    },
     projects: projectsProp = null,
+    activeProject = null,
+    activeColor = null,
 }) {
     const [collapsed, setCollapsed] = useState(false);
     const [pinned, setPinned] = useState(true);
@@ -78,8 +79,7 @@ export default function Sidebar({
         typeof projectPopupStatus.open === "boolean"
             ? projectPopupStatus.open
             : localOpenEditPopup;
-    const projectPopup =
-        projectPopupStatus.project ?? localProjectInPopup;
+    const projectPopup = projectPopupStatus.project ?? localProjectInPopup;
 
     const { user, login, logout } = useAuth();
 
@@ -100,11 +100,11 @@ export default function Sidebar({
         }
     }
 
-    // Get the user's projects 
-    async function fetchUserProjects(){
+    // Get the user's projects
+    async function fetchUserProjects() {
         try {
             const response = await fetch(`${API_URL}/projects`, {
-                credentials: "include"
+                credentials: "include",
             });
             const data = await response.json();
             if (data.success) {
@@ -135,7 +135,25 @@ export default function Sidebar({
         }
     }, [projectsProp]);
 
-    const defaultColor = "#754B4D";
+    const defaultColor = "#D8A694"; // Rosewater
+    const defaultTextColor = "#754B4D"; // Plum Wine
+    const effectiveColor =
+        activeColor || (activeProject && activeProject.color) || defaultColor;
+
+    const isActiveTheme = !!(activeColor || activeProject);
+    const textColor = (() => {
+        if (isActiveTheme) {
+            try {
+                return getContrastTextColor(effectiveColor);
+            } catch (e) {
+                return defaultTextColor;
+            }
+        }
+        return defaultTextColor;
+    })();
+    const darkenOnHover = isActiveTheme && textColor !== "#FFFFFF";
+
+    console.log(textColor);
 
     return (
         <div id="sidebar">
@@ -166,8 +184,8 @@ export default function Sidebar({
                 />
             )}
             <div
-                className={`flex flex-col bg-rose-water text-rose-plum h-screen transition-all duration-300
-      ${collapsed ? "w-16" : "w-64"}`}
+                className={`flex flex-col h-screen transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}
+                style={{ backgroundColor: effectiveColor, color: textColor }}
                 onMouseEnter={() => !pinned && setCollapsed(false)}
                 onMouseLeave={() => !pinned && setCollapsed(true)}
             >
@@ -201,12 +219,14 @@ export default function Sidebar({
                                 }
                                 if (!next) setCollapsed(true);
                             }}
-                            className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
+                            className={`${textColor} hover:${darkenOnHover ? "bg-dark/10" : "bg-white/10"} rounded-3xl focus:outline-none p-2`}
                         >
                             {pinned ? <Icons.PinOff /> : <Icons.Pin />}
                         </button>
                         {/* Divider */}
-                        {collapsed && <CopperDivider margins="mt-2" />}
+                        {collapsed && (
+                            <Divider color={textColor} margins="mt-2" />
+                        )}
                     </div>
                     {/* Dashboard */}
                     <SidebarItem
@@ -215,7 +235,8 @@ export default function Sidebar({
                         collapsed={collapsed}
                         icon={"LayoutDashboard"}
                         name="Dashboard"
-                        color={defaultColor}
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
                     />
                     {/* Feature Links */}
                     <div className="flex items-center justify-between p-2 mx-2">
@@ -224,7 +245,7 @@ export default function Sidebar({
                                 <h2 className="main-header font-card">
                                     Features
                                 </h2>
-                                <CopperDivider />
+                                <Divider color={textColor} />
                             </div>
                         )}
                     </div>
@@ -234,7 +255,8 @@ export default function Sidebar({
                         collapsed={collapsed}
                         icon={"Sparkles"}
                         name="Feature guide"
-                        color={defaultColor}
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
                     />
                     {/* Tool Links */}
                     <div className="flex items-center justify-between p-2 mx-2">
@@ -243,7 +265,7 @@ export default function Sidebar({
                                 <h2 className="main-header font-card">
                                     Study Tools
                                 </h2>
-                                <CopperDivider />
+                                <Divider color={textColor} />
                             </div>
                         )}
                     </div>
@@ -253,7 +275,8 @@ export default function Sidebar({
                         collapsed={collapsed}
                         icon={"Layers"}
                         name="Flashcards"
-                        color={defaultColor}
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
                     />
                     <SidebarItem
                         key="quizzes"
@@ -261,7 +284,8 @@ export default function Sidebar({
                         collapsed={collapsed}
                         icon={"FileText"}
                         name="Quizzes"
-                        color={defaultColor}
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
                     />
                     <SidebarItem
                         key="chats"
@@ -269,7 +293,8 @@ export default function Sidebar({
                         collapsed={collapsed}
                         icon={"MessageSquare"}
                         name="Chatbot"
-                        color={defaultColor}
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
                     />
                     {/* Projects */}
                     <div className="flex items-center justify-between p-2 mx-2">
@@ -278,7 +303,7 @@ export default function Sidebar({
                                 <h2 className="main-header font-card">
                                     Projects
                                 </h2>
-                                <CopperDivider />
+                                <Divider color={textColor} />
                             </div>
                         )}
                     </div>
@@ -290,36 +315,41 @@ export default function Sidebar({
                                   icon={item.icon}
                                   name={item.name}
                                   collapsed={collapsed}
-                                  color={item.color}
+                                  color={
+                                      isActiveTheme
+                                          ? textColor
+                                          : item.color || defaultColor
+                                  }
                                   isProject={true}
-                                              onClickFunction={() => {
-                                                  if (projectPopupStatus.openFunction) {
-                                                      projectPopupStatus.openFunction(item);
-                                                  } else {
-                                                      setLocalProjectInPopup(item);
-                                                      setLocalOpenEditPopup(true);
-                                                  }
-                                              }}
+                                  onClickFunction={() => {
+                                      if (projectPopupStatus.openFunction) {
+                                          projectPopupStatus.openFunction(item);
+                                      } else {
+                                          setLocalProjectInPopup(item);
+                                          setLocalOpenEditPopup(true);
+                                      }
+                                  }}
+                                  darkenOnHover={darkenOnHover}
                               />
                           ))
                         : ""}
                     {/* Now at the bottom, we should have the user profile */}
-                    <div className="mt-auto flex p-4 bg-rose-dusty/40">
+                    <div className={`mt-auto flex p-4 ${darkenOnHover ? "bg-black/10" : "bg-white/10"} cursor-pointer`}>
                         {/* The popup that shows user options comes here which is inline of the sidebar*/}
                         {openProfilePopout && !collapsed && (
                             <div
-                                className="absolute bottom-16 left-4 bg-rose-dusty/40 rounded p-4 w-48 z-10 border-2 border-rose-dusty/60 font-card"
+                                className={`absolute bottom-16 left-4 ${darkenOnHover ? "bg-black/10" : "bg-white/10"} rounded p-4 w-48 z-10 border-2 ${darkenOnHover ? "border-black/20" : "border-white/20"} font-card`}
                                 onMouseLeave={() => setOpenProfilePopout(false)}
                             >
                                 <a
                                     href="/profile"
-                                    className="block px-4 py-2 hover:bg-dark/30 rounded"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded`}
                                 >
                                     View Profile
                                 </a>
                                 <a
                                     href="/settings"
-                                    className="block px-4 py-2 hover:bg-dark/30 rounded"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded`}
                                 >
                                     Settings
                                 </a>
@@ -332,7 +362,7 @@ export default function Sidebar({
                                             window.location.href = "/";
                                         }, 500);
                                     }}
-                                    className="block px-4 py-2 hover:bg-dark/30 rounded text-red-500"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded text-red-500`}
                                 >
                                     Logout
                                 </button>

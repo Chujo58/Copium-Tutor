@@ -342,7 +342,7 @@ export default function QuizzesHomePage() {
 
   return (
     <div className="flex">
-      <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjectsAndCourse }} />
+      <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjectsAndCourse }} activeProject={course} />
 
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         {creating ? (

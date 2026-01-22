@@ -4,7 +4,7 @@ import Popup from "./Popup";
 import { API_URL } from "../config";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-function getContrastTextColor(hex) {
+export function getContrastTextColor(hex) {
     // Remove the hash if present
     hex = hex.replace("#", "");
 
@@ -20,7 +20,7 @@ function getContrastTextColor(hex) {
     return luminance > 0.5 ? "#000000" : "#FFFFFF";
 }
 
-function darkenHex(hex, amount = 0.1) {
+export function darkenHex(hex, amount = 0.1) {
     // Remove hash if present
     hex = hex.replace("#", "");
 
