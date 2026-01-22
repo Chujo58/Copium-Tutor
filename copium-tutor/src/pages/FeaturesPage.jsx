@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder, Sparkles, Layers, FileText, MessageSquare, CheckCircle2 } from "lucide-react";
+import CardsInHand from "../components/CardsInHand";
 
 function Badge({ label }) {
   return (
@@ -22,7 +23,7 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
     >
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface/60 text-dark">
-          <Icon size={20} />
+          <Icon size={20} fillColor="#E2D5CB" />
         </div>
         <div>
           <div className="text-xl font-semibold text-dark font-card">{title}</div>
@@ -154,7 +155,7 @@ export default function FeaturesPage() {
           <div className="mt-8 grid gap-6 lg:grid-cols-3">
             <FeatureCard
               id="flashcards"
-              icon={Layers}
+              icon={CardsInHand}
               title="Flashcards"
               description="Generate study cards from your course docs."
               delay={0}
