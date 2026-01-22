@@ -323,7 +323,6 @@ export default function CoursePage() {
                 }}
                 activeProject={course}
                 projects={projects}
-                activeProject={course}
             />
             
 
