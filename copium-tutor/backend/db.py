@@ -23,7 +23,7 @@ def init_db():
 
     # files: one row per uploaded file
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS files (fileid TEXT PRIMARY KEY, filepath TEXT, uploadeddate INTEGER, filesize INTEGER, filetype TEXT)""")
+    CREATE TABLE IF NOT EXISTS files (fileid TEXT PRIMARY KEY, filepath TEXT, uploaddate INTEGER, filesize INTEGER, filetype TEXT)""")
 
     # projects: one row per course
     cursor.execute("""
