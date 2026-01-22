@@ -334,22 +334,22 @@ export default function Sidebar({
                           ))
                         : ""}
                     {/* Now at the bottom, we should have the user profile */}
-                    <div className="mt-auto flex p-4 bg-rose-dusty/40">
+                    <div className={`mt-auto flex p-4 ${darkenOnHover ? "bg-black/10" : "bg-white/10"} cursor-pointer`}>
                         {/* The popup that shows user options comes here which is inline of the sidebar*/}
                         {openProfilePopout && !collapsed && (
                             <div
-                                className="absolute bottom-16 left-4 bg-rose-dusty/40 rounded p-4 w-48 z-10 border-2 border-rose-dusty/60 font-card"
+                                className={`absolute bottom-16 left-4 ${darkenOnHover ? "bg-black/10" : "bg-white/10"} rounded p-4 w-48 z-10 border-2 ${darkenOnHover ? "border-black/20" : "border-white/20"} font-card`}
                                 onMouseLeave={() => setOpenProfilePopout(false)}
                             >
                                 <a
                                     href="/profile"
-                                    className="block px-4 py-2 hover:bg-dark/30 rounded"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded`}
                                 >
                                     View Profile
                                 </a>
                                 <a
                                     href="/settings"
-                                    className="block px-4 py-2 hover:bg-dark/30 rounded"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded`}
                                 >
                                     Settings
                                 </a>
@@ -362,7 +362,7 @@ export default function Sidebar({
                                             window.location.href = "/";
                                         }, 500);
                                     }}
-                                    className="block px-4 py-2 hover:bg-dark/30 rounded text-red-500"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded text-red-500`}
                                 >
                                     Logout
                                 </button>
