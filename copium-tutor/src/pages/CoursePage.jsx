@@ -321,6 +321,7 @@ export default function CoursePage() {
                         }
                     },
                 }}
+                projects={projects}
             />
 
             <div className="flex-1 overflow-auto bg-rose-china h-screen">
