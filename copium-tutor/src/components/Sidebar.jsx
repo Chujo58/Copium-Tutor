@@ -7,18 +7,20 @@ import * as Icons from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { EditProjectPopup } from "./Popup";
 import { getContrastTextColor, darkenHex } from "./Card";
+import CardsInHand from "./CardsInHand";
 
 function SidebarItem({
     href,
     icon,
     name,
     color,
+    fillColor = "white",
     collapsed,
     isProject = false,
     onClickFunction = null,
     darkenOnHover = true,
 }) {
-    const IconToUse = Icons[icon];
+    const IconToUse = icon === "CardsInHand" ? CardsInHand : Icons[icon] || null;
     return (
         <div
             className={`flex items-center transition ease-in-out ${darkenOnHover ? "hover:bg-black/10" : "hover:bg-white/10"} sidebaritem-outer ${
@@ -32,6 +34,7 @@ function SidebarItem({
                     <IconToUse
                         className={`${!collapsed ? "mr-2" : ""}`}
                         color={color}
+                        fillColor={fillColor}
                     />
                 )}
                 {!collapsed && <span>{name}</span>}
@@ -273,9 +276,10 @@ export default function Sidebar({
                         key="flashcards"
                         href="/flashcards"
                         collapsed={collapsed}
-                        icon={"Layers"}
+                        icon={"CardsInHand"}
                         name="Flashcards"
                         color={textColor}
+                        fillColor={effectiveColor}
                         darkenOnHover={darkenOnHover}
                     />
                     <SidebarItem
