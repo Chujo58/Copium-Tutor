@@ -309,31 +309,39 @@ export function EditProjectPopup({ project, onClose, onEdited }) {
     };
 
     const editProject = async (id, name, description, imageUrl, color, icon) => {
-        const response = await fetch(`${API_URL}/projects/${id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify({
-                name: name,
-                description: description,
-                image: imageUrl,
-                color: color,
-                icon: icon,
-            }),
-        });
+        try {
+            const response = await fetch(`${API_URL}/projects/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                    name: name,
+                    description: description,
+                    image: imageUrl,
+                    color: color,
+                    icon: icon,
+                }),
+            });
 
-        const data = await response.json();
-        if (!data.success) {
-            setError(data.message);
-        } else {
-            if (onEdited) {
-                onEdited();
+            const data = await response.json();
+            if (!data.success) {
+                setError(data.message);
+            } else {
+                if (onEdited) {
+                    onEdited();
+                }
+                onClose();
             }
-            onClose();
+            return data;
+        } catch (error) {
+            // Handle network errors or unexpected failures gracefully
+            setError(
+                "Failed to update project. Please check your internet connection and try again."
+            );
+            return null;
         }
-        return data;
     };
 
     return (
