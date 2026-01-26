@@ -36,7 +36,7 @@ export function BlockWithDivider({ children, color = "border-rose-plum", bgcolor
     return (
         <div className={`flex flex-row items-stretch mt-1 ${bgcolor} ${blockDivRounding}`}>
             <VerticalDivider height="self-stretch" margins="pr-2" color={color} />
-            <div className="flex-1">
+            <div className="flex-1 pr-2">
                 {children}
             </div>
         </div>

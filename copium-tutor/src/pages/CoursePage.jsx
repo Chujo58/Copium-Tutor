@@ -5,6 +5,7 @@ import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder, MessageSquare, Layers, FileText, Trash2 } from "lucide-react";
+import CardsInHand from "../components/CardsInHand";
 import { BlockWithDivider, PlumDivider } from "../components/Divider";
 import { DocumentCard } from "../components/Card";
 import AskBar from "../components/AskBar";
@@ -497,7 +498,8 @@ export default function CoursePage() {
                                 <div className="rounded-3xl border border-black/10 bg-white/35 shadow-sm p-6">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2 text-dark font-semibold text-xl font-card">
-                                            <Layers
+                                            <CardsInHand
+                                                fillColor="#E2D5CA"
                                                 size={20}
                                                 className="opacity-70"
                                             />
