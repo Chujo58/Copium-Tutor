@@ -67,11 +67,13 @@ export default function SubjectCard({
 
     return (
         <div
-            className={`m-4 rounded-lg cursor-pointer transition ease-in-out shadow hover:shadow-md`}
+            className={`m-4 rounded-lg cursor-pointer card ${isHover ? "armed" : ""}`}
             // Show description on hover like a tooltip
             // title={description}
             style={{
-                backgroundColor: isHover ? darkenHex(color, 0.25) : color,
+                // background: color,
+                // color: getContrastTextColor(color)
+                background: isHover ? darkenHex(color, 0.25) : color,
                 color: getContrastTextColor(
                     isHover ? darkenHex(color, 0.25) : color
                 ),

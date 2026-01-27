@@ -11,7 +11,7 @@
 }
 
 .secondary-btn-big {
-    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-3 text-sm text-dark border border-black/10 hover:bg-dark/25 font-card justify-center;   
+    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-3 text-sm text-dark border border-black/10 hover:bg-dark/25 font-card justify-center;
 }
 
 .secondary-btn {
@@ -41,6 +41,37 @@
 }
 .sidebaritem-outer:hover .sidebaritem-inner {
     display: block;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.92);
+    /* border: 1px solid rgba(0, 0, 0, 0.06); */
+}
+
+.card.armed {
+    /* background: linear-gradient(
+        135deg,
+        rgba(255, 240, 240, 0.98),
+        rgba(255, 230, 230, 0.98)
+    );
+    border-color: rgba(220, 38, 38, 0.9); */
+    transform-origin: center;
+    animation: danger-swoop 420ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes danger-swoop {
+    0% {
+        transform: perspective(600px) translateY(6px) rotateX(6deg) scale(0.995);
+        filter: saturate(0.95) hue-rotate(0deg);
+    }
+    40% {
+        transform: perspective(600px) translateY(-4px) rotateX(-2deg)
+            scale(1.01);
+        filter: saturate(1.05) hue-rotate(-6deg);
+    }
+    100% {
+        transform: perspective(600px) translateY(0) rotateX(0) scale(1);
+        filter: saturate(1) hue-rotate(0deg);
+    }
 }
 
 .flashcard {
