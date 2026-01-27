@@ -1,0 +1,56 @@
+# Add 'root' label to any root file changes
+# Quotation marks are required for the leading asterisk
+root:
+- changed-files:
+  - any-glob-to-any-file: '*'
+
+# Add 'AnyChange' label to any changes within the entire repository
+AnyChange:
+- changed-files:
+  - any-glob-to-any-file: '**'
+
+# Add 'documentation' label to any changes within 'docs' folder or any subfolders
+documentation:
+- changed-files:
+  - any-glob-to-any-file: docs/**
+
+# Add 'documentation' label to any file changes within 'docs' folder
+documentation:
+- changed-files:
+  - any-glob-to-any-file: docs/*
+
+# Add 'documentation' label to any file changes within 'docs' or 'guides' folders
+documentation:
+- changed-files:
+  - any-glob-to-any-file:
+    - docs/*
+    - guides/*
+
+## Equivalent of the above mentioned configuration using another syntax
+documentation:
+- changed-files:
+  - any-glob-to-any-file: ['docs/*', 'guides/*']
+
+# Add 'documentation' label to any change to .md files within the entire repository 
+documentation:
+- changed-files:
+  - any-glob-to-any-file: '**/*.md'
+
+# Add 'source' label to any change to src files within the source dir EXCEPT for the docs sub-folder
+source:
+- all:
+  - changed-files:
+    - any-glob-to-any-file: 'src/**/*'
+    - all-globs-to-all-files: '!src/docs/*'
+
+# Add 'feature' label to any PR where the head branch name starts with `feature` or has a `feature` section in the name
+feature:
+ - head-branch: ['^feature', 'feature']
+
+# Add 'bugfix' label to any PR where the head branch name starts with `bugfix` or has a `bugfix` section in the name
+bugfix:
+ - head-branch: ['^bugfix', 'bugfix', '^fix', 'fix']
+
+# Add 'improvement' label to any PR where the head branch name starts with `improvement` or has a `improvement` section in the name
+improvement:
+ - head-branch: ['^improvement', 'improvement', '^refactor', 'refactor']
