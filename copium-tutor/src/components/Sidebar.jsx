@@ -70,7 +70,6 @@ export default function Sidebar({
     const [collapsed, setCollapsed] = useState(false);
     const [pinned, setPinned] = useState(true);
     const [openProfilePopout, setOpenProfilePopout] = useState(false);
-    const [openEditProjectPopup, setOpenEditProjectPopup] = useState(false);
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [pfp, setPfp] = useState("");

@@ -23,6 +23,10 @@ export function UserDashboard() {
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const [projectToDelete, setProjectToDelete] = useState(null);
 
+    // Necessary variables for the course edition popup
+    const [openEditProjectPopup, setOpenEditProjectPopup] = useState(false);
+    const [projectInPopup, setProjectInPopup] = useState(null);
+
     const fetchProjects = async () => {
         await fetch(`${API_URL}/projects`, {
             credentials: "include",
@@ -88,7 +92,18 @@ export function UserDashboard() {
 
     return (
         <div className="flex">
-            <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjects }} />
+            <Sidebar
+                projects={projects}
+                projectPopupStatus={{
+                    open: openEditProjectPopup,
+                    project: projectInPopup,
+                    onEdited: fetchProjects,
+                    closeFunction: () => {
+                        setOpenEditProjectPopup(false);
+                        setProjectInPopup(null);
+                    },
+                }}
+            />
             <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
                 <div className="text-3xl main-header font-card mb-2 text-dark">
                     Dashboard
@@ -138,6 +153,14 @@ export function UserDashboard() {
                         })),
                     ]}
                     onAddSubject={() => setShowAddProject(true)}
+                    onEditSubject={(project) => {
+                        const course = projects.find(
+                            (p) => p.projectid === project.projectid,
+                        );
+                        console.log("Found course for editing:", course);
+                        setOpenEditProjectPopup(true);
+                        setProjectInPopup(course);
+                    }}
                     onDeleteSubject={requestDeleteProject}
                 />
 
