@@ -1,23 +1,30 @@
-# Add 'documentation' label to any changes within 'docs' folder or any subfolders
 documentation:
 - changed-files:
-  - any-glob-to-any-file: [docs/**, '**/*.md']
+  - any-glob-to-any-file:
+      - docs/**
+      - "**/*.md"
 
-# Add 'source' label to any change to src files within the source dir EXCEPT for the docs sub-folder
 source:
-- all:
-  - changed-files:
-    - any-glob-to-any-file: 'src/**/*'
-    - all-globs-to-all-files: '!src/docs/*'
+- changed-files:
+  - any-glob-to-any-file:
+      - src/**/*
+      - "!src/docs/**"
 
-# Add 'feature' label to any PR where the head branch name starts with `feature` or has a `feature` section in the name
 feature:
-- head-branch: ['^feature', 'feature']
+- head-branch:
+  - regex: '^feature'
+  - regex: 'feature'
 
-# Add 'bugfix' label to any PR where the head branch name starts with `bugfix` or has a `bugfix` section in the name
 bugfix:
-- head-branch: ['^bugfix', 'bugfix', '^fix', 'fix']
+- head-branch:
+  - regex: '^bugfix'
+  - regex: 'bugfix'
+  - regex: '^fix'
+  - regex: 'fix'
 
-# Add 'improvement' label to any PR where the head branch name starts with `improvement` or has a `improvement` section in the name
 improvement:
-- head-branch: ['^improvement', 'improvement', '^refactor', 'refactor']
+- head-branch:
+  - regex: '^improvement'
+  - regex: 'improvement'
+  - regex: '^refactor'
+  - regex: 'refactor'
