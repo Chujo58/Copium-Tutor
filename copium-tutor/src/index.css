@@ -1,21 +1,11 @@
+@import "./style/buttons.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 .main-header {
     @apply font-bold uppercase tracking-widest;
-}
-
-.primary-btn {
-    @apply inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-3 text-sm text-white hover:bg-accent hover:text-black font-card w-full justify-center;
-}
-
-.secondary-btn-big {
-    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-3 text-sm text-dark border border-black/10 hover:bg-dark/25 font-card justify-center;
-}
-
-.secondary-btn {
-    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-dark/25 font-card;
 }
 
 @layer components {
