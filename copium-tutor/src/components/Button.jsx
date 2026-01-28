@@ -54,7 +54,7 @@ export function DeleteButton({ onClick, disabled, title="Delete", style="btn sec
     )
 }
 
-export function CreateButton({ onClick, disabled, label="Create", loading, title="Create", style="btn primary dark main-header large-y" }) {
+export function CreateButton({ onClick, disabled, label="Create", loading, title="Create", style="btn dark main-header large-y" }) {
     return (
         <CustomButton onClick={onClick} disabled={disabled} label={label} icon={Plus} loading={loading} title={title} style={style} />
     )
