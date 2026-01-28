@@ -1,25 +1,25 @@
+# File-based labels
 documentation:
-- changed-files:
-  - any-glob-to-any-file:
-      - docs/**
+  - changed-files:
+      - "docs/**"
       - "**/*.md"
 
 source:
-- changed-files:
-  - any-glob-to-any-file:
-      - src/**/*
+  - changed-files:
+      - "src/**/*"
       - "!src/docs/**"
 
+# Branch-based labels
 feature:
-- head-branch:
-  - regex: '^feature/*'
+  - head-branch:
+      - regex: '^feature/.*'
 
 bugfix:
-- head-branch:
-  - regex: '^bugfix'
-  - regex: '^fix'
+  - head-branch:
+      - regex: '^bugfix.*'
+      - regex: '^fix.*'
 
 improvement:
-- head-branch:
-  - regex: '^improvement'
-  - regex: '^refactor'
+  - head-branch:
+      - regex: '^improvement.*'
+      - regex: '^refactor.*'
