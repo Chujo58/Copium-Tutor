@@ -1,4 +1,4 @@
-import { RefreshCw, ExternalLink, TableOfContents, Upload, Trash2 } from "lucide-react";
+import { RefreshCw, ExternalLink, TableOfContents, Upload, Trash2, Plus } from "lucide-react";
 
 export default function CustomButton({ onClick, disabled, label, icon: Icon, loading = null, style="btn secondary", title="" }) {
     return (
@@ -45,5 +45,17 @@ export function UploadButton({ onClick, disabled, title="Upload documents", styl
 export function ClearButton({ onClick, disabled, title="Clear", style="btn secondary" }) {
     return (
         <CustomButton onClick={onClick} disabled={disabled} label="Clear" icon={Trash2} title={title} style={style} />
+    )
+}
+
+export function DeleteButton({ onClick, disabled, title="Delete", style="btn secondary" , noLabel=false}) {
+    return (
+        <CustomButton onClick={onClick} disabled={disabled} label={noLabel ? "" : "Delete"} icon={Trash2} title={title} style={style} />
+    )
+}
+
+export function CreateButton({ onClick, disabled, label="Create", loading, title="Create", style="btn primary dark main-header large-y" }) {
+    return (
+        <CustomButton onClick={onClick} disabled={disabled} label={label} icon={Plus} loading={loading} title={title} style={style} />
     )
 }

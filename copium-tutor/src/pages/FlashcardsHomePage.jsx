@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder } from "lucide-react";
-import CustomButton, { ClearButton, RefreshButton } from "../components/Button";
+import CustomButton, { ClearButton, CreateButton, DeleteButton, RefreshButton } from "../components/Button";
 
 /**
  * Rose palette inspired by your image:
@@ -272,12 +272,11 @@ export default function FlashcardsHomePage() {
                     />
 
                     <div className="flex items-center gap-2">
-                      <CustomButton
+                      <CreateButton
                         onClick={createDeck}
                         disabled={creating || !name.trim() || !prompt.trim()}
                         title="Create deck and generate cards"
                         label={creating ? "Creating…" : "Create deck"}
-                        style={"btn primary medium main-header"}
                       />
                       <ClearButton
                         onClick={() => {
@@ -286,7 +285,7 @@ export default function FlashcardsHomePage() {
                         }}
                         disabled={creating}
                         title="Clear fields"
-                        style={"btn secondary medium main-header"}
+                        style={"btn secondary large-y"}
                       />
                     </div>
 
@@ -318,9 +317,6 @@ export default function FlashcardsHomePage() {
                       title="Clear search" 
                       style="btn secondary medium"
                     />
-                    {/* <SoftButton onClick={() => setQuery("")} disabled={loading || !query} title="Clear search">
-                      Clear
-                    </SoftButton> */}
                   </div>
 
                   {/* Search result meta */}
@@ -374,7 +370,7 @@ export default function FlashcardsHomePage() {
                               </div>
                             </div>
 
-                            <SoftButton
+                            {/* <SoftButton
                               variant="danger"
                               onClick={(e) => {
                                 e.preventDefault();
@@ -383,7 +379,16 @@ export default function FlashcardsHomePage() {
                               title="Delete deck"
                             >
                               Delete
-                            </SoftButton>
+                            </SoftButton> */}
+                            <DeleteButton
+                              onClick={(e) => {
+                                e.preventDefault();
+                                deleteDeck(d.deckid);
+                              }}
+                              title="Delete deck"
+                              style="btn secondary large-y"
+                              noLabel={true}
+                            />
                           </div>
                         </div>
                       ))}

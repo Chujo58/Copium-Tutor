@@ -11,6 +11,7 @@ import {
     Plus,
     ArrowUpRight,
 } from "lucide-react";
+import { CreateButton } from "../components/Button";
 
 export function UserDashboard() {
     // Query the projects from the backend (localhost:8000/projects) and display them in a gallery view
@@ -190,13 +191,12 @@ export function UserDashboard() {
                             </p>
 
                             <div className="mt-4 flex flex-wrap items-center gap-3 font-card">
-                                <button
+                                <CreateButton
                                     onClick={() => setShowAddProject(true)}
-                                    className="btn primary dark large-y"
-                                >
-                                    <Plus size={18} />
-                                    Create subject
-                                </button>
+                                    disabled={false}
+                                    title="Create subject"
+                                    label="Create subject"
+                                />
                                 <Link
                                     to="/features"
                                     className="btn secondary large-y"

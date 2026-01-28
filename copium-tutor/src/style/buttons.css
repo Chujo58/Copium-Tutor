@@ -15,7 +15,7 @@
 }
 
 .btn.medium {
-    @apply px-4 py-2;
+    @apply px-4 py-2 text-base;
 }
 
 .btn.dark {
