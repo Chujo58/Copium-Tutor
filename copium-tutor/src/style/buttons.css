@@ -3,11 +3,11 @@
 }
 
 .btn.primary {
-    @apply bg-primary text-white hover:bg-accent hover:text-black justify-center;
+    @apply bg-primary text-white hover:bg-accent hover:text-dark justify-center;
 }
 
 .btn.secondary {
-    @apply inline-flex items-center gap-1 rounded-xl bg-white/30 px-3 py-1.5 text-sm text-dark border border-black/10 hover:bg-dark/25 font-card ;
+    @apply bg-white/30 text-dark hover:bg-dark/25 justify-center border border-black/10;
 }
 
 .btn.large-y {
