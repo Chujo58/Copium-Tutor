@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import SubjectCard from "./Card";
 import { Link } from "react-router-dom";
 import CardContextMenu from "./CardContextMenu";
@@ -25,10 +25,11 @@ export default function GalleryView({ subjects, onAddSubject, onDeleteSubject, o
                 <button
                     onClick={onAddSubject}
                     className={
-                        "bg-dark text-surface px-4 py-2 rounded hover:bg-rose-water hover:text-dark ease-in-out font-card main-header transition"
+                        "btn primary dark large-y font-card main-header"
                     }
                 >
-                    + Add Subject
+                    <Plus size={18} />
+                    Add Subject
                 </button>
             </div>
 

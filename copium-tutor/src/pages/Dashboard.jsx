@@ -8,11 +8,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import * as Icons from "lucide-react";
 import {
     Folder,
-    Sparkles,
-    Layers,
-    FileText,
-    MessageSquare,
-    PlusCircle,
+    Plus,
     ArrowUpRight,
 } from "lucide-react";
 
@@ -168,7 +164,7 @@ export function UserDashboard() {
                     <span>New here?</span>
                     <Link
                         to="/features"
-                        className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-1.5 text-dark hover:bg-white transition"
+                        className="btn tertiary rounded bordered"
                     >
                         Visit feature guide
                         <ArrowUpRight size={14} />
@@ -196,14 +192,14 @@ export function UserDashboard() {
                             <div className="mt-4 flex flex-wrap items-center gap-3 font-card">
                                 <button
                                     onClick={() => setShowAddProject(true)}
-                                    className="inline-flex items-center gap-2 rounded-xl bg-dark text-white px-4 py-2 hover:bg-dark/90 transition"
+                                    className="btn primary dark large-y"
                                 >
-                                    <PlusCircle size={18} />
+                                    <Plus size={18} />
                                     Create subject
                                 </button>
                                 <Link
                                     to="/features"
-                                    className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white/70 px-4 py-2 text-dark hover:bg-white transition"
+                                    className="btn secondary large-y"
                                 >
                                     Explore feature guide
                                     <ArrowUpRight size={16} />
