@@ -12,12 +12,12 @@ source:
 
 # Add 'feature' label to any PR where the head branch name starts with `feature` or has a `feature` section in the name
 feature:
- - head-branch: ['^feature', 'feature']
+- head-branch: ['^feature', 'feature']
 
 # Add 'bugfix' label to any PR where the head branch name starts with `bugfix` or has a `bugfix` section in the name
 bugfix:
- - head-branch: ['^bugfix', 'bugfix', '^fix', 'fix']
+- head-branch: ['^bugfix', 'bugfix', '^fix', 'fix']
 
 # Add 'improvement' label to any PR where the head branch name starts with `improvement` or has a `improvement` section in the name
 improvement:
- - head-branch: ['^improvement', 'improvement', '^refactor', 'refactor']
+- head-branch: ['^improvement', 'improvement', '^refactor', 'refactor']
