@@ -5,7 +5,7 @@ import CourseDocumentUploader from "../components/CourseDocumentUploader";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder, SquareMinus, SquarePlus, RotateCcw, PencilRuler } from "lucide-react";
-import CustomButton, { RefreshButton } from "../components/Button";
+import CustomButton, { ClearButton, RefreshButton } from "../components/Button";
 
 const QUIZ_TYPE_LABELS = {
   mcq: "QCM (Multiple choice)",
@@ -561,12 +561,12 @@ export default function QuizzesHomePage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <CustomButton onClick={createQuiz} disabled={creating} label="Create quiz" icon={PencilRuler} title="Create quiz" style="primary-btn mr-3" />
+                      <CustomButton onClick={createQuiz} disabled={creating} label="Create quiz" icon={PencilRuler} title="Create quiz" style="primary main-header medium btn mr-3 w-full" />
                       <CustomButton onClick={() => {
                         setTopic("");
                         setQuizType("mcq");
                         setNumQuestions(10);
-                      }} disabled={creating} label="Reset" icon={RotateCcw} title="Reset fields" style="secondary-btn-big" />
+                      }} disabled={creating} label="Reset" icon={RotateCcw} title="Reset fields" style="secondary btn medium" />
                     </div>
 
                     <div className="text-sm text-dark/60 font-card">
@@ -578,9 +578,10 @@ export default function QuizzesHomePage() {
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-xl font-semibold text-dark font-card">Your quizzes</h2>
-                    <SoftButton onClick={fetchQuizzes} disabled={loading} title="Refresh quizzes">
+                    <RefreshButton onClick={fetchQuizzes} disabled={loading} title="Refresh quizzes" style="btn secondary medium" loading={loading}/>
+                    {/* <SoftButton onClick={fetchQuizzes} disabled={loading} title="Refresh quizzes">
                       Refresh
-                    </SoftButton>
+                    </SoftButton> */}
                   </div>
 
                   <div className="mt-4 flex items-center gap-2">
@@ -591,9 +592,10 @@ export default function QuizzesHomePage() {
                       onChange={(e) => setQuery(e.target.value)}
                       disabled={loading}
                     />
-                    <SoftButton onClick={() => setQuery("")} disabled={loading || !query} title="Clear search">
+                    <ClearButton onClick={() => setQuery("")} disabled={loading || !query} title="Clear search" style="btn secondary medium" />
+                    {/* <SoftButton onClick={() => setQuery("")} disabled={loading || !query} title="Clear search">
                       Clear
-                    </SoftButton>
+                    </SoftButton> */}
                   </div>
 
                   <div className="mt-2 text-sm text-dark/60">

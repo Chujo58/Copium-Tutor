@@ -67,9 +67,7 @@ export default function AskBar({
           onClick={submit}
           disabled={!canSend}
           className={[
-            "shrink-0 rounded-2xl px-4 py-2 font-semibold font-card",
-            "text-white bg-rose-plum hover:opacity-90",
-            "disabled:opacity-40 disabled:cursor-not-allowed",
+            "btn primary dark font-card main-header medium rounded disabled:opacity-70 disabled:cursor-not-allowed"
           ].join(" ")}
           style={{ minWidth: 84 }} // smaller than before, but still tappable
         >

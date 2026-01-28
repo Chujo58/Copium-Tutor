@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder } from "lucide-react";
+import { ClearButton, CreateButton, DeleteButton, RefreshButton } from "../components/Button";
 
 /**
  * Rose palette inspired by your image:
@@ -271,25 +272,21 @@ export default function FlashcardsHomePage() {
                     />
 
                     <div className="flex items-center gap-2">
-                      <SoftButton
-                        variant="primary"
+                      <CreateButton
                         onClick={createDeck}
                         disabled={creating || !name.trim() || !prompt.trim()}
                         title="Create deck and generate cards"
-                      >
-                        {creating ? "Creating…" : "Create deck"}
-                      </SoftButton>
-
-                      <SoftButton
+                        label={creating ? "Creating…" : "Create deck"}
+                      />
+                      <ClearButton
                         onClick={() => {
                           setName("");
                           setPrompt("");
                         }}
                         disabled={creating}
                         title="Clear fields"
-                      >
-                        Clear
-                      </SoftButton>
+                        style={"btn secondary large-y"}
+                      />
                     </div>
 
                     <div className="text-sm text-dark/60 font-card">
@@ -302,9 +299,7 @@ export default function FlashcardsHomePage() {
                 <div className="rounded-3xl border border-white/40 bg-white/55 backdrop-blur p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-xl font-semibold text-dark font-card">Your decks</h2>
-                    <SoftButton onClick={fetchDecks} disabled={loading} title="Refresh deck list">
-                      Refresh
-                    </SoftButton>
+                    <RefreshButton onClick={fetchDecks} disabled={loading} title="Refresh deck list" style="btn tertiary bordered medium" />
                   </div>
 
                   {/* NEW: Search bar */}
@@ -316,9 +311,12 @@ export default function FlashcardsHomePage() {
                       onChange={(e) => setQuery(e.target.value)}
                       disabled={loading}
                     />
-                    <SoftButton onClick={() => setQuery("")} disabled={loading || !query} title="Clear search">
-                      Clear
-                    </SoftButton>
+                    <ClearButton 
+                      onClick={() => setQuery("")} 
+                      disabled={loading || !query} 
+                      title="Clear search" 
+                      style="btn secondary medium"
+                    />
                   </div>
 
                   {/* Search result meta */}
@@ -372,7 +370,7 @@ export default function FlashcardsHomePage() {
                               </div>
                             </div>
 
-                            <SoftButton
+                            {/* <SoftButton
                               variant="danger"
                               onClick={(e) => {
                                 e.preventDefault();
@@ -381,7 +379,16 @@ export default function FlashcardsHomePage() {
                               title="Delete deck"
                             >
                               Delete
-                            </SoftButton>
+                            </SoftButton> */}
+                            <DeleteButton
+                              onClick={(e) => {
+                                e.preventDefault();
+                                deleteDeck(d.deckid);
+                              }}
+                              title="Delete deck"
+                              style="btn secondary large-y"
+                              noLabel={true}
+                            />
                           </div>
                         </div>
                       ))}

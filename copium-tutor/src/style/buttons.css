@@ -1,0 +1,35 @@
+.btn {
+    @apply inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm font-card ease-in-out transition;
+}
+
+.btn.primary {
+    @apply bg-primary text-white hover:bg-accent hover:text-dark justify-center;
+}
+
+.btn.secondary {
+    @apply bg-white/30 text-dark hover:bg-dark/25 justify-center border border-black/10;
+}
+
+.btn.large-y {
+    @apply py-3;
+}
+
+.btn.medium {
+    @apply px-4 py-2 text-base;
+}
+
+.btn.dark {
+    @apply bg-dark text-surface hover:bg-rose-water hover:text-dark;
+}
+
+.btn.rounded {
+    @apply rounded-full;
+}
+
+.btn.tertiary {
+    @apply bg-white/70 text-dark hover:bg-dark/10;
+}
+
+.btn.bordered {
+    @apply border border-black/10;
+}
