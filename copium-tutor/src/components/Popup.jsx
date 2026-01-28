@@ -284,6 +284,121 @@ export function CreateProjectPopup({ onClose }) {
     );
 }
 
+export function EditProjectPopup({ project, onClose, onEdited }) {
+    const [projectName, setProjectName] = React.useState(project?.name || "");
+    const [description, setDescription] = React.useState(project?.description || "");
+    const [imageUrl, setImageUrl] = React.useState(project?.image || "");
+    const [color, setColor] = React.useState(project?.color || "#754B4D");
+    const [icon, setIcon] = React.useState(project?.icon || "Smile");
+    const [showIconPicker, setShowIconPicker] = React.useState(false);
+    const SelectedIcon = Icons[icon];
+    const [error, setError] = React.useState("");
+
+    // Keep internal form state in sync when `project` prop changes
+    React.useEffect(() => {
+        setProjectName(project?.name || "");
+        setDescription(project?.description || "");
+        setImageUrl(project?.image || "");
+        setColor(project?.color || "#754B4D");
+        setIcon(project?.icon || "Smile");
+    }, [project]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        editProject(project.projectid, projectName, description, imageUrl, color, icon);
+    };
+
+    const editProject = async (id, name, description, imageUrl, color, icon) => {
+        try {
+            const response = await fetch(`${API_URL}/projects/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                    name: name,
+                    description: description,
+                    image: imageUrl,
+                    color: color,
+                    icon: icon,
+                }),
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                setError(data.message);
+            } else {
+                if (onEdited) {
+                    onEdited();
+                }
+                onClose();
+            }
+            return data;
+        } catch (error) {
+            // Handle network errors or unexpected failures gracefully
+            setError(
+                "Failed to update project. Please check your internet connection and try again."
+            );
+            return null;
+        }
+    };
+
+    return (
+        <Popup title="Edit Project" onClose={onClose}>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label>Project Name</label>
+                    <input
+                        type="text"
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        required
+                    />
+                </div>
+                <div>
+                    <label>Description</label>
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Image URL</label>
+                    <input
+                        type="text"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                    />
+                </div>
+                <div>
+                    <label>Color</label>
+                    <input
+                        type="color"
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                    />
+                </div>
+                <button
+                    className="flex items-center gap-2 rounded border px-3 py-2"
+                    onClick={() => {
+                        setShowIconPicker(!showIconPicker);
+                    }}
+                    type="button"
+                >
+                    {SelectedIcon && <SelectedIcon size={18} />}
+                    Choose Icon
+                </button>
+                {showIconPicker && (
+                    <IconPicker value={icon} onChange={setIcon} />
+                )}
+                <div>{error}</div>
+                <button type="submit">Save Changes</button>
+            </form>
+        </Popup>
+    );
+}   
+
 // Create the login popup which should have fields for username and password and a login button.
 export function LoginPopup({ onClose, onLogin }) {
     const [username, setUsername] = React.useState("");

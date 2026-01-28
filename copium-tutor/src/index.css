@@ -36,6 +36,13 @@
     }
 }
 
+.sidebaritem-inner {
+    display: none;
+}
+.sidebaritem-outer:hover .sidebaritem-inner {
+    display: block;
+}
+
 .card {
     background: rgba(255, 255, 255, 0.92);
     /* border: 1px solid rgba(0, 0, 0, 0.06); */

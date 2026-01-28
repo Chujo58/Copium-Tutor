@@ -1,43 +1,72 @@
 import { useEffect, useState } from "react";
 import { API_URL } from "../config";
+import { Link } from "react-router-dom";
 
-import { CopperDivider } from "./Divider";
-
-import {
-    CircleChevronRight,
-    CircleChevronLeft,
-    LayoutDashboard,
-    Pin,
-    PinOff,
-    HeartHandshake,
-    Sparkles,
-    Layers,
-    FileText,
-    MessageSquare,
-} from "lucide-react";
+import Divider from "./Divider";
+import * as Icons from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { EditProjectPopup } from "./Popup";
+import { getContrastTextColor, darkenHex } from "./Card";
+import CardsInHand from "./CardsInHand";
 
-export function SidebarItem({ href, icon: Icon, name, color, collapsed }) {
+function SidebarItem({
+    href,
+    icon,
+    name,
+    color,
+    fillColor = "white",
+    collapsed,
+    isProject = false,
+    onClickFunction = null,
+    darkenOnHover = true,
+}) {
+    const IconToUse = icon === "CardsInHand" ? CardsInHand : Icons[icon] || null;
     return (
-        <a
-            href={href}
-            className={`flex items-center hover:bg-dark/30 ${
+        <div
+            className={`flex items-center transition ease-in-out ${darkenOnHover ? "hover:bg-black/10" : "hover:bg-white/10"} sidebaritem-outer ${
                 collapsed
-                    ? "justify-center p-2 rounded-3xl hover:text-rose-copper"
+                    ? `justify-center p-2 rounded-3xl`
                     : "w-60 rounded ml-2 mr-2 p-2"
             }`}
         >
-            {Icon && (
-                <Icon
-                    className={`${!collapsed ? "mr-2" : ""}`} color={color}
-                />
+            <Link to={href} className="flex mr-auto">
+                {icon && (
+                    <IconToUse
+                        className={`${!collapsed ? "mr-2" : ""}`}
+                        color={color}
+                        fillColor={fillColor}
+                    />
+                )}
+                {!collapsed && <span>{name}</span>}
+            </Link>
+            {!collapsed && isProject && (
+                <button
+                    className="sidebaritem-inner"
+                    onClick={(event) => {
+                        event.preventDefault();
+                        if (typeof onClickFunction === "function") {
+                            onClickFunction();
+                        }
+                    }}
+                >
+                    <Icons.MoreHorizontal />
+                </button>
             )}
-            {!collapsed && <span>{name}</span>}
-        </a>
+        </div>
     );
 }
 
-export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
+export default function Sidebar({
+    projectPopupStatus = {
+        open: false,
+        project: null,
+        openFunction: null,
+        closeFunction: null,
+    },
+    projects: projectsProp = null,
+    activeProject = null,
+    activeColor = null,
+}) {
     const [collapsed, setCollapsed] = useState(false);
     const [pinned, setPinned] = useState(true);
     const [openProfilePopout, setOpenProfilePopout] = useState(false);
@@ -45,67 +74,19 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
     const [lastName, setLastName] = useState("");
     const [pfp, setPfp] = useState("");
 
+    const [projects, setProjects] = useState(projectsProp || null);
+    const [localOpenEditPopup, setLocalOpenEditPopup] = useState(false);
+    const [localProjectInPopup, setLocalProjectInPopup] = useState(null);
+
+    const openEditPopup =
+        typeof projectPopupStatus.open === "boolean"
+            ? projectPopupStatus.open
+            : localOpenEditPopup;
+    const projectPopup = projectPopupStatus.project ?? localProjectInPopup;
+
     const { user, login, logout } = useAuth();
-    const defaultFeatureLinks = [
-        {
-            href: "/features",
-            icon: Sparkles,
-            name: "Feature guide",
-            color: "#754B4D",
-        },
-    ];
-    const partnerLinks = [
-        {
-            href: "/backboard",
-            icon: HeartHandshake,
-            name: "Backboard.io",
-            color: "#754B4D",
-        },
-    ];
-    const defaultToolLinks = [
-        {
-            href: "/flashcards",
-            icon: Layers,
-            name: "Flashcards",
-            color: "#754B4D",
-        },
-        {
-            href: "/quizzes",
-            icon: FileText,
-            name: "Quizzes",
-            color: "#754B4D",
-        },
-        {
-            href: "/chats",
-            icon: MessageSquare,
-            name: "Chatbot",
-            color: "#754B4D",
-        },
-    ];
 
-    const mergeLinks = (...groups) => {
-        const seen = new Set();
-        const merged = [];
-        groups.flat().forEach((item) => {
-            if (!item) return;
-            const key = item.href || item.name;
-            if (!key || seen.has(key)) return;
-            seen.add(key);
-            merged.push(item);
-        });
-        return merged;
-    };
-
-    const mergedFeatureLinks = mergeLinks(
-        defaultFeatureLinks,
-        Array.isArray(featureLinks) ? featureLinks : [],
-        partnerLinks
-    );
-    const mergedToolLinks = mergeLinks(
-        defaultToolLinks,
-        Array.isArray(toolLinks) ? toolLinks : []
-    );
-
+    // Get the user information
     async function fetchUserProfile() {
         try {
             const response = await fetch(`${API_URL}/me`, {
@@ -122,8 +103,28 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
         }
     }
 
+    // Get the user's projects
+    async function fetchUserProjects() {
+        try {
+            const response = await fetch(`${API_URL}/projects`, {
+                credentials: "include",
+            });
+            const data = await response.json();
+            if (data.success) {
+                setProjects(data.projects);
+            }
+        } catch (error) {
+            console.error("Error fetching user projects:", error);
+        }
+    }
+
     useEffect(() => {
         fetchUserProfile();
+        if (Array.isArray(projectsProp) && projectsProp.length > 0) {
+            setProjects(projectsProp);
+        } else {
+            fetchUserProjects();
+        }
 
         try {
             const stored = localStorage.getItem("sidebarPinned");
@@ -135,173 +136,263 @@ export default function Sidebar({ projectsList, featureLinks, toolLinks }) {
         } catch (err) {
             // ignore localStorage errors
         }
-    }, []);
+    }, [projectsProp]);
+
+    const defaultColor = "#D8A694"; // Rosewater
+    const defaultTextColor = "#754B4D"; // Plum Wine
+    const effectiveColor =
+        activeColor || (activeProject && activeProject.color) || defaultColor;
+
+    const isActiveTheme = !!(activeColor || activeProject);
+    const textColor = (() => {
+        if (isActiveTheme) {
+            try {
+                return getContrastTextColor(effectiveColor);
+            } catch (e) {
+                return defaultTextColor;
+            }
+        }
+        return defaultTextColor;
+    })();
+    const darkenOnHover = isActiveTheme && textColor !== "#FFFFFF";
+
+    console.log(textColor);
 
     return (
-        <div
-            className={`flex flex-col bg-rose-water text-rose-plum h-screen transition-all duration-300
-      ${collapsed ? "w-16" : "w-64"}`}
-            onMouseEnter={() => !pinned && setCollapsed(false)}
-            onMouseLeave={() => !pinned && setCollapsed(true)}
-        >
-            <nav
-                className={`flex flex-col h-full ${
-                    collapsed ? "items-center justify-between" : ""
-                }`}
+        <div id="sidebar">
+            {openEditPopup && (
+                <EditProjectPopup
+                    project={projectPopup}
+                    onClose={() => {
+                        if (projectPopupStatus.closeFunction) {
+                            projectPopupStatus.closeFunction();
+                        } else {
+                            setLocalOpenEditPopup(false);
+                            setLocalProjectInPopup(null);
+                        }
+                        // refresh the projects list after popup closes
+                        fetchUserProjects();
+                    }}
+                    onEdited={() => {
+                        // let the page know an edit happened so it can refresh
+                        if (projectPopupStatus.onEdited) {
+                            projectPopupStatus.onEdited();
+                        }
+                        // close local popup if in local mode
+                        setLocalOpenEditPopup(false);
+                        setLocalProjectInPopup(null);
+                        // also refresh locally
+                        fetchUserProjects();
+                    }}
+                />
+            )}
+            <div
+                className={`flex flex-col h-screen transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}
+                style={{ backgroundColor: effectiveColor, color: textColor }}
+                onMouseEnter={() => !pinned && setCollapsed(false)}
+                onMouseLeave={() => !pinned && setCollapsed(true)}
             >
-                {/* HEADER */}
-                <div
-                    className={`items-center justify-between ${
-                        collapsed ? "p-2" : "p-4 flex"
+                <nav
+                    className={`flex flex-col h-full ${
+                        collapsed ? "items-center justify-between" : ""
                     }`}
                 >
-                    {!collapsed && (
-                        <h2 className="text-xl font-card main-header">Menu</h2>
-                    )}
-                    <button
-                        onClick={() => {
-                            const next = !pinned;
-                            setPinned(next);
-                            try {
-                                localStorage.setItem("sidebarPinned", String(next));
-                            } catch (err) {
-                                // ignore localStorage errors
-                            }
-                            if (!next) setCollapsed(true);
-                        }}
-                        className="text-rose-plum hover:text-rose-copper hover:bg-dark/30 rounded-3xl focus:outline-none p-2"
-                    >
-                        {pinned ? <PinOff /> : <Pin />}
-                    </button>
-                    {/* Divider */}
-                    {collapsed && <CopperDivider margins="mt-2" />}
-                </div>
-                <SidebarItem
-                    key="dashboard"
-                    href="/dashboard"
-                    collapsed={collapsed}
-                    icon={LayoutDashboard}
-                    name="Dashboard"
-                    color="#754B4D"
-                />
-                {mergedFeatureLinks.length > 0 ? (
-                    <>
-                        <div className="flex items-center justify-between p-2 mx-2">
-                            {!collapsed && (
-                                <div className="flex flex-col w-full">
-                                    <h2 className="main-header font-card">Features</h2>
-                                    <CopperDivider />
-                                </div>
-                            )}
-                        </div>
-                        {mergedFeatureLinks.map((item) => (
-                            <SidebarItem
-                                key={item.name || item.href}
-                                href={item.href}
-                                icon={item.icon}
-                                name={item.name}
-                                collapsed={collapsed}
-                                color={item.color}
-                            />
-                        ))}
-                    </>
-                ) : null}
-                {mergedToolLinks.length > 0 ? (
-                    <>
-                        <div className="flex items-center justify-between p-2 mx-2">
-                            {!collapsed && (
-                                <div className="flex flex-col w-full">
-                                    <h2 className="main-header font-card">Study Tools</h2>
-                                    <CopperDivider />
-                                </div>
-                            )}
-                        </div>
-                        {mergedToolLinks.map((item) => (
-                            <SidebarItem
-                                key={item.name || item.href}
-                                href={item.href}
-                                icon={item.icon}
-                                name={item.name}
-                                collapsed={collapsed}
-                                color={item.color}
-                            />
-                        ))}
-                    </>
-                ) : null}
-                {/* Add a list of all the projects */}
-                <div className="flex items-center justify-between p-2 mx-2">
-                    {!collapsed && (
-                        <div className="flex flex-col w-full">
-                            <h2 className="main-header font-card">Projects</h2>
-                            <CopperDivider />
-                        </div>
-                    )}
-                </div>
-                {Array.isArray(projectsList) && projectsList.length > 0
-                    ? projectsList.map((item) => (
-                          <SidebarItem
-                              //   key={item.name}
-                              href={item.href}
-                              icon={item.icon}
-                              name={item.name}
-                              collapsed={collapsed}
-                              color={item.color}
-                          />
-                      ))
-                    : ""}
-                {/* Now at the bottom, we should have the user profile */}
-                <div className="mt-auto flex p-4 bg-rose-dusty/40">
-                    {/* The popup that shows user options comes here which is inline of the sidebar*/}
-                    {openProfilePopout && !collapsed && (
-                        <div
-                            className="absolute bottom-16 left-4 bg-rose-dusty/40 rounded p-4 w-48 z-10 border-2 border-rose-dusty/60 font-card"
-                            onMouseLeave={() => setOpenProfilePopout(false)}
-                        >
-                            <a
-                                href="/profile"
-                                className="block px-4 py-2 hover:bg-dark/30 rounded"
-                            >
-                                View Profile
-                            </a>
-                            <a
-                                href="/settings"
-                                className="block px-4 py-2 hover:bg-dark/30 rounded"
-                            >
-                                Settings
-                            </a>
-                            <button
-                                onClick={() => {
-                                    // Log the user out by calling the logout API
-                                    logout();
-                                    // Redirect to home page after a sleep timeout
-                                    setTimeout(() => {
-                                        window.location.href = "/";
-                                    }, 500);
-                                }}
-                                className="block px-4 py-2 hover:bg-dark/30 rounded text-red-500"
-                            >
-                                Logout
-                            </button>
-                        </div>
-                    )}
-                    {/* Circle profile picture */}
+                    {/* HEADER */}
                     <div
-                        onClick={() => setOpenProfilePopout(!openProfilePopout)}
-                        className="flex items-center cursor-pointer"
+                        className={`items-center justify-between ${
+                            collapsed ? "p-2" : "p-4 flex"
+                        }`}
                     >
-                        <img
-                            src={pfp}
-                            alt={`${firstName.charAt(0)} ${lastName.charAt(0)}`}
-                            className="rounded-full w-8 h-8 text-sm bg-dark text-accent text-center flex items-center justify-center main-header"
-                        />
                         {!collapsed && (
-                            <div className="text-center flex items-center justify-center ml-4 font-card">
-                                {`${firstName} ${lastName}`}
+                            <h2 className="text-xl font-card main-header">
+                                Menu
+                            </h2>
+                        )}
+                        <button
+                            onClick={() => {
+                                const next = !pinned;
+                                setPinned(next);
+                                try {
+                                    localStorage.setItem(
+                                        "sidebarPinned",
+                                        String(next),
+                                    );
+                                } catch (err) {
+                                    // ignore localStorage errors
+                                }
+                                if (!next) setCollapsed(true);
+                            }}
+                            className={`${textColor} hover:${darkenOnHover ? "bg-dark/10" : "bg-white/10"} rounded-3xl focus:outline-none p-2`}
+                        >
+                            {pinned ? <Icons.PinOff /> : <Icons.Pin />}
+                        </button>
+                        {/* Divider */}
+                        {collapsed && (
+                            <Divider color={textColor} margins="mt-2" />
+                        )}
+                    </div>
+                    {/* Dashboard */}
+                    <SidebarItem
+                        key="dashboard"
+                        href="/dashboard"
+                        collapsed={collapsed}
+                        icon={"LayoutDashboard"}
+                        name="Dashboard"
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
+                    />
+                    {/* Feature Links */}
+                    <div className="flex items-center justify-between p-2 mx-2">
+                        {!collapsed && (
+                            <div className="flex flex-col w-full">
+                                <h2 className="main-header font-card">
+                                    Features
+                                </h2>
+                                <Divider color={textColor} />
                             </div>
                         )}
                     </div>
-                </div>
-            </nav>
+                    <SidebarItem
+                        key="features"
+                        href="/features"
+                        collapsed={collapsed}
+                        icon={"Sparkles"}
+                        name="Feature guide"
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
+                    />
+                    {/* Tool Links */}
+                    <div className="flex items-center justify-between p-2 mx-2">
+                        {!collapsed && (
+                            <div className="flex flex-col w-full">
+                                <h2 className="main-header font-card">
+                                    Study Tools
+                                </h2>
+                                <Divider color={textColor} />
+                            </div>
+                        )}
+                    </div>
+                    <SidebarItem
+                        key="flashcards"
+                        href="/flashcards"
+                        collapsed={collapsed}
+                        icon={"CardsInHand"}
+                        name="Flashcards"
+                        color={textColor}
+                        fillColor={effectiveColor}
+                        darkenOnHover={darkenOnHover}
+                    />
+                    <SidebarItem
+                        key="quizzes"
+                        href="/quizzes"
+                        collapsed={collapsed}
+                        icon={"FileText"}
+                        name="Quizzes"
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
+                    />
+                    <SidebarItem
+                        key="chats"
+                        href="/chats"
+                        collapsed={collapsed}
+                        icon={"MessageSquare"}
+                        name="Chatbot"
+                        color={textColor}
+                        darkenOnHover={darkenOnHover}
+                    />
+                    {/* Projects */}
+                    <div className="flex items-center justify-between p-2 mx-2">
+                        {!collapsed && (
+                            <div className="flex flex-col w-full">
+                                <h2 className="main-header font-card">
+                                    Projects
+                                </h2>
+                                <Divider color={textColor} />
+                            </div>
+                        )}
+                    </div>
+                    {Array.isArray(projects) && projects.length > 0
+                        ? projects.map((item) => (
+                              <SidebarItem
+                                  key={item.projectid || item.name}
+                                  href={`/project/${item.projectid}`}
+                                  icon={item.icon}
+                                  name={item.name}
+                                  collapsed={collapsed}
+                                  color={
+                                      isActiveTheme
+                                          ? textColor
+                                          : item.color || defaultColor
+                                  }
+                                  isProject={true}
+                                  onClickFunction={() => {
+                                      if (projectPopupStatus.openFunction) {
+                                          projectPopupStatus.openFunction(item);
+                                      } else {
+                                          setLocalProjectInPopup(item);
+                                          setLocalOpenEditPopup(true);
+                                      }
+                                  }}
+                                  darkenOnHover={darkenOnHover}
+                              />
+                          ))
+                        : ""}
+                    {/* Now at the bottom, we should have the user profile */}
+                    <div className={`mt-auto flex p-4 ${darkenOnHover ? "bg-black/10" : "bg-white/10"} cursor-pointer`}>
+                        {/* The popup that shows user options comes here which is inline of the sidebar*/}
+                        {openProfilePopout && !collapsed && (
+                            <div
+                                className={`absolute bottom-16 left-4 ${darkenOnHover ? "bg-black/10" : "bg-white/10"} rounded p-4 w-48 z-10 border-2 ${darkenOnHover ? "border-black/20" : "border-white/20"} font-card`}
+                                onMouseLeave={() => setOpenProfilePopout(false)}
+                            >
+                                <a
+                                    href="/profile"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded`}
+                                >
+                                    View Profile
+                                </a>
+                                <a
+                                    href="/settings"
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded`}
+                                >
+                                    Settings
+                                </a>
+                                <button
+                                    onClick={() => {
+                                        // Log the user out by calling the logout API
+                                        logout();
+                                        // Redirect to home page after a sleep timeout
+                                        setTimeout(() => {
+                                            window.location.href = "/";
+                                        }, 500);
+                                    }}
+                                    className={`block px-4 py-2 ${darkenOnHover ? "hover:bg-black/30" : "hover:bg-white/30"} rounded text-red-500`}
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        )}
+                        {/* Circle profile picture */}
+                        <div
+                            onClick={() =>
+                                setOpenProfilePopout(!openProfilePopout)
+                            }
+                            className="flex items-center cursor-pointer"
+                        >
+                            <img
+                                src={pfp}
+                                alt={`${firstName.charAt(0)} ${lastName.charAt(0)}`}
+                                className="rounded-full w-8 h-8 text-sm bg-dark text-accent text-center flex items-center justify-center main-header"
+                            />
+                            {!collapsed && (
+                                <div className="text-center flex items-center justify-center ml-4 font-card">
+                                    {`${firstName} ${lastName}`}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </nav>
+            </div>
         </div>
     );
 }

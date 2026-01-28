@@ -23,16 +23,16 @@ def init_db():
 
     # files: one row per uploaded file
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS files (fileid TEXT PRIMARY KEY, filepath TEXT, uploadeddate INTEGER, filesize INTEGER, filetype TEXT)""")
-
-    # fileinproj: mapping table between files and projects (courses)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS fileinproj (projectid TEXT, fileid TEXT, PRIMARY KEY (projectid, fileid), FOREIGN KEY (fileid) REFERENCES files(fileid) ON DELETE CASCADE, FOREIGN KEY (projectid) REFERENCES projects(projectid) ON DELETE CASCADE)
-    """)
+    CREATE TABLE IF NOT EXISTS files (fileid TEXT PRIMARY KEY, filepath TEXT, uploaddate INTEGER, filesize INTEGER, filetype TEXT)""")
 
     # projects: one row per course
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS projects (projectid TEXT PRIMARY KEY, userid TEXT NOT NULL, name TEXT NOT NULL, description TEXT, createddate INTEGER, image TEXT, color TEXT, icon TEXT, FOREIGN KEY (userid) REFERENCES users(userid) ON DELETE CASCADE)
+    """)
+
+    # fileinproj: mapping table between files and projects (courses)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS fileinproj (projectid TEXT, fileid TEXT, PRIMARY KEY (projectid, fileid), FOREIGN KEY (fileid) REFERENCES files(fileid) ON DELETE CASCADE, FOREIGN KEY (projectid) REFERENCES projects(projectid) ON DELETE CASCADE)
     """)
 
     # decks: one row per deck created inside a course (project)

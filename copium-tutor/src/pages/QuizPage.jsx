@@ -225,22 +225,7 @@ export default function QuizPage() {
 
   return (
     <div className="flex">
-      <Sidebar
-        projectsList={[
-          ...projects.map((project) => ({
-            projectid: project.projectid,
-            name: project.name,
-            href: `/project/${project.projectid}`,
-            description: project.description,
-            image: project.image,
-            icon:
-              project.icon in Icons && project.icon !== null
-                ? Icons[project.icon]
-                : Folder,
-            color: project.color !== null ? project.color : "#754B4D",
-          })),
-        ]}
-      />
+      <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjectsAndCourse }} activeProject={course} />
 
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         {showGeneratingOverlay ? (

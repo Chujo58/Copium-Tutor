@@ -4,6 +4,7 @@ import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder, Sparkles, Layers, FileText, MessageSquare, CheckCircle2 } from "lucide-react";
+import CardsInHand from "../components/CardsInHand";
 
 function Badge({ label }) {
   return (
@@ -22,7 +23,7 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
     >
       <div className="flex items-center gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-surface/60 text-dark">
-          <Icon size={20} />
+          <Icon size={20} fillColor="#E2D5CB" />
         </div>
         <div>
           <div className="text-xl font-semibold text-dark font-card">{title}</div>
@@ -52,52 +53,31 @@ function FeatureCard({ id, icon: Icon, title, description, steps, badges, delay 
 
 export default function FeaturesPage() {
   const [projects, setProjects] = useState([]);
-
-  const featureLinks = [
-    { href: "/features", icon: Sparkles, name: "Feature guide", color: "#754B4D" },
-  ];
-
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch(`${API_URL}/projects`, {
-          credentials: "include",
-          method: "GET",
-        });
-        const data = await res.json();
-        if (data.success) {
-          setProjects(data.projects || []);
-        } else {
-          setProjects([]);
-        }
-      } catch (err) {
-        console.error(err);
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${API_URL}/projects`, {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProjects(data.projects || []);
+      } else {
         setProjects([]);
       }
-    };
+    } catch (err) {
+      console.error(err);
+      setProjects([]);
+    }
+  };
 
+  useEffect(() => {
     fetchProjects();
   }, []);
 
   return (
     <div className="flex">
-      <Sidebar
-        projectsList={[
-          ...projects.map((project) => ({
-            projectid: project.projectid,
-            name: project.name,
-            href: `/project/${project.projectid}`,
-            description: project.description,
-            image: project.image,
-            icon:
-              project.icon in Icons && project.icon !== null
-                ? Icons[project.icon]
-                : Folder,
-            color: project.color !== null ? project.color : "#754B4D",
-          })),
-        ]}
-        featureLinks={featureLinks}
-      />
+    <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjects }} />
 
       <div className="flex-1 h-screen overflow-auto bg-gradient-to-b from-[#F6EFEA] via-surface/35 to-[#F6EFEA]">
         <div className="p-10">
@@ -175,7 +155,7 @@ export default function FeaturesPage() {
           <div className="mt-8 grid gap-6 lg:grid-cols-3">
             <FeatureCard
               id="flashcards"
-              icon={Layers}
+              icon={CardsInHand}
               title="Flashcards"
               description="Generate study cards from your course docs."
               delay={0}

@@ -22,38 +22,37 @@ export default function AllQuizzesPage() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch(`${API_URL}/projects`, {
+        credentials: "include",
+        method: "GET",
+      });
+      const data = await res.json();
+      setProjects(data.success ? data.projects || [] : []);
+    } catch (e) {
+      console.error(e);
+      setProjects([]);
+    }
+  };
+
+  const fetchQuizzes = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/quizzes`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      setQuizzes(data.success ? data.quizzes || [] : []);
+    } catch (e) {
+      console.error(e);
+      setQuizzes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch(`${API_URL}/projects`, {
-          credentials: "include",
-          method: "GET",
-        });
-        const data = await res.json();
-        setProjects(data.success ? data.projects || [] : []);
-      } catch (e) {
-        console.error(e);
-        setProjects([]);
-      }
-    };
-
-    const fetchQuizzes = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/quizzes`, {
-          credentials: "include",
-        });
-        const data = await res.json();
-        setQuizzes(data.success ? data.quizzes || [] : []);
-      } catch (e) {
-        console.error(e);
-        setQuizzes([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProjects();
     fetchQuizzes();
   }, []);
@@ -69,22 +68,7 @@ export default function AllQuizzesPage() {
 
   return (
     <div className="flex">
-      <Sidebar
-        projectsList={[
-          ...projects.map((project) => ({
-            projectid: project.projectid,
-            name: project.name,
-            href: `/project/${project.projectid}`,
-            description: project.description,
-            image: project.image,
-            icon:
-              project.icon in Icons && project.icon !== null
-                ? Icons[project.icon]
-                : Folder,
-            color: project.color !== null ? project.color : "#754B4D",
-          })),
-        ]}
-      />
+      <Sidebar projects={projects} projectPopupStatus={{ onEdited: fetchProjects }} />
 
       <div className="flex-1 p-10 overflow-auto bg-rose-china h-screen">
         <div className="text-3xl main-header font-sans text-dark">

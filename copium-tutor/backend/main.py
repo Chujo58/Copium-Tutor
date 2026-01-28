@@ -38,8 +38,6 @@ logger.setLevel(logging.DEBUG)
 
 app = FastAPI()
 salt = bcrypt.gensalt()
-conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-cursor = conn.cursor()
 
 init_db()
 
@@ -724,6 +722,47 @@ async def create_project(data: dict, session: str = Cookie(None)):
         "projectid": projectid,
         "message": "Project created successfully",
     }
+
+
+# Edit a project
+@app.put("/projects/{projectid}")
+async def edit_project(projectid: str, data: dict, session: str = Cookie(None)):
+    if session is None:
+        return {"success": False, "message": "Unauthorized"}
+
+    # Check if project exists and belongs to user
+    userid = session
+    cursor.execute(
+        "SELECT projectid FROM projects WHERE projectid=? AND userid=?",
+        (projectid, userid),
+    )
+    if not cursor.fetchone():
+        return {"success": False, "message": "Project not found or unauthorized"}
+
+    # Double check for name conflicts for any projects other than this one
+    new_name = data.get("name")
+    cursor.execute(
+        "SELECT projectid FROM projects WHERE userid=? AND name=? AND projectid<>?",
+        (userid, new_name, projectid),
+    )
+    if cursor.fetchone():
+        return {"success": False, "message": "Project with this name already exists"}
+
+    # Get the information from the data dictionary:
+    name = data.get("name")
+    description = data.get("description", "")
+    image = data.get("image", "")
+    color = data.get("color", "")
+    icon = data.get("icon", "")
+
+    # Update the project
+    cursor.execute(
+        "UPDATE projects SET name=?, description=?, image=?, color=?, icon=? WHERE projectid=?",
+        (name, description, image, color, icon, projectid),
+    )
+    conn.commit()
+
+    return {"success": True, "message": "Project updated successfully"}
 
 
 # Delete project
@@ -1450,7 +1489,6 @@ def _safe_json_load(raw: str):
 async def create_deck(
     projectid: str, body: CreateDeckRequest, session: str = Cookie(None)
 ):
-
     print("\n" + "=" * 80)
     print(f"[CREATE_DECK] projectid={projectid}")
     print(f"[DECK NAME] {body.name}")
@@ -1605,7 +1643,7 @@ Indexed file names (for context; retrieval uses the indexed docs automatically):
     while len(cleaned) < 10:
         cleaned.append(
             {
-                "front": f"Key idea #{len(cleaned)+1}",
+                "front": f"Key idea #{len(cleaned) + 1}",
                 "back": "Write a concise explanation and one example from your notes.",
                 "external": True,
                 "note": "General study template (not found in course docs).",
