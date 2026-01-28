@@ -1,23 +1,25 @@
 documentation:
-  changed-files:
-    - any-glob-to-any-file:
-        - docs/**
-        - "**/*.md"
+- changed-files:
+  - any-glob-to-any-file:
+      - docs/**
+      - "**/*.md"
 
 source:
-  changed-files:
-    - any-glob-to-any-file:
-        - src/**/*
-        - "!src/docs/**"
+- changed-files:
+  - any-glob-to-any-file:
+      - src/**/*
+      - "!src/docs/**"
 
 feature:
-  head-branch:
-    - regex: '^feature'
+- head-branch:
+  - regex: '^feature/*'
 
 bugfix:
-  head-branch:
-    - regex: '^(bugfix|fix)'
+- head-branch:
+  - regex: '^bugfix'
+  - regex: '^fix'
 
 improvement:
-  head-branch:
-    - regex: '^(improvement|refactor)'
+- head-branch:
+  - regex: '^improvement'
+  - regex: '^refactor'
