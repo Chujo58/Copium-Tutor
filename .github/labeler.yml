@@ -1,13 +1,16 @@
 # File-based labels
 documentation:
   - changed-files:
-      - "docs/**"
-      - "**/*.md"
+      any:
+        - "docs/**"
+        - "**/*.md"
 
 source:
   - changed-files:
-      - "src/**/*"
-      - "!src/docs/**"
+      any:
+        - "src/**/*"
+      not:
+        - "src/docs/**"
 
 # Branch-based labels
 feature:
