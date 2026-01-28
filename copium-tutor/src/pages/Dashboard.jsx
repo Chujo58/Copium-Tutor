@@ -8,7 +8,6 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import * as Icons from "lucide-react";
 import {
     Folder,
-    Plus,
     ArrowUpRight,
 } from "lucide-react";
 import { CreateButton } from "../components/Button";
