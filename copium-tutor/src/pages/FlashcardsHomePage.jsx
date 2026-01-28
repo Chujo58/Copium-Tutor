@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import { API_URL } from "../config";
 import * as Icons from "lucide-react";
 import { Folder } from "lucide-react";
-import CustomButton, { ClearButton, CreateButton, DeleteButton, RefreshButton } from "../components/Button";
+import { ClearButton, CreateButton, DeleteButton, RefreshButton } from "../components/Button";
 
 /**
  * Rose palette inspired by your image:
